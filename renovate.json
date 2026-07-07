@@ -1,0 +1,32 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": [
+    "Local config for the renovate-config automation repo. default.json is the shared preset; this file only maintains this repo's own runner workflow.",
+    "Runner workflow updates are dependency automation infrastructure and stay review-gated."
+  ],
+  "extends": ["github>jasondockery/renovate-config"],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Track the exact Renovate npm version used by the self-hosted runner workflow.",
+      "managerFilePatterns": ["/^\\.github\\/workflows\\/(renovate|ci)\\.yml$/"],
+      "matchStrings": ["renovate-version: (?<currentValue>\\d+\\.\\d+\\.\\d+)", "renovate@(?<currentValue>\\d+\\.\\d+\\.\\d+)"],
+      "depNameTemplate": "renovate",
+      "datasourceTemplate": "npm",
+      "versioningTemplate": "semver"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "Runner infrastructure updates are deliberate work; do not automerge them.",
+      "matchPackageNames": [
+        "actions/checkout",
+        "renovate",
+        "renovatebot/github-action",
+        "zizmorcore/zizmor-action"
+      ],
+      "automerge": false
+    }
+  ]
+}
+

@@ -1,0 +1,49 @@
+name: Renovate
+
+on:
+  schedule:
+    - cron: '17 1,7,13,19 * * *'
+  workflow_dispatch:
+    inputs:
+      log_level:
+        description: Log level for this Renovate run.
+        required: true
+        default: info
+        type: choice
+        options:
+          - info
+          - debug
+          - trace
+
+permissions:
+  contents: read
+
+concurrency:
+  group: renovate
+  cancel-in-progress: false
+
+jobs:
+  renovate:
+    name: renovate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    environment: renovate
+    steps:
+      - name: Checkout automation config
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Run Renovate
+        uses: renovatebot/github-action@b50d2ba2bd928235abdcc14d06dfafc217f1c565 # v46.1.18
+        with:
+          configurationFile: default.json
+          token: ${{ secrets.RENOVATE_TOKEN }}
+          renovate-version: 43.253.2
+        env:
+          LOG_LEVEL: ${{ github.event.inputs.log_level || 'info' }}
+          # Every targeted repo carries its own renovate.json; never open
+          # onboarding PRs from this runner.
+          RENOVATE_ONBOARDING: 'false'
+          RENOVATE_REPOSITORIES: jasondockery/renovate-config,jasondockery/roost,jasondockery/groundwork
+

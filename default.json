@@ -1,0 +1,23 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": [
+    "Owner dependency updates: Renovate owns version PRs; Dependabot owns security alerts. This preset holds only policy that must stay identical across owner repos.",
+    "config:best-practices enables digest/SHA pinning maintenance; consuming repos keep repo-specific duplicate-pin and package-rule notes locally.",
+    "rebaseWhen=behind-base-branch matches strict status checks: branches must be current before merge, so Renovate needs to rebase stale PRs automatically.",
+    "vulnerabilityAlerts stays enabled and immediate; security PRs are never held by the cooldown.",
+    "minimumReleaseAge is 5 days: pnpm uses a 4-day timestamp-exact minimumReleaseAge, and Renovate evaluates release age at date granularity. The extra day prevents lockfile-less branches when Renovate proposes versions pnpm still refuses."
+  ],
+  "extends": ["config:best-practices", "schedule:weekly"],
+  "minimumReleaseAge": "5 days",
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 3,
+  "rebaseWhen": "behind-base-branch",
+  "labels": ["dependencies"],
+  "vulnerabilityAlerts": {
+    "addLabels": ["security"],
+    "prCreation": "immediate",
+    "automerge": true,
+    "platformAutomerge": true
+  }
+}
+

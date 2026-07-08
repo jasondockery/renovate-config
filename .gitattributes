@@ -1,0 +1,5 @@
+# Normalize line endings to LF on checkout so the JSON presets and docs stay
+# byte-stable across contributors and platforms. This repo is shared by
+# reference (consumers `extends` it), so line-ending drift here would change
+# what every downstream repo resolves.
+* text=auto eol=lf

@@ -1,0 +1,15 @@
+# Editor defaults for this preset repo. It has no Prettier, so this file is
+# the formatting guide for the JSON presets, workflows, and docs.
+root = true
+
+[*]
+indent_style = space
+indent_size = 2
+end_of_line = lf
+charset = utf-8
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+# Trailing whitespace is a hard line break in Markdown.
+[*.{md,mdx}]
+trim_trailing_whitespace = false

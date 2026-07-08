@@ -2,10 +2,12 @@
 
 Shared dependency-update automation for the owner's repositories.
 
-This repo has two jobs:
+This repo has three moving pieces:
 
 - `default.json` is the shared Renovate preset consumed by owner repos such as
   `jasondockery/roost` and `jasondockery/groundwork`.
+- `runner.json` is the self-hosted Renovate runner config. It contains only
+  runner behavior, not dependency policy.
 - `.github/workflows/renovate.yml` runs self-hosted Renovate on a fixed cadence
   plus manual dispatch, with logs in GitHub Actions.
 
@@ -18,8 +20,10 @@ This repo has two jobs:
 3. Push this repo, then run the `Renovate` workflow manually with
    `log_level=debug` for the first proof run.
 
-The first proof should rebuild Roost PR #2 with complete lockfile artifacts.
-Only deactivate hosted Mend after that proof is green.
+During the migration, the first proof should produce a Roost PR with complete
+lockfile artifacts. The self-hosted runner uses the `self-hosted-renovate/`
+branch prefix so it cannot fight hosted Mend Renovate branches. Only deactivate
+hosted Mend after the self-hosted proof PR is green.
 
 ## Toolchain
 
@@ -29,7 +33,7 @@ This repo follows Roost's project-local toolchain pin:
 - No package manager: this repo has no dependencies; CI runs the validator
   via `npx` with an exact version.
 
-CI validates with Renovate `43.253.2`, matching the runner's
+CI validates with Renovate `43.251.3`, matching the runner's
 `renovate-version`; every copy of the pin (including `package.json`'s
 `validate` script) is tracked by this repo's own Renovate custom manager
 so they cannot drift silently.

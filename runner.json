@@ -1,0 +1,11 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": [
+    "Self-hosted Renovate runner config for this automation repo. Dependency update policy stays in each repository's renovate.json and the shared default.json preset.",
+    "Use a self-hosted branch prefix so this runner cannot overwrite or fight hosted Mend Renovate branches during migration."
+  ],
+  "platform": "github",
+  "branchPrefix": "self-hosted-renovate/",
+  "onboarding": false,
+  "requireConfig": "required"
+}

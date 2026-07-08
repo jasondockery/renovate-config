@@ -38,23 +38,28 @@ jobs:
 
       - name: Validate shared Renovate preset
         id: validate-preset
-        run: npx --yes --package renovate@43.253.2 -- renovate-config-validator default.json
+        run: npx --yes --package renovate@43.251.3 -- renovate-config-validator default.json
 
       - name: Validate local Renovate config
         id: validate-local
-        run: npx --yes --package renovate@43.253.2 -- renovate-config-validator renovate.json
+        run: npx --yes --package renovate@43.251.3 -- renovate-config-validator renovate.json
+
+      - name: Validate self-hosted runner config
+        id: validate-runner
+        run: npx --yes --package renovate@43.251.3 -- renovate-config-validator runner.json
 
       - name: Report validation results
         if: always()
         env:
           PRESET_OUTCOME: ${{ steps.validate-preset.outcome }}
           LOCAL_OUTCOME: ${{ steps.validate-local.outcome }}
+          RUNNER_OUTCOME: ${{ steps.validate-runner.outcome }}
         run: |
           # Read the pinned version from the validator commands above so this
           # step never carries a second copy that could drift.
           version="$(grep -m1 -oE 'renovate@[0-9]+\.[0-9]+\.[0-9]+' .github/workflows/ci.yml | cut -d@ -f2)"
           label() { case "$1" in success) echo pass ;; failure) echo fail ;; *) echo "$1" ;; esac; }
-          for entry in "default.json ${PRESET_OUTCOME}" "renovate.json ${LOCAL_OUTCOME}"; do
+          for entry in "default.json ${PRESET_OUTCOME}" "renovate.json ${LOCAL_OUTCOME}" "runner.json ${RUNNER_OUTCOME}"; do
             file="${entry%% *}"
             outcome="${entry#* }"
             if [ "$outcome" = "failure" ]; then
@@ -68,6 +73,7 @@ jobs:
             echo "| --- | --- |"
             echo "| default.json | $(label "$PRESET_OUTCOME") |"
             echo "| renovate.json | $(label "$LOCAL_OUTCOME") |"
+            echo "| runner.json | $(label "$RUNNER_OUTCOME") |"
             echo ""
             echo "Renovate version: \`${version}\`"
           } >> "$GITHUB_STEP_SUMMARY" || true

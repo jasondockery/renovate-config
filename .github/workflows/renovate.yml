@@ -33,7 +33,6 @@ jobs:
       LOG_LEVEL: ${{ github.event.inputs.log_level || 'info' }}
       # Every targeted repo carries its own renovate.json; never open
       # onboarding PRs from this runner.
-      RENOVATE_ONBOARDING: 'false'
       RENOVATE_REPOSITORIES: jasondockery/renovate-config,jasondockery/roost,jasondockery/groundwork
     steps:
       - name: Checkout automation config
@@ -43,11 +42,11 @@ jobs:
 
       - name: Run Renovate
         id: renovate
-        uses: renovatebot/github-action@b50d2ba2bd928235abdcc14d06dfafc217f1c565 # v46.1.18
+        uses: renovatebot/github-action@dd5302ec17783b2fc721b19ae7209b57b1587765 # v46.1.17
         with:
-          configurationFile: default.json
+          configurationFile: runner.json
           token: ${{ secrets.RENOVATE_TOKEN }}
-          renovate-version: 43.253.2
+          renovate-version: 43.251.3
 
       - name: Report run summary
         if: always()
@@ -65,4 +64,3 @@ jobs:
             echo "- Log level: ${LOG_LEVEL}"
             echo "- Repositories: ${RENOVATE_REPOSITORIES}"
           } >> "$GITHUB_STEP_SUMMARY" || true
-

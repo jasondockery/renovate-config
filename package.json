@@ -8,7 +8,6 @@
     "pnpm": "11.9.0"
   },
   "scripts": {
-    "validate": "npx --yes --package renovate@43.253.2 -- renovate-config-validator default.json && npx --yes --package renovate@43.253.2 -- renovate-config-validator renovate.json"
+    "validate": "npx --yes --package renovate@43.251.3 -- renovate-config-validator default.json && npx --yes --package renovate@43.251.3 -- renovate-config-validator renovate.json && npx --yes --package renovate@43.251.3 -- renovate-config-validator runner.json"
   }
 }
-

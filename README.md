@@ -30,7 +30,7 @@ hosted Mend after the self-hosted proof PR is green.
 This repo follows Roost's project-local toolchain pin:
 
 - Node `24.18.0` via `.nvmrc` (Renovate 43.x requires Node ^24.11.0).
-- No package manager: this repo has no dependencies; CI runs the validator
+- No installed dependencies: CI runs the validator
   via `npx` with an exact version.
 
 CI validates with Renovate `43.251.3`, matching the runner's

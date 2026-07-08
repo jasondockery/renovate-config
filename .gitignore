@@ -4,3 +4,8 @@ node_modules/
 .env.*
 !.env.example
 
+
+# Agent worktrees (harness-registered in .git/info/exclude, which
+# format/lint/scan tools cannot see - declared here so they never scan a
+# sibling agent checkout)
+**/.claude/worktrees/

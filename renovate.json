@@ -8,8 +8,8 @@
   "customManagers": [
     {
       "customType": "regex",
-      "description": "Track the exact Renovate npm version used by the self-hosted runner workflow.",
-      "managerFilePatterns": ["/^\\.github\\/workflows\\/(renovate|ci)\\.yml$/"],
+      "description": "Track the exact Renovate npm version used by the self-hosted runner workflow, CI validation, and the local validate script.",
+      "managerFilePatterns": ["/^\\.github\\/workflows\\/(renovate|ci)\\.yml$/", "/^package\\.json$/"],
       "matchStrings": ["renovate-version: (?<currentValue>\\d+\\.\\d+\\.\\d+)", "renovate@(?<currentValue>\\d+\\.\\d+\\.\\d+)"],
       "depNameTemplate": "renovate",
       "datasourceTemplate": "npm",

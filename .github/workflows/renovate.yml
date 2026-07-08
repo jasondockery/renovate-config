@@ -28,6 +28,13 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     environment: renovate
+    # Job-level so both the Renovate step and the run summary read one copy.
+    env:
+      LOG_LEVEL: ${{ github.event.inputs.log_level || 'info' }}
+      # Every targeted repo carries its own renovate.json; never open
+      # onboarding PRs from this runner.
+      RENOVATE_ONBOARDING: 'false'
+      RENOVATE_REPOSITORIES: jasondockery/renovate-config,jasondockery/roost,jasondockery/groundwork
     steps:
       - name: Checkout automation config
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -35,15 +42,27 @@ jobs:
           persist-credentials: false
 
       - name: Run Renovate
+        id: renovate
         uses: renovatebot/github-action@b50d2ba2bd928235abdcc14d06dfafc217f1c565 # v46.1.18
         with:
           configurationFile: default.json
           token: ${{ secrets.RENOVATE_TOKEN }}
           renovate-version: 43.253.2
+
+      - name: Report run summary
+        if: always()
         env:
-          LOG_LEVEL: ${{ github.event.inputs.log_level || 'info' }}
-          # Every targeted repo carries its own renovate.json; never open
-          # onboarding PRs from this runner.
-          RENOVATE_ONBOARDING: 'false'
-          RENOVATE_REPOSITORIES: jasondockery/renovate-config,jasondockery/roost,jasondockery/groundwork
+          RENOVATE_OUTCOME: ${{ steps.renovate.outcome }}
+        run: |
+          # Read the pinned version from the step above so this step never
+          # carries a second copy that could drift.
+          version="$(grep -m1 -oE 'renovate-version: [0-9]+\.[0-9]+\.[0-9]+' .github/workflows/renovate.yml | cut -d' ' -f2)"
+          {
+            echo "### Renovate run"
+            echo ""
+            echo "- Outcome: ${RENOVATE_OUTCOME}"
+            echo "- Renovate version: \`${version}\`"
+            echo "- Log level: ${LOG_LEVEL}"
+            echo "- Repositories: ${RENOVATE_REPOSITORIES}"
+          } >> "$GITHUB_STEP_SUMMARY" || true
 

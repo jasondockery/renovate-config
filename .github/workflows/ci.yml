@@ -16,6 +16,9 @@ jobs:
   validate:
     name: validate
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      security-events: write # zizmor-action SARIF upload to code scanning
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -31,10 +34,40 @@ jobs:
         uses: zizmorcore/zizmor-action@192e21d79ab29983730a13d1382995c2307fbcaa # v0.5.7
         with:
           persona: pedantic
-          advanced-security: false
+          advanced-security: true
 
       - name: Validate shared Renovate preset
+        id: validate-preset
         run: npx --yes --package renovate@43.253.2 -- renovate-config-validator default.json
 
       - name: Validate local Renovate config
+        id: validate-local
         run: npx --yes --package renovate@43.253.2 -- renovate-config-validator renovate.json
+
+      - name: Report validation results
+        if: always()
+        env:
+          PRESET_OUTCOME: ${{ steps.validate-preset.outcome }}
+          LOCAL_OUTCOME: ${{ steps.validate-local.outcome }}
+        run: |
+          # Read the pinned version from the validator commands above so this
+          # step never carries a second copy that could drift.
+          version="$(grep -m1 -oE 'renovate@[0-9]+\.[0-9]+\.[0-9]+' .github/workflows/ci.yml | cut -d@ -f2)"
+          label() { case "$1" in success) echo pass ;; failure) echo fail ;; *) echo "$1" ;; esac; }
+          for entry in "default.json ${PRESET_OUTCOME}" "renovate.json ${LOCAL_OUTCOME}"; do
+            file="${entry%% *}"
+            outcome="${entry#* }"
+            if [ "$outcome" = "failure" ]; then
+              echo "::error title=Renovate config invalid: ${file}::validation failed — run npx --yes --package renovate@${version} -- renovate-config-validator ${file} locally"
+            fi
+          done
+          {
+            echo "### Renovate config validation"
+            echo ""
+            echo "| Config | Result |"
+            echo "| --- | --- |"
+            echo "| default.json | $(label "$PRESET_OUTCOME") |"
+            echo "| renovate.json | $(label "$LOCAL_OUTCOME") |"
+            echo ""
+            echo "Renovate version: \`${version}\`"
+          } >> "$GITHUB_STEP_SUMMARY" || true

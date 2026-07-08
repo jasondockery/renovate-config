@@ -30,8 +30,13 @@ This repo follows Roost's project-local toolchain pin:
   via `npx` with an exact version.
 
 CI validates with Renovate `43.253.2`, matching the runner's
-`renovate-version`; both pins are tracked by this repo's own Renovate
-custom manager so they cannot drift silently.
+`renovate-version`; every copy of the pin (including `package.json`'s
+`validate` script) is tracked by this repo's own Renovate custom manager
+so they cannot drift silently.
+
+Validation failures annotate the run with the exact command to reproduce
+locally, and every CI and Renovate run writes a pass/fail job summary so
+scheduled runs are triageable at a glance.
 
 ## Policy Boundary
 

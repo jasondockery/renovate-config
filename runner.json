@@ -2,10 +2,12 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "description": [
     "Self-hosted Renovate runner config for this automation repo. Dependency update policy stays in each repository's renovate.json and the shared default.json preset.",
-    "Use a self-hosted branch prefix so this runner cannot overwrite or fight hosted Mend Renovate branches during migration."
+    "Use a self-hosted branch prefix so this runner cannot overwrite or fight hosted Mend Renovate branches during migration.",
+    "branchPrefixOld must equal branchPrefix: Renovate's default branchPrefixOld is renovate/, which makes this runner try to adopt hosted Mend's branches as its own pre-rename branches — they show as 'PR Edited (Blocked)' and stall the self-hosted PR (field-hit on the first proof run against roost's renovate/non-major-dependencies). Equal values disable adoption entirely."
   ],
   "platform": "github",
   "branchPrefix": "self-hosted-renovate/",
+  "branchPrefixOld": "self-hosted-renovate/",
   "onboarding": false,
   "requireConfig": "required"
 }

@@ -25,9 +25,19 @@ long-lived PAT.
 
 App setup (owner, one-time):
 
-1. GitHub → Settings → Developer settings → GitHub Apps → New GitHub App
-   (name e.g. `jasondockery-renovate`; webhook OFF — the runner is
-   cron/dispatch, not event-driven).
+1. GitHub → Settings → Developer settings → GitHub Apps → New GitHub App.
+   Use these form values:
+   - **GitHub App name:** `jasondockery_renovate`.
+   - **Description:** `Self-hosted Renovate runner for jasondockery repos.`
+   - **Homepage URL:** `https://github.com/jasondockery/renovate-config`
+   - **Callback URL:** leave blank; this runner does not use user OAuth.
+   - **Expire user authorization tokens:** leave the default checked. It is
+     irrelevant while user OAuth is disabled.
+   - **Request user authorization (OAuth) during installation:** unchecked.
+   - **Enable Device Flow:** unchecked.
+   - **Webhook:** inactive/unchecked — the runner is cron/dispatch, not
+     event-driven.
+   - **Where can this GitHub App be installed?:** Only on this account.
 2. Repository permissions — this is the full set Renovate needs:
    - **Checks: Read-only** (read CI check runs — the reason the App
      exists; automerge is blind without it)
@@ -45,15 +55,38 @@ App setup (owner, one-time):
 4. Install the App on exactly `renovate-config`, `roost`, and
    `groundwork` — never "all repositories"; the install list is the
    blast-radius boundary.
-5. In this repo's `renovate` environment, add secrets `RENOVATE_APP_ID`
-   (the App ID from the app's About page) and
-   `RENOVATE_APP_PRIVATE_KEY` (the full `.pem` contents).
+   - First-time path after creating the app: open the app's settings page,
+     choose **Install App** in the left sidebar, then choose
+     **Install** next to `jasondockery`.
+   - If you are already on GitHub settings later:
+     Settings → Applications → Installed GitHub Apps → find this app →
+     **Configure**. Ignore unrelated installed apps such as Netlify,
+     Railway, or Vercel.
+   - On the install/configure screen, choose **Only select repositories**.
+   - Select exactly:
+     - `jasondockery/renovate-config`
+     - `jasondockery/roost`
+     - `jasondockery/groundwork`
+   - Save with **Install** or **Save**. If a new owner repo should be
+     managed later, add it here and update `RENOVATE_REPOSITORIES` in the
+     workflow in the same change.
+5. In this repo's `renovate` environment, add secrets:
+   - `RENOVATE_APP_CLIENT_ID`: the Client ID from the app's settings/About
+     page. This is not the numeric installation ID in a URL such as
+     `/settings/installations/<installation-id>`; that URL identifies one
+     installation, not the app identity used by the token action.
+   - `RENOVATE_APP_PRIVATE_KEY`: the full `.pem` contents.
+
+   `actions/create-github-app-token` still accepts its legacy `app-id`
+   input, but its current docs recommend `client-id`, so this repo uses
+   the client ID secret directly.
 
 The workflow skips the App-token step while those secrets are absent
 and falls back to the legacy `RENOVATE_TOKEN` PAT, so the migration has
 no red-run window. **Cleanup after the first green App run:** remove the
-fallback from `.github/workflows/renovate.yml` and revoke + delete the
-PAT secret. Note the identity switch changes Renovate's git author to
+fallback from `.github/workflows/renovate.yml`, revoke + delete the PAT
+secret, and delete any obsolete `RENOVATE_APP_ID` secret left from the
+legacy input. Note the identity switch changes Renovate's git author to
 `<app-slug>[bot]` — existing open Renovate branches authored by the PAT
 identity will read as "edited by someone else" and block; tick their
 rebase checkbox once (or close them and let Renovate recreate).

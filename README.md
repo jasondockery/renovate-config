@@ -11,12 +11,59 @@ This repo has three moving pieces:
 - `.github/workflows/renovate.yml` runs self-hosted Renovate on a fixed cadence
   plus manual dispatch, with logs in GitHub Actions.
 
+## Runner identity & permissions
+
+The runner authenticates as a **GitHub App** (decided 2026-07-09). The
+first identity was a fine-grained PAT, and it hit a hard wall: personal
+accounts cannot grant a fine-grained PAT the **Checks** permission at
+all (the permission picker simply doesn't offer it), so Renovate got 403
+from the check-runs API, scored every branch "yellow" forever, and
+automerge silently never fired while PRs looked green in the UI
+(field-hit on roost PR #24). GitHub Apps have the Checks permission and
+mint short-lived installation tokens — strictly better posture than any
+long-lived PAT.
+
+App setup (owner, one-time):
+
+1. GitHub → Settings → Developer settings → GitHub Apps → New GitHub App
+   (name e.g. `jasondockery-renovate`; webhook OFF — the runner is
+   cron/dispatch, not event-driven).
+2. Repository permissions — this is the full set Renovate needs:
+   - **Checks: Read-only** (read CI check runs — the reason the App
+     exists; automerge is blind without it)
+   - **Commit statuses: Read and write** (read/post commit statuses,
+     e.g. its own `renovate/` stability statuses)
+   - **Contents: Read and write** (create branches/commits)
+   - **Dependabot alerts: Read-only** (the vulnerability lane's data
+     source)
+   - **Issues: Read and write** (Dependency Dashboard)
+   - **Metadata: Read-only** (mandatory, GitHub adds it)
+   - **Pull requests: Read and write** (open/update/automerge PRs)
+   - **Workflows: Read and write** (update `.github/workflows/` files —
+     action SHA bumps live there)
+3. Generate a private key (downloads a `.pem`).
+4. Install the App on exactly `renovate-config`, `roost`, and
+   `groundwork` — never "all repositories"; the install list is the
+   blast-radius boundary.
+5. In this repo's `renovate` environment, add secrets `RENOVATE_APP_ID`
+   (the App ID from the app's About page) and
+   `RENOVATE_APP_PRIVATE_KEY` (the full `.pem` contents).
+
+The workflow skips the App-token step while those secrets are absent
+and falls back to the legacy `RENOVATE_TOKEN` PAT, so the migration has
+no red-run window. **Cleanup after the first green App run:** remove the
+fallback from `.github/workflows/renovate.yml` and revoke + delete the
+PAT secret. Note the identity switch changes Renovate's git author to
+`<app-slug>[bot]` — existing open Renovate branches authored by the PAT
+identity will read as "edited by someone else" and block; tick their
+rebase checkbox once (or close them and let Renovate recreate).
+
 ## Bootstrap (completed 2026-07-08 — kept as the recipe)
 
 1. Create a GitHub environment named `renovate`.
-2. Add `RENOVATE_TOKEN` as an environment secret. Use a fine-grained PAT scoped
-   only to `jasondockery/renovate-config`, `jasondockery/roost`, and
-   `jasondockery/groundwork`, with Renovate's documented permissions.
+2. Configure the runner identity per "Runner identity & permissions"
+   above (originally a fine-grained PAT as `RENOVATE_TOKEN`; superseded
+   by the GitHub App for the Checks gap documented there).
 3. Push this repo, then run the `Renovate` workflow manually with
    `log_level=debug` for the first proof run.
 

@@ -122,6 +122,16 @@ Validation failures annotate the run with the exact command to reproduce
 locally, and every CI and Renovate run writes a pass/fail job summary so
 scheduled runs are triageable at a glance.
 
+## Versioning
+
+Deliberately unversioned: `package.json` stays `0.0.0`/private and no tags
+are cut. The only consumers are this owner's repos, which track `main` by
+design so policy changes propagate on the next run; the commit SHA is the
+identity of record. Never bump a version here for a milestone (extraction,
+migration, first green run) — version boundaries a consumer could pin only
+make sense if the preset ever productizes as a Roost module (see "Can
+others use this?").
+
 ## Policy Boundary
 
 `default.json` contains only policy that should remain identical across owner

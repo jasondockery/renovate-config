@@ -34,9 +34,6 @@ jobs:
       # Every targeted repo carries its own renovate.json; never open
       # onboarding PRs from this runner.
       RENOVATE_REPOSITORIES: jasondockery/renovate-config,jasondockery/roost,jasondockery/groundwork
-      # Secrets are not readable in step `if:` directly; surface presence
-      # here so the App-token step can be skipped until the app exists.
-      HAS_APP: ${{ secrets.RENOVATE_APP_CLIENT_ID != '' }}
     steps:
       - name: Checkout automation config
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -47,13 +44,9 @@ jobs:
       # carry the Checks permission at all, so Renovate 403s on the
       # check-runs API, scores every branch yellow, and automerge silently
       # never fires (field-hit on roost PR #24). Apps have Checks plus
-      # short-lived installation tokens. The step is skipped while the app
-      # secrets are absent so the PAT keeps runs green during the
-      # migration; once the first App run is green, remove the fallback
-      # and revoke the PAT.
+      # short-lived installation tokens.
       - name: Mint runner token (GitHub App)
         id: app-token
-        if: env.HAS_APP == 'true'
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ secrets.RENOVATE_APP_CLIENT_ID }}
@@ -66,7 +59,7 @@ jobs:
         uses: renovatebot/github-action@dd5302ec17783b2fc721b19ae7209b57b1587765 # v46.1.17
         with:
           configurationFile: runner.json
-          token: ${{ steps.app-token.outputs.token || secrets.RENOVATE_TOKEN }}
+          token: ${{ steps.app-token.outputs.token }}
           renovate-version: 43.251.3
 
       - name: Report run summary

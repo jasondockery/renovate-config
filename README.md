@@ -81,15 +81,13 @@ App setup (owner, one-time):
    input, but its current docs recommend `client-id`, so this repo uses
    the client ID secret directly.
 
-The workflow skips the App-token step while those secrets are absent
-and falls back to the legacy `RENOVATE_TOKEN` PAT, so the migration has
-no red-run window. **Cleanup after the first green App run:** remove the
-fallback from `.github/workflows/renovate.yml`, revoke + delete the PAT
-secret, and delete any obsolete `RENOVATE_APP_ID` secret left from the
-legacy input. Note the identity switch changes Renovate's git author to
-`<app-slug>[bot]` — existing open Renovate branches authored by the PAT
-identity will read as "edited by someone else" and block; tick their
-rebase checkbox once (or close them and let Renovate recreate).
+Those two App secrets are required: the workflow no longer has a PAT
+fallback. The retired `RENOVATE_TOKEN` PAT secret and obsolete
+`RENOVATE_APP_ID` secret should stay deleted. Note the identity switch
+changes Renovate's git author to `<app-slug>[bot]` — existing open
+Renovate branches authored by the PAT identity will read as "edited by
+someone else" and block; tick their rebase checkbox once (or close them
+and let Renovate recreate).
 
 ## Bootstrap (completed 2026-07-08 — kept as the recipe)
 

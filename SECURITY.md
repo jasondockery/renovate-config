@@ -16,11 +16,10 @@ response.
 
 Do not commit or paste:
 
-- `RENOVATE_TOKEN` or any other personal access token
+- Personal access tokens
 - GitHub App private keys or webhook secrets
 - `.env` files or exported local environment state
 - Dependency dashboard logs containing private repository details
 
 If a secret is committed, rotate the secret first, then remove it from history
 before making the repository public.
-

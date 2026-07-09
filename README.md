@@ -82,8 +82,8 @@ App setup (owner, one-time):
    the client ID secret directly.
 
 Those two App secrets are required: the workflow no longer has a PAT
-fallback. The retired `RENOVATE_TOKEN` PAT secret and obsolete
-`RENOVATE_APP_ID` secret should stay deleted. Note the identity switch
+fallback. The retired PAT secret and obsolete `RENOVATE_APP_ID` secret
+should stay deleted. Note the identity switch
 changes Renovate's git author to `<app-slug>[bot]` — existing open
 Renovate branches authored by the PAT identity will read as "edited by
 someone else" and block; tick their rebase checkbox once (or close them
@@ -93,8 +93,8 @@ and let Renovate recreate).
 
 1. Create a GitHub environment named `renovate`.
 2. Configure the runner identity per "Runner identity & permissions"
-   above (originally a fine-grained PAT as `RENOVATE_TOKEN`; superseded
-   by the GitHub App for the Checks gap documented there).
+   above (originally a fine-grained PAT; superseded by the GitHub App
+   for the Checks gap documented there).
 3. Push this repo, then run the `Renovate` workflow manually with
    `log_level=debug` for the first proof run.
 

@@ -11,7 +11,7 @@ This repo has three moving pieces:
 - `.github/workflows/renovate.yml` runs self-hosted Renovate on a fixed cadence
   plus manual dispatch, with logs in GitHub Actions.
 
-## Bootstrap
+## Bootstrap (completed 2026-07-08 — kept as the recipe)
 
 1. Create a GitHub environment named `renovate`.
 2. Add `RENOVATE_TOKEN` as an environment secret. Use a fine-grained PAT scoped
@@ -20,10 +20,12 @@ This repo has three moving pieces:
 3. Push this repo, then run the `Renovate` workflow manually with
    `log_level=debug` for the first proof run.
 
-During the migration, the first proof should produce a Roost PR with complete
-lockfile artifacts. The self-hosted runner uses the `self-hosted-renovate/`
-branch prefix so it cannot fight hosted Mend Renovate branches. Only deactivate
-hosted Mend after the self-hosted proof PR is green.
+The migration is done: the proof PRs went green through roost's gate with
+complete lockfile artifacts (roost #23 merged 2026-07-09), and hosted Mend
+was uninstalled with its leftovers closed. The `self-hosted-renovate/`
+branch prefix stays permanently — `runner.json` pins `branchPrefixOld`
+equal to `branchPrefix` so the runner never adopts foreign branches (a
+field-hit failure mode; see its description).
 
 ## Toolchain
 

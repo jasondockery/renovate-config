@@ -14,6 +14,10 @@ runner workflow, and no product code.
 - Keep the workflow SHA-pinned with human-readable version comments.
 - Keep runner permissions minimal and `actions/checkout` with
   `persist-credentials: false`.
+- Git history is a declared input, not ambient state. This repo's jobs only
+  validate JSON, so the shallow default checkout is correct. Any future
+  history-sensitive job (changesets, affected/changelog, merge-base) must
+  declare and fetch the history it needs before relying on it.
 - Validate Renovate config changes with the CI workflow before relying on them.
 
 ## Git

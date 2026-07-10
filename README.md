@@ -107,9 +107,14 @@ field-hit failure mode; see its description).
 
 ## Toolchain
 
-This repo follows Roost's project-local toolchain pin:
+This repo follows Roost's portable project-local toolchain contract:
 
-- Node `24.18.0` via `.nvmrc` (Renovate 43.x requires Node ^24.11.0).
+- Node `24.18.0` from canonical `.node-version` (Renovate 43.x requires Node
+  ^24.11.0). `.nvmrc`, `mise.toml`, `package.json`, and CI are synchronized
+  adapters for nvm, fnm, mise, Volta/manual installs, and GitHub Actions.
+- pnpm `11.9.0` from `packageManager`, mirrored in `engines` and `mise.toml`.
+- `node tools/check-toolchain.mjs` fails early on declaration, runtime, package
+  manager, or CI drift and offers manager-neutral recovery commands.
 - No installed dependencies: CI runs the validator
   via `npx` with an exact version.
 

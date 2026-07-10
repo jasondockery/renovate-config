@@ -14,6 +14,9 @@ runner workflow, and no product code.
 - Keep the workflow SHA-pinned with human-readable version comments.
 - Keep runner permissions minimal and `actions/checkout` with
   `persist-credentials: false`.
+- `.node-version` is the canonical exact Node pin. Keep `.nvmrc`, `mise.toml`,
+  `package.json`, and CI synchronized; `node tools/check-toolchain.mjs` rejects
+  drift without requiring any particular version manager.
 - Git history is a declared input, not ambient state. This repo's jobs only
   validate JSON, so the shallow default checkout is correct. Any future
   history-sensitive job (changesets, affected/changelog, merge-base) must

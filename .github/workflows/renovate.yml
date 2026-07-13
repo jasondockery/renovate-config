@@ -70,6 +70,9 @@ jobs:
           # Read the pinned version from the step above so this step never
           # carries a second copy that could drift.
           version="$(grep -m1 -oE 'renovate-version: [0-9]+\.[0-9]+\.[0-9]+' .github/workflows/renovate.yml | cut -d' ' -f2)"
+          if [ "${RENOVATE_OUTCOME}" = "failure" ]; then
+            echo "::error title=Renovate run failed::Re-dispatch this workflow with log_level=debug for the full trace. Usual suspects, in order: App token mint (previous step), runner.json repository list, hostRules/credentials, provider rate limits."
+          fi
           {
             echo "### Renovate run"
             echo ""
@@ -77,4 +80,13 @@ jobs:
             echo "- Renovate version: \`${version}\`"
             echo "- Log level: ${LOG_LEVEL}"
             echo "- Repositories: ${RENOVATE_REPOSITORIES}"
+            if [ "${RENOVATE_OUTCOME}" = "failure" ]; then
+              echo ""
+              echo "**Triage (in order):**"
+              echo ""
+              echo "1. Re-dispatch with \`log_level=debug\` and read the Run Renovate step log for \`ERROR\` / \`Repository has errors\` lines — they name the failing repository."
+              echo "2. Token mint step failed instead? App credentials/permissions changed — check the GitHub App installation."
+              echo "3. Config-shaped errors: run the CI validators locally (\`npx --yes --package renovate@${version} -- renovate-config-validator runner.json\`)."
+              echo "4. Rate-limit or provider errors are transient — the next cron run usually clears them; recurring ones mean a hostRules problem."
+            fi
           } >> "$GITHUB_STEP_SUMMARY" || true

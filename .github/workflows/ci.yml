@@ -16,6 +16,7 @@ jobs:
   validate:
     name: validate
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     permissions:
       contents: read
       security-events: write # zizmor-action SARIF upload to code scanning
@@ -32,6 +33,18 @@ jobs:
 
       - name: Check toolchain contract
         run: node tools/check-toolchain.mjs
+
+      # Consumers still resolve this repository's default branch, so a
+      # default.json change would alter their policy silently. The marker file
+      # and this step are removed together when the bootstrap completes.
+      - name: Check preset bootstrap freeze
+        run: node tools/check-preset-freeze.mjs
+
+      - name: Check workflow job timeouts
+        run: node tools/check-workflow-timeouts.mjs
+
+      - name: Test workflow timeout guard
+        run: node --test tools/check-workflow-timeouts.test.mjs
 
       - name: Test toolchain guard
         run: node --test tools/check-toolchain.test.mjs

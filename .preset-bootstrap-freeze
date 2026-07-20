@@ -1,0 +1,17 @@
+# Preset bootstrap freeze
+#
+# Every consumer currently extends `github>jasondockery/renovate-config`
+# WITHOUT a version, so they resolve this repository's default branch. Until all
+# consumers are pinned to a released tag, any change to default.json silently
+# changes dependency policy in every consumer, with no reviewable consumer diff
+# and no rollback target.
+#
+# This marker freezes default.json mechanically rather than trusting every agent
+# to remember a roadmap paragraph. CI fails if default.json no longer hashes to
+# the digest below.
+#
+# Lift the freeze by deleting this file and its CI step in the SAME commit that
+# records all consumers pinned (ROADMAP.md, "Versioned distribution", step 8).
+#
+# sha256(default.json)
+3ad042a89c19b2cd496ebcfb2ee9d41a61e796db2159cdf87b2f70602c176dfa

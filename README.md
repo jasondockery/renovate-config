@@ -113,15 +113,21 @@ This repo follows Roost's portable project-local toolchain contract:
   ^24.11.0). `.nvmrc`, `mise.toml`, `package.json`, and CI are synchronized
   adapters for nvm, fnm, mise, Volta/manual installs, and GitHub Actions.
 - pnpm `11.9.0` from `packageManager`, mirrored in `engines` and `mise.toml`.
+- `pnpm-workspace.yaml` disables pnpm 11's implicit install-before-run behavior
+  and module-directory writes; this dependency-free repository's `pnpm test`
+  and `pnpm validate` commands must not create a lockfile, `node_modules`, or
+  local store. CI checks repository cleanliness immediately after each command.
 - `node tools/check-toolchain.mjs` fails early on declaration, runtime, package
   manager, or CI drift and offers manager-neutral recovery commands.
-- No installed dependencies: CI runs the validator
-  via `npx` with an exact version.
-
-CI validates with Renovate `43.272.6`, matching the runner's
-`renovate-version`; every copy of the pin (including `package.json`'s
-`validate` script) is tracked by this repo's own Renovate custom manager
-so they cannot drift silently.
+- `.renovate-version` is the one canonical Renovate runtime pin. Both the
+  self-hosted action and `tools/validate-renovate.mjs` resolve that file; the
+  repo's custom manager updates the file rather than synchronizing copies.
+- No installed dependencies: `pnpm validate` invokes the exact pinned Renovate
+  distribution through `npx` with `--strict`, validating `default.json` and
+  `renovate.json` as repository configuration and `runner.json` as self-hosted
+  global configuration. The validator subprocess removes ambient
+  `RENOVATE_*` variables, and the runtime guard rejects accidental
+  `config.js`/`config.cjs`/`config.mjs` global configuration.
 
 Validation failures annotate the run with the exact command to reproduce
 locally, and every CI and Renovate run writes a pass/fail job summary so
@@ -129,13 +135,15 @@ scheduled runs are triageable at a glance.
 
 ## Versioning
 
-Deliberately unversioned: `package.json` stays `0.0.0`/private and no tags
-are cut. The only consumers are this owner's repos, which track `main` by
-design so policy changes propagate on the next run; the commit SHA is the
-identity of record. Never bump a version here for a milestone (extraction,
-migration, first green run) — version boundaries a consumer could pin only
-make sense if the preset ever productizes as a Roost module (see "Can
-others use this?").
+`package.json` stays private at `0.0.0`; it is tooling metadata, not the shared
+preset's release version. The preset itself ships as immutable SemVer tags
+without a `v` prefix, and consumers pin an exact tag such as
+`github>jasondockery/renovate-config#1.0.0`.
+
+The initial pinning bootstrap is in progress. Until the owner tags `1.0.0`,
+proves that released reference resolves, and moves all three consumers to it,
+`.preset-bootstrap-freeze` keeps `default.json` unchanged. See `ROADMAP.md` for
+the ordered owner gates and `CONTRIBUTING.md` for the release procedure.
 
 ## Policy Boundary
 
@@ -151,13 +159,27 @@ The runner explicitly targets:
 
 No autodiscovery is used.
 
+The self-hosted global config permits one post-upgrade command:
+`node tools/renovate-format-artifacts.mjs`. The anchored `allowedCommands`
+regular expression accepts that exact entry point with no arguments, and the
+shell executor remains disabled. Those controls reduce command-injection
+exposure; they do not make a repository-owned script intrinsically safe.
+
+The permission is global for this runner. Any targeted repository could
+authorize code by adding the same path and command, and that code executes in
+Renovate's trust context. All three targeted repositories and their maintainers
+therefore share one execution trust boundary. Changes to `runner.json`, the
+Roost formatter, or Roost's `postUpgradeTasks` require owner review; unrelated
+secrets or environment variables must not be forwarded into the Renovate
+process. If maintainer trust ever differs between consumers, Roost moves to a
+separate runner configuration. Roost owns the formatter and its file filters;
+this repository owns the global runner-side permission.
+
 ## Can others use this?
 
-Copy, yes; depend on, no. This repo is owner infrastructure: the preset
-encodes one owner's policy and may change without notice, so extending
-`github>jasondockery/renovate-config` from repos outside this owner's set
-is not supported — fork or copy the files instead (MIT licensed).
+Copy, yes; external dependency, no. This repo is owner infrastructure: tagged
+releases make policy changes reviewable for the enumerated owner repositories,
+but extending `github>jasondockery/renovate-config` from repositories outside
+that set is not supported — fork or copy the files instead (MIT licensed).
 Repos scaffolded by Roost get their own full Renovate config copy by
-design, so they own their policy and their bot. If a maintained,
-versioned shared preset ever ships, it will be a deliberate Roost module
-with tagged releases, not this repo.
+design, so they own their policy and their bot.

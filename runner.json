@@ -8,6 +8,8 @@
   "platform": "github",
   "branchPrefix": "self-hosted-renovate/",
   "branchPrefixOld": "self-hosted-renovate/",
+  "allowedCommands": ["^node tools/renovate-format-artifacts\\.mjs$"],
+  "allowShellExecutorForPostUpgradeCommands": false,
   "onboarding": false,
   "requireConfig": "required"
 }

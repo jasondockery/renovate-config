@@ -17,13 +17,18 @@ it before changing what this repo owns or how consumers reference it.
 - Keep the workflow SHA-pinned with human-readable version comments.
 - Keep runner permissions minimal and `actions/checkout` with
   `persist-credentials: false`.
+- Treat `allowedCommands` as global code-execution authority across every
+  repository targeted by the runner. Changes to the runner permission, an
+  allowlisted repository script, or its `postUpgradeTasks` require owner
+  review. Do not forward unrelated secrets or environment variables; split
+  consumers onto separate runner configs if their maintainer trust differs.
 - `.node-version` is the canonical exact Node pin. Keep `.nvmrc`, `mise.toml`,
   `package.json`, and CI synchronized; `node tools/check-toolchain.mjs` rejects
   drift without requiring any particular version manager.
-- Git history is a declared input, not ambient state. This repo's jobs only
-  validate JSON, so the shallow default checkout is correct. Any future
-  history-sensitive job (changesets, affected/changelog, merge-base) must
-  declare and fetch the history it needs before relying on it.
+- Git history is a declared input, not ambient state. This repo's jobs validate
+  only checkout-local files, so the shallow default checkout is correct. Any
+  future history-sensitive job (changesets, affected/changelog, merge-base)
+  must declare and fetch the history it needs before relying on it.
 - Validate Renovate config changes with the CI workflow before relying on them.
 - Preset changes ship as releases. Consumers pin `#<version>`; an unpinned
   `github>jasondockery/renovate-config` follows the default branch and mutates

@@ -9,8 +9,8 @@
   },
   "scripts": {
     "check:toolchain": "node tools/check-toolchain.mjs",
-    "test": "node --test tools/check-toolchain.test.mjs",
-    "validate": "node tools/check-toolchain.mjs && npx --yes --package renovate@43.272.6 -- renovate-config-validator default.json && npx --yes --package renovate@43.272.6 -- renovate-config-validator renovate.json && npx --yes --package renovate@43.272.6 -- renovate-config-validator runner.json",
+    "test": "node --test tools/*.test.mjs",
+    "validate": "node tools/check-toolchain.mjs && node tools/check-preset-freeze.mjs && node tools/check-workflow-timeouts.mjs && node tools/check-renovate-runtime.mjs && node tools/validate-renovate.mjs",
     "preinstall": "node tools/check-toolchain.mjs"
   }
 }

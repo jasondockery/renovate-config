@@ -1,0 +1,4 @@
+# This repository has no installed dependencies. Running a verification script
+# must not synthesize a lockfile, modules directory, or local store.
+verifyDepsBeforeRun: false
+enableModulesDir: false

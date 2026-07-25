@@ -37,6 +37,12 @@ arbitrary shared tooling merely because several repos already point at it.
 workflow. Each consumer carries its own `renovate.json`; the runner never opens
 onboarding PRs.
 
+Global `allowedCommands` applies to every consumer, and an allowlisted
+repository-owned script executes inside Renovate's trust context. The
+enumerated repositories and their maintainers therefore form one code-execution
+trust boundary. If their maintainer trust diverges, they must use separate
+runner configurations.
+
 ## Distribution and versioning
 
 Releases are SemVer tags on this repository. **Tags carry no `v` prefix.**
@@ -84,10 +90,11 @@ edit a major, so the line is drawn at **consumer impact**, not diff size.
 
 ## Target proof levels
 
-**Current coverage:** normal CI validates configuration structure (schema) and
-the toolchain contract. Fixture-based behavioral proof and controlled canary
-proof are roadmap work, not present today — a schema-valid preset can still
-encode the wrong policy.
+**Current coverage:** normal CI strict-validates configuration structure and
+migrations with the canonical runtime, and checks the toolchain/runtime
+contracts. Fixture-based behavioral proof and controlled canary proof are
+roadmap work, not present today — a schema-valid preset can still encode the
+wrong policy.
 
 The target contract below is what each lane is *for*. Green does not mean the
 same thing in all three, so each says what it actually exercised.
@@ -109,10 +116,8 @@ entry or manifest → regenerated lockfile → frozen install. A lockfile-only
 change is not a completed dependency update when the canonical pin belongs in
 `pnpm-workspace.yaml`.
 
-The two Renovate pins must stay synchronized: the full-SHA GitHub Action pin and
-the canonical Renovate runtime version. That parity check is **roadmap work and
-not yet enforced** — `tools/check-toolchain.mjs` covers the Node/toolchain pins,
-not this invariant. Both workflows currently re-read the version with `grep` for
-their run summaries, which keeps the summary honest but does not prove the pins
-agree. Until the check exists, this is trusted to review, which is exactly the
-weakness the roadmap entry closes.
+The full-SHA GitHub Action pin and the Renovate runtime are separate
+dependencies. `.renovate-version` is the canonical runtime source: the runner
+action, config validator, summaries, and Renovate custom manager resolve it
+instead of maintaining numeric copies. The action wrapper remains independently
+SHA-pinned with a human-readable release comment.

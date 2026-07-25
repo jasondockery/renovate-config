@@ -11,6 +11,7 @@ function fixture(files = {}) {
     '.node-version': '24.18.0\n',
     '.nvmrc': '24.18.0\n',
     'mise.toml': '[tools]\nnode = "24.18.0"\npnpm = "11.9.0"\n',
+    'pnpm-workspace.yaml': 'verifyDepsBeforeRun: false\nenableModulesDir: false\n',
     'package.json': JSON.stringify({
       packageManager: 'pnpm@11.9.0',
       engines: { node: '24.18.0', pnpm: '11.9.0' },
@@ -58,4 +59,34 @@ test('reports declaration, runtime, package-manager, and CI drift together', (co
   assert.match(problems, /running Node 26\.5\.0/)
   assert.match(problems, /running pnpm 11\.8\.0/)
   assert.match(problems, /actions\/setup-node from \.node-version/)
+})
+
+test('rejects pnpm script execution that can perform an implicit install', (context) => {
+  const repoRoot = fixture({
+    'pnpm-workspace.yaml': 'verifyDepsBeforeRun: install\nenableModulesDir: false\n',
+  })
+  context.after(() => fs.rmSync(repoRoot, { recursive: true, force: true }))
+  assert.match(
+    collectToolchainProblems({
+      repoRoot,
+      nodeVersion: 'v24.18.0',
+      userAgent: 'pnpm/11.9.0 npm/? node/v24.18.0 darwin arm64',
+    }).join('\n'),
+    /must disable verifyDepsBeforeRun/
+  )
+})
+
+test('rejects dependency-free pnpm scripts that can write node_modules metadata', (context) => {
+  const repoRoot = fixture({
+    'pnpm-workspace.yaml': 'verifyDepsBeforeRun: false\nenableModulesDir: true\n',
+  })
+  context.after(() => fs.rmSync(repoRoot, { recursive: true, force: true }))
+  assert.match(
+    collectToolchainProblems({
+      repoRoot,
+      nodeVersion: 'v24.18.0',
+      userAgent: 'pnpm/11.9.0 npm/? node/v24.18.0 darwin arm64',
+    }).join('\n'),
+    /must disable enableModulesDir/
+  )
 })

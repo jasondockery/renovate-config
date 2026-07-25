@@ -17,25 +17,28 @@ Bootstrap sequence, in this order:
 
 - [ ] 1. Merge only the charter, roadmap, guardrail, timeout, and validation
       changes. `default.json` stays untouched.
-- [ ] 2. Tag the verified commit **`1.0.0`** — no `v` prefix. Renovate's
+- [ ] 2. Configure a GitHub tag ruleset that prevents release tags from being
+      updated or deleted. Owner action: repository rulesets are the owner's.
+- [ ] 3. Tag the verified commit **`1.0.0`** — no `v` prefix. Renovate's
       `#suffix` resolves a Git tag by exact name, so a `v1.0.0` tag must not be
       assumed to resolve as `#1.0.0`. One convention in both places. Owner
       action: tags and pushes are the owner's.
-- [ ] 3. Confirm the *released reference* resolves end to end, not just that the
+- [ ] 4. Confirm the *released reference* resolves end to end, not just that the
       source file is valid: tag exists → `github>jasondockery/renovate-config#1.0.0`
       resolves → Renovate validates the resolved preset → a consumer config
       extending it passes. This catches tag naming, file naming, permissions,
       and repository-resolution problems before three consumers change.
-- [ ] 4. Pin this repository itself first, and let a validation/discovery run
-      confirm it.
-- [ ] 5. Pin Groundwork.
-- [ ] 6. Pin Roost.
-- [ ] 7. Confirm Renovate proposes a later tagged preset bump in a consumer, and
+- [ ] 5. Have the owner open the initial pin PR for this repository, then let a
+      validation/discovery run confirm it.
+- [ ] 6. Have the owner open Groundwork's initial pin PR.
+- [ ] 7. Have the owner open Roost's initial pin PR.
+- [ ] 8. Confirm Renovate proposes a later tagged preset bump in a consumer, and
       record that PR as the receipt that distribution actually works. Renovate
       proposes preset-version updates only once the reference is already pinned.
-- [ ] 8. Lift the freeze and note it here.
+- [ ] 9. Lift the freeze and note it here.
 - [ ] Document the release procedure in `CONTRIBUTING.md`, pointing at the
       charter's patch/minor/major contract rather than restating it.
+      **Implemented locally; pending merge.**
 
 ## Proof levels
 
@@ -51,10 +54,14 @@ Bootstrap sequence, in this order:
 
 ## Parity checks by machine, not memory
 
-- [ ] Assert Renovate-version parity automatically: the `renovate-version` in
-      `renovate.yml` and the `renovate@<version>` validator pins in `ci.yml`
-      must agree. Both files currently re-read the version with `grep` for
-      reporting, which proves the summary is honest but not that the pins match.
+- [ ] Make `.renovate-version` the canonical runtime pin: the runner action,
+      config validator, run summaries, and Renovate custom manager must all
+      resolve it, with no duplicated numeric pins to synchronize.
+      **Implemented locally; pending merge.**
+- [ ] Allow only Roost's repo-owned formatter command with the exact global
+      pattern `^node tools/renovate-format-artifacts\.mjs$`; keep shell
+      execution and arbitrary arguments disabled. **Implemented locally;
+      pending merge.**
 - [ ] Assert that catalog/manifest ownership holds for consumers: a
       lockfile-only change is not a completed dependency update when the
       canonical pin belongs in `pnpm-workspace.yaml`.

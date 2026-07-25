@@ -93,6 +93,20 @@ export function collectToolchainProblems({
     )
   }
 
+  const workspace = read(repoRoot, 'pnpm-workspace.yaml')
+  if (!/^verifyDepsBeforeRun:\s*false\s*$/m.test(workspace ?? '')) {
+    problems.push(
+      'pnpm-workspace.yaml must disable verifyDepsBeforeRun so verification ' +
+        'scripts do not run an implicit install.'
+    )
+  }
+  if (!/^enableModulesDir:\s*false\s*$/m.test(workspace ?? '')) {
+    problems.push(
+      'pnpm-workspace.yaml must disable enableModulesDir so dependency-free ' +
+        'verification does not write node_modules metadata.'
+    )
+  }
+
   const actualNode = nodeVersion.replace(/^v/, '')
   if (actualNode !== expectedNode) {
     problems.push(`running Node ${actualNode} must match .node-version (${expectedNode}).`)

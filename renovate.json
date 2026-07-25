@@ -8,9 +8,9 @@
   "customManagers": [
     {
       "customType": "regex",
-      "description": "Track the exact Renovate npm version used by the self-hosted runner workflow, CI validation, the local validate script, and the README's toolchain note.",
-      "managerFilePatterns": ["/^\\.github\\/workflows\\/(renovate|ci)\\.yml$/", "/^package\\.json$/", "/^README\\.md$/"],
-      "matchStrings": ["renovate-version: (?<currentValue>\\d+\\.\\d+\\.\\d+)", "renovate@(?<currentValue>\\d+\\.\\d+\\.\\d+)", "CI validates with Renovate `(?<currentValue>\\d+\\.\\d+\\.\\d+)`"],
+      "description": "Track the one canonical Renovate runtime pin used by the self-hosted runner and every config validator.",
+      "managerFilePatterns": ["/^\\.renovate-version$/"],
+      "matchStrings": ["(?<currentValue>\\d+\\.\\d+\\.\\d+)"],
       "depNameTemplate": "renovate",
       "datasourceTemplate": "npm",
       "versioningTemplate": "semver"
@@ -29,4 +29,3 @@
     }
   ]
 }
-

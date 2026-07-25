@@ -13,41 +13,10 @@
 // Usage: node tools/check-workflow-timeouts.mjs [workflow-directory]
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
+import { workflowJobs } from './workflow-structure.mjs'
 
 const MAX_TIMEOUT_MINUTES = Number(process.env['MAX_TIMEOUT_MINUTES'] ?? 60)
 const directory = process.argv[2] ?? '.github/workflows'
-
-/** Collect the job blocks of one workflow without a YAML dependency. */
-function jobsOf(text) {
-  const lines = text.split('\n')
-  const jobs = []
-  let inJobs = false
-  let current
-  for (const line of lines) {
-    if (/^jobs:\s*$/.test(line)) {
-      inJobs = true
-      continue
-    }
-    if (!inJobs) continue
-    // Any new top-level key ends the jobs block.
-    if (/^[^\s#]/.test(line)) {
-      inJobs = false
-      continue
-    }
-    const header = /^ {2}([A-Za-z_][A-Za-z0-9_-]*):\s*(#.*)?$/.exec(line)
-    if (header) {
-      current = { name: header[1], timeout: undefined, uses: undefined }
-      jobs.push(current)
-      continue
-    }
-    if (current === undefined) continue
-    const uses = /^ {4}uses:\s+(\S+)/.exec(line)
-    if (uses) current.uses = uses[1]
-    const timeout = /^ {4}timeout-minutes:\s+(\S+)/.exec(line)
-    if (timeout) current.timeout = timeout[1].replace(/\s*#.*$/, '')
-  }
-  return jobs
-}
 
 const problems = []
 let files
@@ -67,7 +36,7 @@ if (files.length === 0) {
 }
 
 for (const file of files) {
-  for (const job of jobsOf(readFileSync(file, 'utf8'))) {
+  for (const job of workflowJobs(readFileSync(file, 'utf8'))) {
     if (job.uses !== undefined) {
       if (job.timeout !== undefined) {
         problems.push(`${file}: job ${job.name} calls a reusable workflow and must not declare timeout-minutes`)

@@ -118,7 +118,7 @@ This repo follows Roost's portable project-local toolchain contract:
 - No installed dependencies: CI runs the validator
   via `npx` with an exact version.
 
-CI validates with Renovate `43.251.3`, matching the runner's
+CI validates with Renovate `43.272.6`, matching the runner's
 `renovate-version`; every copy of the pin (including `package.json`'s
 `validate` script) is tracked by this repo's own Renovate custom manager
 so they cannot drift silently.

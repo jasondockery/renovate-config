@@ -10,7 +10,7 @@
   "scripts": {
     "check:toolchain": "node tools/check-toolchain.mjs",
     "test": "node --test tools/check-toolchain.test.mjs",
-    "validate": "node tools/check-toolchain.mjs && npx --yes --package renovate@43.251.3 -- renovate-config-validator default.json && npx --yes --package renovate@43.251.3 -- renovate-config-validator renovate.json && npx --yes --package renovate@43.251.3 -- renovate-config-validator runner.json",
+    "validate": "node tools/check-toolchain.mjs && npx --yes --package renovate@43.272.6 -- renovate-config-validator default.json && npx --yes --package renovate@43.272.6 -- renovate-config-validator renovate.json && npx --yes --package renovate@43.272.6 -- renovate-config-validator runner.json",
     "preinstall": "node tools/check-toolchain.mjs"
   }
 }

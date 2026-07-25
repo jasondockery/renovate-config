@@ -60,7 +60,7 @@ jobs:
         with:
           configurationFile: runner.json
           token: ${{ steps.app-token.outputs.token }}
-          renovate-version: 43.251.3
+          renovate-version: 43.272.6
 
       - name: Report run summary
         if: always()

@@ -15,8 +15,11 @@ verified, never aspirationally.
 
 Bootstrap sequence, in this order:
 
-- [ ] 1. Merge only the charter, roadmap, guardrail, timeout, and validation
-      changes. `default.json` stays untouched.
+- [x] 1. Merge only the charter, roadmap, guardrail, timeout, and validation
+      changes. `default.json` stays untouched. Verified 2026-07-29:
+      `git log b466499..HEAD -- default.json` returns nothing, so no commit
+      since the freeze was declared has altered the resolved preset. Steps 2
+      onward are owner actions and remain open — the freeze stays in effect.
 - [ ] 2. Configure a GitHub tag ruleset that prevents release tags from being
       updated or deleted. Owner action: repository rulesets are the owner's.
 - [ ] 3. Tag the verified commit **`1.0.0`** — no `v` prefix. Renovate's

@@ -2,7 +2,7 @@
 
 Shared dependency-update automation for the owner's repositories.
 
-This repo has three moving pieces:
+This repo has four moving pieces:
 
 - `default.json` is the shared Renovate preset consumed by owner repos such as
   `jasondockery/roost` and `jasondockery/groundwork`.
@@ -10,6 +10,9 @@ This repo has three moving pieces:
   runner behavior, not dependency policy.
 - `.github/workflows/renovate.yml` runs self-hosted Renovate on a fixed cadence
   plus manual dispatch, with logs in GitHub Actions.
+- `.github/workflows/security-hygiene.yml` is the public reusable
+  implementation of the read-only security inbox for the same three
+  repositories. A private caller owns all execution and output.
 
 ## Runner identity & permissions
 
@@ -38,19 +41,29 @@ App setup (owner, one-time):
    - **Webhook:** inactive/unchecked — the runner is cron/dispatch, not
      event-driven.
    - **Where can this GitHub App be installed?:** Only on this account.
-2. Repository permissions — this is the full set Renovate needs:
-   - **Checks: Read-only** (read CI check runs — the reason the App
-     exists; automerge is blind without it)
-   - **Commit statuses: Read and write** (read/post commit statuses,
-     e.g. its own `renovate/` stability statuses)
-   - **Contents: Read and write** (create branches/commits)
-   - **Dependabot alerts: Read-only** (the vulnerability lane's data
-     source)
-   - **Issues: Read and write** (Dependency Dashboard)
-   - **Metadata: Read-only** (mandatory, GitHub adds it)
-   - **Pull requests: Read and write** (open/update/automerge PRs)
-   - **Workflows: Read and write** (update `.github/workflows/` files —
-     action SHA bumps live there)
+2. Repository permissions — this is the exact installation grant used by this
+   deployment. `tools/security-policy.mjs` is the machine-readable source and
+   tests bind it to both token workflows and this table:
+
+   | Permission | Access | Used by |
+   | --- | --- | --- |
+   | Administration | Read-only | Renovate: read repository settings and branch protection |
+   | Checks | Read and write | Renovate: read and publish check runs |
+   | Commit statuses | Read and write | Renovate: read and publish stability statuses |
+   | Contents | Read and write | Renovate: create branches and commits |
+   | Dependabot alerts | Read-only | Renovate and hygiene Dependabot source |
+   | Issues | Read and write | Renovate Dependency Dashboard |
+   | Metadata | Read-only | All App tokens; mandatory repository metadata |
+   | Pull requests | Read and write | Renovate: create and update PRs |
+   | Workflows | Read and write | Renovate: update action SHA pins |
+   | Code scanning alerts | Read-only | Hygiene code-scanning source |
+   | Secret scanning alerts | Read-only | Hygiene secret-scanning source |
+
+   Renovate documents **Members: Read-only** for team assignment and member
+   lookup. This deployment intentionally does not assign teams or rely on that
+   lookup, so the App does not receive Members permission. If that behavior is
+   added, widen the policy, workflow, installation grant, and this table in one
+   reviewed change.
 3. Generate a private key (downloads a `.pem`).
 4. Install the App on exactly `renovate-config`, `roost`, and
    `groundwork` — never "all repositories"; the install list is the
@@ -174,6 +187,50 @@ secrets or environment variables must not be forwarded into the Renovate
 process. If maintainer trust ever differs between consumers, Roost moves to a
 separate runner configuration. Roost owns the formatter and its file filters;
 this repository owns the global runner-side permission.
+
+## Security hygiene
+
+The `security-hygiene` workflow is the public reusable implementation of the
+cross-repository security inbox. It reads Dependabot, code-scanning, and
+secret-scanning alerts for the three targeted repositories. Because this repo
+is public and a consumer is private, it cannot dispatch or schedule that work:
+a private security-operations caller owns the App secrets, runs, summaries,
+artifacts, and one durable issue ("Security hygiene report", label
+`security-hygiene`). The implementation's first step queries the caller's
+visibility and fails closed before checkout or token mint unless it is private.
+Ownership split:
+GitHub detects and tracks findings; Renovate proposes dependency-update PRs
+(security PRs immediately, bypassing the cooldown); workflow and token
+findings are repository code, fixed in the repository that owns them. The
+report only keeps everything visible — it never dismisses or remediates.
+
+SLA and source-coverage policy are canonical in `tools/security-policy.mjs`;
+this table is a tested human-readable rendering:
+
+| Source | Severity | Resolve within |
+| --- | --- | --- |
+| Dependabot | critical | 1 day |
+| Dependabot | high | 7 days |
+| Dependabot | medium | 30 days |
+| Dependabot | low | 90 days |
+| Code scanning | security severity | same as Dependabot |
+| Code scanning | error / warning / note (tool level) | 7 / 14 / 30 days |
+| Secret scanning | any open alert | immediately — rotate the credential; removing it from code is not remediation |
+
+Unknown severity is triaged like high. The report command returns 2 for overdue
+findings and 3 for monitor blindness. The workflow records both states, attempts
+the durable issue and complete artifact deliveries independently, and then
+fails its enforcement step. The issue receives either or both
+`security-overdue` and `security-monitor-broken` state labels as applicable. A
+dismissal needs a reason, owner, evidence, and review date — never dismiss to
+reach zero.
+
+The private caller remains manual-only until the owner completes the
+permission, alert triage, Renovate dispatch, and two-run delivery proof in
+[`docs/runbooks/security-hygiene.md`](docs/runbooks/security-hygiene.md). That
+runbook is also the canonical exit-code table, DEGRADED triage guide, dismissal
+record, unable-to-meet-SLA procedure, and pinned caller template. Any later
+daily schedule belongs in that private caller, never in this public workflow.
 
 ## Can others use this?
 

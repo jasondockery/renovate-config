@@ -3,6 +3,10 @@ node_modules/
 .env
 .env.*
 !.env.example
+security-hygiene-report.md
+security-hygiene-issue.md
+security-hygiene-summary.md
+hygiene-state.json
 
 
 # Agent worktrees (harness-registered in .git/info/exclude, which

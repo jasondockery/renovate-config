@@ -1,0 +1,273 @@
+name: Security hygiene
+
+# Reusable implementation for a launch-gated cross-repository security inbox.
+# This public repository owns reviewed code and policy only. A private caller
+# owns execution, secrets, summaries, artifacts, and the durable issue so
+# private-repository alert metadata can never be published here.
+#
+# The monitor is never green while blind: an unreadable or
+# policy-required-but-disabled source makes the report command return 3; an
+# overdue alert makes it return 2. The workflow records those states, attempts
+# both durable deliveries, then fails the enforcement step. Broken and overdue
+# are independent facts: both labels can be present at once.
+#
+# The private caller must pin `uses:` to the same exact commit SHA supplied as
+# implementation_ref. It remains manual-only until the owner gates in
+# docs/runbooks/security-hygiene.md are complete; the caller owns any later
+# schedule.
+on:
+  workflow_call:
+    inputs:
+      implementation_ref:
+        description: Exact 40-character renovate-config commit SHA used by the caller's uses reference
+        required: true
+        type: string
+    secrets:
+      RENOVATE_APP_CLIENT_ID:
+        required: true
+      RENOVATE_APP_PRIVATE_KEY:
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-hygiene-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  report:
+    name: report
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write # upsert the durable report issue in the private caller
+    steps:
+      # This is deliberately the first step: no checkout, token mint, alert
+      # collection, summary, issue, or artifact may happen until the caller is
+      # proven private. Metadata lookup failure also fails closed.
+      - name: Refuse public output repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IMPLEMENTATION_REF: ${{ inputs.implementation_ref }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$IMPLEMENTATION_REF" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::implementation_ref must be one exact lowercase 40-character commit SHA."
+            exit 1
+          fi
+          visibility="$(gh api "repos/$GITHUB_REPOSITORY" --jq '.visibility')"
+          if [ "$visibility" != "private" ]; then
+            echo "::error title=Private output boundary required::Security-hygiene execution is allowed only from a private caller; got visibility '$visibility' for $GITHUB_REPOSITORY."
+            exit 1
+          fi
+
+      - name: Checkout implementation
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          repository: jasondockery/renovate-config
+          ref: ${{ inputs.implementation_ref }}
+          path: renovate-config
+          persist-credentials: false
+
+      - name: Install Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: renovate-config/.node-version
+
+      # Dependabot-alert read is a permission the Renovate App already holds
+      # (its vulnerabilityAlerts lane depends on it), so this mint must
+      # succeed. Scoped to exactly what this job reads.
+      - name: Mint alerts token (GitHub App)
+        id: alerts-token
+        continue-on-error: true
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ secrets.RENOVATE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
+          owner: jasondockery
+          repositories: renovate-config,roost,groundwork
+          permission-metadata: read
+          permission-vulnerability-alerts: read
+
+      # Scanning reads may not be granted to the App; a missing grant must not
+      # kill the Dependabot half of the report. The policy module then decides
+      # whether the unreadable source breaks the monitor (it does wherever the
+      # source is required) and the run exits 3 — degraded, visibly.
+      - name: Mint code-scanning token (GitHub App)
+        id: scanning-token
+        continue-on-error: true
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ secrets.RENOVATE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
+          owner: jasondockery
+          repositories: renovate-config,roost,groundwork
+          permission-metadata: read
+          permission-security-events: read
+
+      - name: Mint secret-scanning token (GitHub App)
+        id: secret-token
+        continue-on-error: true
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ secrets.RENOVATE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
+          owner: jasondockery
+          repositories: renovate-config,roost,groundwork
+          permission-metadata: read
+          permission-secret-scanning-alerts: read
+
+      # Exit 2 = an SLA is overdue; exit 3 = the monitor could not read a
+      # required source. The report, state file, and bounded issue body land
+      # first either way; any other nonzero status is a real crash and fails
+      # here immediately. Broken and overdue are captured independently.
+      - name: Build report
+        id: report
+        working-directory: renovate-config
+        env:
+          HYGIENE_DEPENDABOT_TOKEN: ${{ steps.alerts-token.outputs.token }}
+          HYGIENE_DEPENDABOT_MINT_OUTCOME: ${{ steps.alerts-token.outcome }}
+          HYGIENE_CODE_SCANNING_TOKEN: ${{ steps.scanning-token.outputs.token }}
+          HYGIENE_CODE_SCANNING_MINT_OUTCOME: ${{ steps.scanning-token.outcome }}
+          HYGIENE_SECRET_SCANNING_TOKEN: ${{ steps.secret-token.outputs.token }}
+          HYGIENE_SECRET_SCANNING_MINT_OUTCOME: ${{ steps.secret-token.outcome }}
+          HYGIENE_ENFORCE: '1'
+          HYGIENE_STATE_FILE: hygiene-state.json
+          HYGIENE_ISSUE_BODY_FILE: security-hygiene-issue.md
+          HYGIENE_SUMMARY_FILE: security-hygiene-summary.md
+        run: |
+          set -euo pipefail
+          status=0
+          node tools/security-hygiene-report.mjs > security-hygiene-report.md || status=$?
+          cat security-hygiene-summary.md >> "$GITHUB_STEP_SUMMARY"
+          case "$status" in
+            0|2|3) ;;
+            *) exit "$status" ;;
+          esac
+          node tools/security-hygiene-state.mjs hygiene-state.json >> "$GITHUB_OUTPUT"
+
+      # One durable issue, found by its dedicated label plus exact title —
+      # multiple matches fail loudly. A newly created issue's number is
+      # captured directly from the create output, never re-queried loosely.
+      # The label set is COMPUTED by the unit-tested desiredLabels() (both
+      # state labels can be present; unmanaged labels are preserved) and
+      # applied incrementally, so a concurrent human-added unmanaged label is
+      # never erased by whole-set replacement.
+      - name: Upsert the durable report issue
+        if: ${{ !cancelled() && steps.report.outcome == 'success' }}
+        working-directory: renovate-config
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MONITOR_BROKEN: ${{ steps.report.outputs.monitor_broken }}
+          OVERDUE_COUNT: ${{ steps.report.outputs.overdue_count }}
+        run: |
+          set -euo pipefail
+          gh label create security-hygiene --repo "$GITHUB_REPOSITORY" \
+            --description 'Durable security hygiene report' --force
+          gh label create security-overdue --repo "$GITHUB_REPOSITORY" \
+            --description 'An open alert is past its SLA' --color B60205 --force
+          gh label create security-monitor-broken --repo "$GITHUB_REPOSITORY" \
+            --description 'The hygiene monitor could not read a required source' --color D93F0B --force
+          matches="$(gh api --paginate --slurp \
+            "repos/$GITHUB_REPOSITORY/issues?state=all&labels=security-hygiene&per_page=100" \
+            --jq '[.[][] | select(.pull_request == null and .title == "Security hygiene report") | {number, state}]')"
+          count="$(jq -er 'length' <<< "$matches")"
+          case "$count" in
+            ''|*[!0-9]*)
+              echo "::error::Issue lookup returned an invalid count: $count"
+              exit 1
+              ;;
+          esac
+          if [ "$count" -gt 1 ]; then
+            echo "::error title=Ambiguous report issue::$count issues carry the security-hygiene label with the exact title; reconcile the duplicates without discarding history."
+            exit 1
+          fi
+          if [ "$count" -eq 1 ]; then
+            state="$(echo "$matches" | jq -r '.[0].state')"
+            if [ "$state" != "open" ]; then
+              echo "::error title=Durable report issue is closed::Reopen the existing Security hygiene report issue after owner review; refusing to create a replacement that loses history."
+              exit 1
+            fi
+            number="$(echo "$matches" | jq -r '.[0].number')"
+            gh issue edit "$number" --repo "$GITHUB_REPOSITORY" \
+              --body-file security-hygiene-issue.md
+          else
+            url="$(gh issue create --repo "$GITHUB_REPOSITORY" \
+              --title 'Security hygiene report' \
+              --label security-hygiene \
+              --body-file security-hygiene-issue.md)"
+            number="${url##*/}"
+            case "$number" in
+              ''|*[!0-9]*)
+                echo "::error::Could not parse created issue number from: $url"
+                exit 1
+                ;;
+            esac
+          fi
+          current="$(gh issue view "$number" --repo "$GITHUB_REPOSITORY" \
+            --json labels --jq '[.labels[].name]')"
+          desired="$(CURRENT_LABELS="$current" node --input-type=module -e '
+            import { desiredLabels } from "./tools/security-policy.mjs"
+            const current = JSON.parse(process.env.CURRENT_LABELS)
+            const state = {
+              monitorBroken: process.env.MONITOR_BROKEN === "true",
+              overdueCount: Number(process.env.OVERDUE_COUNT ?? 0),
+            }
+            process.stdout.write(JSON.stringify(desiredLabels(current, state)))
+          ')"
+          to_add="$(jq -nr --argjson current "$current" --argjson desired "$desired" \
+            '$desired - $current | .[]')"
+          to_remove="$(jq -nr --argjson current "$current" --argjson desired "$desired" \
+            '$current - $desired | .[]')"
+          while IFS= read -r label; do
+            [ -z "$label" ] || gh issue edit "$number" --repo "$GITHUB_REPOSITORY" \
+              --add-label "$label"
+          done <<< "$to_add"
+          while IFS= read -r label; do
+            [ -z "$label" ] || gh issue edit "$number" --repo "$GITHUB_REPOSITORY" \
+              --remove-label "$label"
+          done <<< "$to_remove"
+
+      # The complete report and durable issue are independent deliveries.
+      # Either delivery may fail without suppressing the other or enforcement.
+      - name: Upload complete report artifact
+        if: ${{ !cancelled() && steps.report.outcome == 'success' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: security-hygiene-report
+          path: renovate-config/security-hygiene-report.md
+          retention-days: 30
+
+      - name: Enforce alert states
+        if: ${{ !cancelled() && steps.report.outcome == 'success' }}
+        working-directory: renovate-config
+        env:
+          MONITOR_BROKEN: ${{ steps.report.outputs.monitor_broken }}
+          OVERDUE_COUNT: ${{ steps.report.outputs.overdue_count }}
+        run: |
+          set -euo pipefail
+          case "$MONITOR_BROKEN" in
+            true|false) ;;
+            *)
+              echo "::error::Invalid monitor_broken output: $MONITOR_BROKEN"
+              exit 1
+              ;;
+          esac
+          case "$OVERDUE_COUNT" in
+            ''|*[!0-9]*)
+              echo "::error::Invalid overdue_count output: $OVERDUE_COUNT"
+              exit 1
+              ;;
+          esac
+          failed=0
+          if [ "$OVERDUE_COUNT" != "0" ] && [ -n "$OVERDUE_COUNT" ]; then
+            echo "::error title=Security SLA overdue::$OVERDUE_COUNT open alert(s) past SLA. See the job summary and the 'Security hygiene report' issue."
+            failed=1
+          fi
+          if [ "$MONITOR_BROKEN" = "true" ]; then
+            echo "::error title=Security monitor degraded::A required security source could not be read — findings may be invisible. See the report's Monitor health line."
+            failed=1
+          fi
+          exit "$failed"

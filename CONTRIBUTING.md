@@ -18,6 +18,33 @@ repositories and publishes the shared preset they consume.
 Explain what policy changed, why it belongs in the shared preset or runner, and
 what validation ran.
 
+## Running the security-hygiene report locally
+
+The report is read-only against GitHub. Use a token that can read the three
+alert sources, do not enable shell tracing, and do not save the token in a
+tracked file:
+
+```bash
+token="$(gh auth token)"
+HYGIENE_DEPENDABOT_TOKEN="$token" \
+HYGIENE_CODE_SCANNING_TOKEN="$token" \
+HYGIENE_SECRET_SCANNING_TOKEN="$token" \
+node tools/security-hygiene-report.mjs
+unset token
+```
+
+Local output may contain private-repository security metadata. Inspect it only
+in a trusted terminal; do not redirect it into this public checkout, paste it
+into a public issue, or upload it as a public artifact.
+
+The repository set defaults to the keys in `tools/security-policy.mjs`.
+`HYGIENE_REPOS` is an optional fail-closed compatibility assertion for local or
+legacy callers; if supplied, its set must exactly equal policy. Add
+`HYGIENE_ENFORCE=1` only when the caller needs exit 2/3 enforcement rather than
+an inspection report. See
+[`docs/runbooks/security-hygiene.md`](docs/runbooks/security-hygiene.md) for the
+canonical exit table and live owner gates.
+
 ## Releasing the preset
 
 `package.json` remains private at `0.0.0`; preset releases are immutable SemVer

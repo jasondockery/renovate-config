@@ -2,15 +2,17 @@
 
 This repository is small on purpose. Its job is to hold the shared
 dependency-update **baseline** intended to remain identical across
-participating repositories, and the self-hosted runner that applies it —
-nothing else. Repository-specific groupings and exceptions stay local; see
-"Does not own".
+participating repositories, the self-hosted runner that applies it, and the
+public reusable implementation for one read-only security-hygiene inbox.
+Repository-specific policy and remediation stay local; see "Does not own".
 
 ## Purpose
 
 Provide the versioned Renovate policy and observable runner behavior shared by
 participating repositories, so a policy change is made once, released once, and
-arrives in each consumer as a reviewable update.
+arrives in each consumer as a reviewable update. Keep Dependabot,
+code-scanning, and secret-scanning coverage visible without dismissing or
+remediating findings from this repository.
 
 ## Owns
 
@@ -19,13 +21,19 @@ arrives in each consumer as a reviewable update.
 - Baseline security-update behavior
 - The canonical Renovate runtime pin and the runner config (`runner.json`)
 - The self-hosted runner workflow and its validation gate
+- The read-only security-hygiene source policy, report implementation, and
+  reusable workflow for the same enumerated repositories
 
 ## Does not own
 
 - Repository-specific package groupings and dependency exceptions
 - Framework-major migration decisions
+- Security-alert remediation, risk acceptance, and repository-specific
+  exceptions
 - General engineering skills, shared scripts, or CI utilities unrelated to
-  dependency updates
+  dependency updates or the bounded hygiene inbox
+- Security-hygiene secrets, execution history, summaries, artifacts, and the
+  durable report issue; those belong to a private caller repository
 
 Those belong in the consuming repository. This repo is not the home for
 arbitrary shared tooling merely because several repos already point at it.
@@ -34,8 +42,8 @@ arbitrary shared tooling merely because several repos already point at it.
 
 `jasondockery/renovate-config`, `jasondockery/roost`, and
 `jasondockery/groundwork`, enumerated in `RENOVATE_REPOSITORIES` in the runner
-workflow. Each consumer carries its own `renovate.json`; the runner never opens
-onboarding PRs.
+workflow and `SOURCE_POLICY` in `tools/security-policy.mjs`. Each consumer
+carries its own `renovate.json`; the runner never opens onboarding PRs.
 
 Global `allowedCommands` applies to every consumer, and an allowlisted
 repository-owned script executes inside Renovate's trust context. The
@@ -108,6 +116,14 @@ same thing in all three, so each says what it actually exercised.
 3. **Live scheduled run** — real authentication, registry access, repository
    discovery, and PR behavior. Labeled a live run, recording whether caches were
    warm; it is not a cold-network proof unless the store was actually clean.
+
+The hygiene lane has a separate live gate: a private caller pins this public
+reusable workflow to an exact commit and supplies the same commit as its
+implementation-ref assertion. Two manual private-caller runs must prove App
+permissions, live source classification, durable issue reuse, label
+convergence, and independent issue/artifact delivery before the caller enables
+its schedule. A real overdue result is a successful monitor receipt, not a
+green Renovate-remediation receipt.
 
 ## Dependency ownership
 

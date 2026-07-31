@@ -22,6 +22,10 @@ Bootstrap sequence, in this order:
       onward are owner actions and remain open — the freeze stays in effect.
 - [ ] 2. Configure a GitHub tag ruleset that prevents release tags from being
       updated or deleted. Owner action: repository rulesets are the owner's.
+- [ ] 2a. Evaluate GitHub immutable releases before the first tag. If adopted,
+      update `CHARTER.md` and `CONTRIBUTING.md` so publishing the GitHub Release
+      is part of the release contract; keep the tag ruleset as defense in
+      depth. Record the owner-setting receipt either way.
 - [ ] 3. Tag the verified commit **`1.0.0`** — no `v` prefix. Renovate's
       `#suffix` resolves a Git tag by exact name, so a `v1.0.0` tag must not be
       assumed to resolve as `#1.0.0`. One convention in both places. Owner
@@ -54,6 +58,64 @@ Bootstrap sequence, in this order:
       security-PR routing. Bounded; never mutating a production repo.
 - [ ] Record in each live run's summary whether the store/cache was warm, so a
       live receipt is not mistaken for a cold-network proof.
+
+## Security-hygiene launch
+
+The public workflow stays reusable-only. A private security-operations caller
+stays manual-only until these owner gates are complete. Follow
+`docs/runbooks/security-hygiene.md`; do not weaken an SLA or expected-source
+policy to obtain green.
+
+- [ ] Create a private security-operations repository to own hygiene secrets,
+      runs, summaries, artifacts, and the durable issue.
+- [ ] Add its manual caller workflow, pin `uses:` to an exact 40-character
+      renovate-config commit SHA, pass the same SHA as `implementation_ref`,
+      and configure the App credentials as private repository or organization
+      secrets.
+- [ ] Approve the GitHub App permission union in the README, including
+      Administration read, Checks read/write, Code scanning alerts read, and
+      Secret scanning alerts read. Members read remains intentionally absent
+      unless team assignment/member lookup becomes a supported behavior.
+- [ ] Enable secret-scanning validity checks where supported, or record the
+      deliberate unavailable posture for each repository.
+- [ ] Triage every current alert, assign an owner, resolve the critical path,
+      and record evidence where Renovate cannot express an automatic fix.
+- [ ] Manually dispatch Renovate with the final scoped App token and confirm all
+      three repositories are reached plus security PRs appear where fixes are
+      expressible.
+- [ ] Dispatch security hygiene twice from the private caller at the exact
+      merged implementation commit and record issue reuse, label convergence,
+      live disabled-state classification, token-mint degradation, and
+      independent issue/artifact delivery.
+- [ ] Add the daily `17 5 * * *` schedule to the private caller only after the
+      two dispatch receipts are accepted.
+
+## Security and verification backlog
+
+- [ ] Enable CodeQL default setup for this public JavaScript repository and
+      record its first successful scan. Keep Zizmor: it covers workflow risks,
+      while CodeQL covers the Node tools that parse untrusted API data.
+- [ ] Evaluate a pinned actionlint gate, including the ShellCheck checks needed
+      for masked command-substitution failures. Keep it complementary to
+      Zizmor, not a replacement.
+- [ ] Select and pin a dependency-free JavaScript linter/formatter invocation.
+      Track its version through one canonical file and Renovate custom manager,
+      then add it to `pnpm validate` without creating install artifacts.
+- [ ] Measure Node test coverage before choosing thresholds. Add reviewed
+      per-file and overall floors only after the baseline and meaningful gaps
+      are understood.
+- [ ] Evaluate the OpenSSF Scorecard workflow and badge, including its token
+      permissions and SARIF publishing behavior, before enabling it.
+- [ ] After the preset bootstrap freeze lifts, evaluate Renovate's experimental
+      `osvVulnerabilityAlerts` against fixtures. It covers direct dependencies
+      only and must not replace the active Dependabot remediation path.
+- [ ] Split the one-time GitHub App bootstrap into `docs/setup/github-app.md`
+      and keep the README as the map after the permission-policy binding is
+      stable. Add one small diagram of the CI, Renovate, and hygiene lanes plus
+      the App-installation, `allowedCommands`, and preset-tag trust boundaries.
+- [ ] Add `docs/why-this-repo-looks-like-this.md`, pairing the repository's
+      fail-closed rules with field incidents. Include the live GitHub response
+      that disproved a paraphrased unit fixture.
 
 ## Parity checks by machine, not memory
 

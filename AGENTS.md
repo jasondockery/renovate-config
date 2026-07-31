@@ -1,22 +1,29 @@
 # Agent Instructions
 
-This repository owns dependency-update automation for the owner's repos. Keep it
-small, observable, and boring: one shared Renovate preset, one self-hosted
-runner workflow, and no product code.
+This repository owns dependency-update automation for the owner's repos plus
+the public, reusable implementation of one read-only security-hygiene inbox.
+Keep it small, observable, and boring: one shared Renovate preset, one
+self-hosted runner, one narrow hygiene monitor, and no product code.
 
 `CHARTER.md` owns scope, consumers, distribution, and what counts as proof. Read
 it before changing what this repo owns or how consumers reference it.
 
 ## Operating Rules
 
-- Never commit secrets, tokens, or local machine state. The GitHub App secrets
-  `RENOVATE_APP_CLIENT_ID` and `RENOVATE_APP_PRIVATE_KEY` live in the GitHub
-  `renovate` environment, not in files.
+- Never commit secrets, tokens, or local machine state. Renovate's GitHub App
+  secrets live in this repo's `renovate` environment. Security-hygiene
+  credentials, execution, summaries, artifacts, and durable issue live only
+  in its private caller repository.
+- Never add `workflow_dispatch` or `schedule` to the public hygiene workflow.
+  It is reusable implementation only, and its first step must fail closed
+  unless the caller repository is private.
 - Keep `default.json` limited to policy that must stay identical across owner
   repos. Repo-specific `packageRules` stay in the consuming repo.
 - Keep the workflow SHA-pinned with human-readable version comments.
 - Keep runner permissions minimal and `actions/checkout` with
   `persist-credentials: false`.
+- Keep GitHub App scopes canonical in `tools/security-policy.mjs`; tests bind
+  each workflow token and the README grant table to that policy.
 - Treat `allowedCommands` as global code-execution authority across every
   repository targeted by the runner. Changes to the runner permission, an
   allowlisted repository script, or its `postUpgradeTasks` require owner

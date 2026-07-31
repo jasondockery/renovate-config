@@ -41,11 +41,23 @@ jobs:
         id: test-read-only
         run: node tools/check-verification-clean.mjs
 
-      - name: Check workflow security
+      # Two legs, one pin: SARIF upload first so the code-scanning tab stays
+      # current even when the gate fails, then a plain-mode leg that FAILS the
+      # job on findings — in advanced-security mode the action never fails, so
+      # without the gate a new finding merges green and waits in a tab (the
+      # github-app token finding sat there 21 days).
+      - name: Check workflow security (SARIF upload)
         uses: zizmorcore/zizmor-action@192e21d79ab29983730a13d1382995c2307fbcaa # v0.5.7
         with:
           persona: pedantic
           advanced-security: true
+
+      - name: Check workflow security (gate)
+        uses: zizmorcore/zizmor-action@192e21d79ab29983730a13d1382995c2307fbcaa # v0.5.7
+        with:
+          persona: pedantic
+          advanced-security: false
+          annotations: true
 
       # Includes the toolchain, preset freeze, workflow timeout, runtime
       # contract, and strict Renovate config checks used locally.

@@ -1,12 +1,14 @@
 #!/usr/bin/env node
 // Dependency-free toolchain contract. The repository owns exact versions;
 // version managers are interchangeable ways to satisfy them.
+import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
-import { fileURLToPath } from 'node:url'
+import { isMainModule } from './is-main.mjs'
 
 const EXACT_VERSION = /^\d+\.\d+\.\d+$/
+export const PROBE_TIMEOUT_MS = 10_000
 
 function read(root, relativePath) {
   try {
@@ -128,12 +130,158 @@ export function collectToolchainProblems({
     )
     if (
       text.includes('actions/setup-node@') &&
-      (nodeVersionFiles.length === 0 || nodeVersionFiles.some((value) => value !== '.node-version'))
+      (nodeVersionFiles.length === 0 ||
+        nodeVersionFiles.some(
+          (value) => !/^(?:[A-Za-z0-9._-]+\/)*\.node-version$/.test(value)
+        ))
     ) {
       problems.push(
-        `${path.relative(repoRoot, file)} must configure actions/setup-node from .node-version.`
+        `${path.relative(repoRoot, file)} must configure actions/setup-node from the repository .node-version.`
       )
     }
+  }
+
+  return problems
+}
+
+// How to launch a probe on this platform, as a pure decision so the Windows
+// branch is unit-testable without a Windows runner. On win32 pnpm is usually a
+// .cmd shim, which spawnSync cannot execute directly — it must go through the
+// command interpreter. The command line is built from fixed internal constants
+// (never user input), which keeps that shell boundary narrow. No Windows CI
+// lane exists in this repo, so the win32 branch is fixture-proven only.
+export function probeInvocation(command, args, platform = process.platform) {
+  if (platform === 'win32') {
+    const comspec = process.env.ComSpec || 'cmd.exe'
+    return { file: comspec, args: ['/d', '/s', '/c', [command, ...args].join(' ')] }
+  }
+  return { file: command, args: [...args] }
+}
+
+function defaultRunProbe(command, args, { cwd, env = process.env } = {}) {
+  const invocation = probeInvocation(command, args)
+  const result = spawnSync(invocation.file, invocation.args, {
+    cwd,
+    env,
+    encoding: 'utf8',
+    timeout: PROBE_TIMEOUT_MS,
+    windowsHide: true,
+  })
+  // A failed spawn commonly leaves stderr as '' (not null), so ?? alone would
+  // hide result.error — the one message that explains ENOENT and friends.
+  const stderr = String(result.stderr ?? '').trim() || String(result.error?.message ?? '').trim()
+  return {
+    status: result.status ?? 1,
+    stdout: String(result.stdout ?? '').trim(),
+    stderr,
+    signal: result.signal ?? undefined,
+    errorCode: result.error?.code,
+    timedOut: result.error?.code === 'ETIMEDOUT',
+  }
+}
+
+export function classifyProbe(probe, expectedVersion, { stripLeadingV = false } = {}) {
+  if (probe.timedOut || probe.errorCode === 'ETIMEDOUT') {
+    return { kind: 'timeout' }
+  }
+  if (probe.errorCode === 'ENOENT') {
+    return { kind: 'missing' }
+  }
+  if (probe.signal) {
+    return { kind: 'signal', signal: probe.signal }
+  }
+  if (probe.status !== 0) {
+    return {
+      kind: 'nonzero',
+      status: probe.status,
+      stderr: probe.stderr || 'no error output',
+    }
+  }
+  const actual = stripLeadingV ? probe.stdout.replace(/^v/, '') : probe.stdout
+  if (expectedVersion && actual !== expectedVersion) {
+    return { kind: 'versionMismatch', actual, expected: expectedVersion }
+  }
+  return null
+}
+
+function probeFailure(command, problem, probe, expectedVersion) {
+  if (problem.kind === 'timeout') {
+    return `bare \`${command}\` probe timed out after ${PROBE_TIMEOUT_MS / 1000} seconds.`
+  }
+  if (problem.kind === 'missing') {
+    return command === 'pnpm'
+      ? 'bare `pnpm` is not available; enable Corepack or install the pinned pnpm.'
+      : 'bare `node` is not available; install or select the pinned Node version.'
+  }
+  if (problem.kind === 'signal') {
+    return `bare \`${command}\` probe was terminated by signal ${problem.signal}.`
+  }
+  if (
+    command === 'pnpm' &&
+    problem.kind === 'nonzero' &&
+    /network access disabled|corepack.*(?:network|download|not cached)|(?:network|download).*corepack/i.test(
+      probe.stderr ?? ''
+    )
+  ) {
+    return (
+      `pnpm ${expectedVersion ?? 'from packageManager'} is not cached or installed, and ` +
+      'the read-only probe intentionally disables Corepack networking; prepare the pinned pnpm, then retry.'
+    )
+  }
+  if (problem.kind === 'nonzero') {
+    return `bare \`${command}\` probe exited with status ${problem.status} (${problem.stderr}); nested scripts cannot run it.`
+  }
+  return `bare \`${command}\` resolves ${problem.actual} for child processes; nested scripts would use it instead of ${command === 'node' ? '.node-version' : 'packageManager'} (${problem.expected}).`
+}
+
+// The static checks above prove declarations agree, and the running-process
+// checks prove the interpreter THIS check happens to run under. Neither proves
+// what a nested process resolves: a package script re-resolves bare `node`
+// and `pnpm` from PATH, and a shadowing global install can answer there while
+// every static file and the invoking process look correct (field-observed as
+// pnpm launcher drift). These probes prove that a freshly spawned child,
+// launched from the repository root, resolves the pinned versions — an
+// approximation of nested-script resolution, not a run of every environment
+// transformation pnpm performs. Probes run with cwd=repoRoot because
+// Corepack's pnpm selection is directory-sensitive. Runtime-neutral by
+// design: any manager may satisfy the outcome; only the outcome is enforced.
+export function collectRuntimeParityProblems({
+  repoRoot = process.cwd(),
+  runProbe = defaultRunProbe,
+} = {}) {
+  const problems = []
+  const expectedNode = read(repoRoot, '.node-version')
+
+  let manifest
+  try {
+    manifest = JSON.parse(read(repoRoot, 'package.json') ?? '')
+  } catch {
+    // collectToolchainProblems already reports the unreadable manifest.
+  }
+  // Corepack pins may carry an integrity suffix (pnpm@11.9.0+sha512.…);
+  // the semantic version is the comparison target.
+  const expectedPnpm = /^pnpm@(\d+\.\d+\.\d+)(?:\+.+)?$/.exec(manifest?.packageManager ?? '')?.[1]
+  const probeEnvironment = {
+    ...process.env,
+    COREPACK_ENABLE_NETWORK: '0',
+  }
+
+  const spawnedNode = runProbe('node', ['--version'], {
+    cwd: repoRoot,
+    env: probeEnvironment,
+  })
+  const nodeProblem = classifyProbe(spawnedNode, expectedNode, { stripLeadingV: true })
+  if (nodeProblem) {
+    problems.push(probeFailure('node', nodeProblem, spawnedNode, expectedNode))
+  }
+
+  const spawnedPnpm = runProbe('pnpm', ['--version'], {
+    cwd: repoRoot,
+    env: probeEnvironment,
+  })
+  const pnpmProblem = classifyProbe(spawnedPnpm, expectedPnpm)
+  if (pnpmProblem) {
+    problems.push(probeFailure('pnpm', pnpmProblem, spawnedPnpm, expectedPnpm))
   }
 
   return problems
@@ -154,11 +302,13 @@ export function formatToolchainFailure(problems, repoRoot = process.cwd()) {
 }
 
 export function assertToolchain(options) {
-  const problems = collectToolchainProblems(options)
+  const problems = [
+    ...collectToolchainProblems(options),
+    ...collectRuntimeParityProblems(options),
+  ]
   if (problems.length === 0) return
   console.error(formatToolchainFailure(problems, options?.repoRoot))
   process.exitCode = 1
 }
 
-const invokedPath = process.argv[1] ? path.resolve(process.argv[1]) : ''
-if (invokedPath === fileURLToPath(import.meta.url)) assertToolchain()
+if (isMainModule(import.meta.url)) assertToolchain()

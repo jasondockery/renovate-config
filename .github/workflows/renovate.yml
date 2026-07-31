@@ -54,6 +54,14 @@ jobs:
       # check-runs API, scores every branch yellow, and automerge silently
       # never fires (field-hit on roost PR #24). Apps have Checks plus
       # short-lived installation tokens.
+      # Least privilege on top of the repository restriction: without explicit
+      # permission-* inputs the minted token inherits EVERY permission the App
+      # installation holds (zizmor github-app finding). The set below is what
+      # this deployment requires: contents/PR/issue/check/status/workflow write
+      # for update PRs, the dashboard, and automerge; administration read for
+      # repo settings; vulnerability-alerts read for the security lane.
+      # Members read is intentionally omitted because team assignment/member
+      # lookup is unsupported here. Widen only with a reviewed behavior change.
       - name: Mint runner token (GitHub App)
         id: app-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
@@ -62,6 +70,15 @@ jobs:
           private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
           owner: jasondockery
           repositories: renovate-config,roost,groundwork
+          permission-administration: read
+          permission-checks: write
+          permission-contents: write
+          permission-issues: write
+          permission-metadata: read
+          permission-pull-requests: write
+          permission-statuses: write
+          permission-vulnerability-alerts: read
+          permission-workflows: write
 
       - name: Run Renovate
         id: renovate

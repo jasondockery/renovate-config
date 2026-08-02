@@ -359,6 +359,25 @@ test('external watchdog bounds a synchronously blocked verification core and wri
   assert.equal(receipt.tree.observation, 'unavailable')
 })
 
+test('external watchdog disconnects a completed verification core', async (context) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'renovate-verify-complete-'))
+  context.after(() => fs.rmSync(directory, { recursive: true, force: true }))
+  const completed = path.join(directory, 'completed.mjs')
+  fs.writeFileSync(completed, "process.send?.({ type: 'receipt-completed' })\n")
+  const started = Date.now()
+  const status = await runVerificationWatchdog({
+    command: process.execPath,
+    arguments_: [completed],
+    cwd: directory,
+    deadlineMilliseconds: 500,
+    cancelGraceMilliseconds: 50,
+    write: () => {},
+    writeError: () => {},
+  })
+  assert.equal(status, 0)
+  assert.ok(Date.now() - started < 500, 'completed core remained attached until its deadline')
+})
+
 test('lane failure, read-only failure, or a changed tree fails the aggregate receipt', async () => {
   let fingerprints = 0
   let artifactChecks = 0

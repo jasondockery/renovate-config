@@ -857,7 +857,10 @@ export function runVerificationWatchdog({
     child.on('message', (message) => {
       if (message?.type === 'register-group' && Number.isSafeInteger(message.pid)) groups.add(message.pid)
       if (message?.type === 'unregister-group' && Number.isSafeInteger(message.pid)) groups.delete(message.pid)
-      if (message?.type === 'receipt-completed') receiptCompleted = true
+      if (message?.type === 'receipt-completed') {
+        receiptCompleted = true
+        if (child.connected) child.disconnect()
+      }
     })
     child.once('error', (error) => {
       if (settled) return

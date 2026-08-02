@@ -49,6 +49,59 @@ Bootstrap sequence, in this order:
 
 ## Proof levels
 
+- [x] Emit one schema-versioned, sanitized timing receipt from CI, scheduled
+      Renovate, and security hygiene, render the same receipt into the job
+      summary, and retain the JSON for 30 days. Renovate's raw debug JSON stays
+      on the shared temporary volume only long enough to derive allowlisted
+      per-repository duration and warning/error counts. Implemented locally;
+      live acceptance remains below.
+- [ ] Accept the first exact-SHA live receipts after this telemetry lands:
+      confirm CI phase timings, all three Renovate repository timing rows, raw
+      log deletion, the private security-hygiene receipt, and honest advisory
+      budget states before calling the contracts field-proven.
+- [ ] Field-prove the repository-owned concurrent final command and parallel CI
+      layout. `pnpm verify` fingerprints its declared Git-visible identity and
+      named ignored verification outputs, runs `pnpm test` and
+      `pnpm validate` concurrently, preserves lane output/status/timing, runs a
+      baseline-aware read-only proof under a 300-second hard deadline, and emits
+      one receipt; CI keeps its stricter clean-checkout proof and runs tests,
+      validation, and workflow security as parallel visible jobs behind stable
+      `ci-gate`.
+      Accept five representative final-tree runs at a 4-minute advisory target
+      before treating later regressions as productivity warnings.
+- [ ] After `ci-gate` reports green on `main`, update branch protection to
+      require that single stable aggregate context instead of the retired
+      monolithic `validate` job name. Keep tests, validation, and workflow
+      security visible for diagnosis. This is an owner-side GitHub setting.
+- [ ] Repair and accept the live Renovate token boundary with two field proofs.
+      Run `30716572152` is the baseline observation of the stale GitHub App
+      installation permission state as HTTP 422; it predates this receipt code
+      and is not an acceptance receipt. After the implementation lands, first
+      dispatch its exact SHA against the still-stale installation and retain the
+      new failed receipt. Then, only after owner approval, update the App and
+      installation to grant the exact canonical `RENOVATE_APP_PERMISSIONS`
+      union and accept one green rerun of that same SHA. Record both new run IDs
+      and the shared implementation SHA. Do not remove required token scopes
+      merely to bypass HTTP 422.
+- [ ] After Groundwork's exact-tree receipt contract is field-proven, migrate
+      this repository-specific `renovate-config.run-receipt` compatibility
+      serializer to the neutral public shared
+      utility. This repository must remain dependency-automation policy, not
+      become the cross-repository tooling package; keep the local implementation
+      until compatibility and migration are specified.
+- [ ] Participate in the neutral multi-repository orchestrator after one
+      final-tree Groundwork receipt and one concurrency stress proof establish
+      the real-time fixture isolation. The
+      utility lives outside renovate-config and merely invokes `pnpm verify`
+      alongside each sibling's canonical command, keeps logs/statuses separate,
+      cancels child process groups, and reports critical-path wall time apart
+      from aggregate compute. Its first five representative runs are advisory
+      baseline evidence. This repository never owns the shared utility.
+- [ ] Adopt exact-identity proof reuse only after the shared contract includes
+      repository, content-addressed tree, command arguments, relevant config,
+      toolchain/lock state, suite version, and platform. Any future pre-commit
+      path stays staged-only under 10 seconds and pre-push affected-only under 2
+      minutes; live Renovate and network proof never move into hooks.
 - [ ] Add fixture-based preset tests to the deterministic gate: assert which
       updates `default.json` groups, schedules, and automerges, so a policy
       regression fails CI rather than surfacing as a surprising PR. Today CI

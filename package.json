@@ -10,7 +10,8 @@
   "scripts": {
     "check:toolchain": "node tools/check-toolchain.mjs",
     "test": "node --test tools/*.test.mjs",
-    "validate": "node tools/check-toolchain.mjs && node tools/check-preset-freeze.mjs && node tools/check-workflow-timeouts.mjs && node tools/check-renovate-runtime.mjs && node tools/validate-renovate.mjs",
+    "validate": "node tools/validate.mjs",
+    "verify": "node tools/verify.mjs",
     "preinstall": "node tools/check-toolchain.mjs"
   }
 }

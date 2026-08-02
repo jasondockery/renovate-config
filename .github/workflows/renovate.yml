@@ -1,4 +1,5 @@
 name: Renovate
+run-name: Renovate · ${{ github.event_name == 'workflow_dispatch' && 'manual' || 'scheduled' }} · ${{ github.sha }}
 
 on:
   schedule:
@@ -31,23 +32,77 @@ jobs:
     # Job-level so both the Renovate step and the run summary read one copy.
     env:
       LOG_LEVEL: ${{ github.event.inputs.log_level || 'info' }}
+      # /tmp is the action's default shared host/container volume. A workspace-
+      # relative file would stay inside the Renovate container and disappear.
+      LOG_FILE: /tmp/renovate-run-${{ github.run_id }}-${{ github.run_attempt }}.jsonl
+      LOG_FILE_FORMAT: json
+      LOG_FILE_LEVEL: debug
       # Every targeted repo carries its own renovate.json; never open
       # onboarding PRs from this runner.
       RENOVATE_REPOSITORIES: jasondockery/renovate-config,jasondockery/roost,jasondockery/groundwork
     steps:
+      - name: Record runner start
+        id: job-start
+        run: echo "epoch=$(date +%s)" >> "$GITHUB_OUTPUT"
+
       - name: Checkout automation config
+        id: checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
 
+      - name: Record runner and checkout timing
+        id: checkout-time
+        if: always()
+        env:
+          STARTED: ${{ steps.job-start.outputs.epoch }}
+        run: |
+          case "$STARTED" in '' | 0 | *[!0-9]*) echo "::error::Checkout start epoch is invalid"; exit 1 ;; esac
+          finished="$(date +%s)"
+          [ "$finished" -ge "$STARTED" ] || { echo "::error::Checkout timing moved backwards"; exit 1; }
+          echo "seconds=$(( finished - STARTED ))" >> "$GITHUB_OUTPUT"
+
+      - name: Begin Node setup timing
+        id: node-start
+        if: always()
+        run: echo "epoch=$(date +%s)" >> "$GITHUB_OUTPUT"
+
       - name: Install Node
+        id: node
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version-file: .node-version
 
+      - name: Record Node setup timing
+        id: node-time
+        if: always()
+        env:
+          STARTED: ${{ steps.node-start.outputs.epoch }}
+        run: |
+          case "$STARTED" in '' | 0 | *[!0-9]*) echo "::error::Node start epoch is invalid"; exit 1 ;; esac
+          finished="$(date +%s)"
+          [ "$finished" -ge "$STARTED" ] || { echo "::error::Node timing moved backwards"; exit 1; }
+          echo "seconds=$(( finished - STARTED ))" >> "$GITHUB_OUTPUT"
+
+      - name: Begin Renovate runtime timing
+        id: runtime-start
+        if: always()
+        run: echo "epoch=$(date +%s)" >> "$GITHUB_OUTPUT"
+
       - name: Resolve Renovate runtime
         id: renovate-runtime
         run: echo "version=$(node tools/renovate-runtime.mjs --print-version)" >> "$GITHUB_OUTPUT"
+
+      - name: Record Renovate runtime timing
+        id: runtime-time
+        if: always()
+        env:
+          STARTED: ${{ steps.runtime-start.outputs.epoch }}
+        run: |
+          case "$STARTED" in '' | 0 | *[!0-9]*) echo "::error::Runtime start epoch is invalid"; exit 1 ;; esac
+          finished="$(date +%s)"
+          [ "$finished" -ge "$STARTED" ] || { echo "::error::Runtime timing moved backwards"; exit 1; }
+          echo "seconds=$(( finished - STARTED ))" >> "$GITHUB_OUTPUT"
 
       # GitHub App identity (decided 2026-07-09): fine-grained PATs cannot
       # carry the Checks permission at all, so Renovate 403s on the
@@ -62,6 +117,11 @@ jobs:
       # repo settings; vulnerability-alerts read for the security lane.
       # Members read is intentionally omitted because team assignment/member
       # lookup is unsupported here. Widen only with a reviewed behavior change.
+      - name: Begin GitHub App token timing
+        id: token-start
+        if: always()
+        run: echo "epoch=$(date +%s)" >> "$GITHUB_OUTPUT"
+
       - name: Mint runner token (GitHub App)
         id: app-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
@@ -80,6 +140,22 @@ jobs:
           permission-vulnerability-alerts: read
           permission-workflows: write
 
+      - name: Record GitHub App token timing
+        id: token-time
+        if: always()
+        env:
+          STARTED: ${{ steps.token-start.outputs.epoch }}
+        run: |
+          case "$STARTED" in '' | 0 | *[!0-9]*) echo "::error::Token start epoch is invalid"; exit 1 ;; esac
+          finished="$(date +%s)"
+          [ "$finished" -ge "$STARTED" ] || { echo "::error::Token timing moved backwards"; exit 1; }
+          echo "seconds=$(( finished - STARTED ))" >> "$GITHUB_OUTPUT"
+
+      - name: Begin Renovate execution timing
+        id: renovate-start
+        if: always()
+        run: echo "epoch=$(date +%s)" >> "$GITHUB_OUTPUT"
+
       - name: Run Renovate
         id: renovate
         uses: renovatebot/github-action@dd5302ec17783b2fc721b19ae7209b57b1587765 # v46.1.17
@@ -87,30 +163,106 @@ jobs:
           configurationFile: runner.json
           token: ${{ steps.app-token.outputs.token }}
           renovate-version: ${{ steps.renovate-runtime.outputs.version }}
+          # The action passes only an allowlist into its container. Keep the
+          # default set and add exactly Renovate's documented file-log knobs.
+          env-regex: '^(?:RENOVATE_\w+|LOG_(?:LEVEL|FILE|FILE_FORMAT|FILE_LEVEL)|GITHUB_COM_TOKEN|NODE_OPTIONS|NO_COLOR|(?:HTTPS?|NO)_PROXY|(?:https?|no)_proxy)$'
 
-      - name: Report run summary
+      - name: Record Renovate execution timing
+        id: renovate-time
         if: always()
         env:
-          RENOVATE_OUTCOME: ${{ steps.renovate.outcome }}
-          RENOVATE_VERSION: ${{ steps.renovate-runtime.outputs.version }}
+          STARTED: ${{ steps.renovate-start.outputs.epoch }}
         run: |
-          if [ "${RENOVATE_OUTCOME}" = "failure" ]; then
-            echo "::error title=Renovate run failed::Re-dispatch this workflow with log_level=debug for the full trace. Usual suspects, in order: App token mint (previous step), runner.json repository list, hostRules/credentials, provider rate limits."
-          fi
+          case "$STARTED" in '' | 0 | *[!0-9]*) echo "::error::Renovate start epoch is invalid"; exit 1 ;; esac
+          finished="$(date +%s)"
+          [ "$finished" -ge "$STARTED" ] || { echo "::error::Renovate timing moved backwards"; exit 1; }
+          echo "seconds=$(( finished - STARTED ))" >> "$GITHUB_OUTPUT"
+
+      - name: Report run summary
+        id: receipt
+        if: always()
+        env:
+          CHECKOUT_OUTCOME: ${{ steps.checkout.outcome }}
+          CHECKOUT_SECONDS: ${{ steps.checkout-time.outputs.seconds }}
+          NODE_OUTCOME: ${{ steps.node.outcome }}
+          NODE_SECONDS: ${{ steps.node-time.outputs.seconds }}
+          RUNTIME_OUTCOME: ${{ steps.renovate-runtime.outcome }}
+          RUNTIME_SECONDS: ${{ steps.runtime-time.outputs.seconds }}
+          TOKEN_OUTCOME: ${{ steps.app-token.outcome }}
+          TOKEN_SECONDS: ${{ steps.token-time.outputs.seconds }}
+          RENOVATE_OUTCOME: ${{ steps.renovate.outcome }}
+          RENOVATE_SECONDS: ${{ steps.renovate-time.outputs.seconds }}
+          RENOVATE_VERSION: ${{ steps.renovate-runtime.outputs.version }}
+          JOB_STARTED_EPOCH: ${{ steps.job-start.outputs.epoch }}
+        run: |
+          [ -f "$LOG_FILE" ] || : > "$LOG_FILE"
+          phase_result() {
+            case "$1" in
+              success) printf passed ;;
+              failure) printf failed ;;
+              cancelled) printf cancelled ;;
+              skipped) printf skipped ;;
+              *) printf failed ;;
+            esac
+          }
+          phase_row() {
+            printf '%s\t%s\t%s\t%s\n' "$1" "${2:-0}" "$(phase_result "$3")" "$4"
+          }
           {
-            echo "### Renovate run"
-            echo ""
-            echo "- Outcome: ${RENOVATE_OUTCOME}"
-            echo "- Renovate version: \`${RENOVATE_VERSION:-unresolved}\`"
-            echo "- Log level: ${LOG_LEVEL}"
-            echo "- Repositories: ${RENOVATE_REPOSITORIES}"
-            if [ "${RENOVATE_OUTCOME}" = "failure" ]; then
-              echo ""
-              echo "**Triage (in order):**"
-              echo ""
-              echo "1. Re-dispatch with \`log_level=debug\` and read the Run Renovate step log for \`ERROR\` / \`Repository has errors\` lines — they name the failing repository."
-              echo "2. Token mint step failed instead? App credentials/permissions changed — check the GitHub App installation."
-              echo "3. Config-shaped errors: run the CI validators locally with \`pnpm validate\`."
-              echo "4. Rate-limit or provider errors are transient — the next cron run usually clears them; recurring ones mean a hostRules problem."
+            phase_row 'Runner and checkout' "$CHECKOUT_SECONDS" "$CHECKOUT_OUTCOME" \
+              "$([ "$CHECKOUT_OUTCOME" = skipped ] && printf 'checkout did not run' || true)"
+            phase_row 'Node setup' "$NODE_SECONDS" "$NODE_OUTCOME" \
+              "$([ "$NODE_OUTCOME" = skipped ] && printf 'checkout did not pass' || true)"
+            phase_row 'Renovate runtime resolution' "$RUNTIME_SECONDS" "$RUNTIME_OUTCOME" \
+              "$([ "$RUNTIME_OUTCOME" = skipped ] && printf 'Node setup did not pass' || true)"
+            phase_row 'GitHub App token mint' "$TOKEN_SECONDS" "$TOKEN_OUTCOME" \
+              "$([ "$TOKEN_OUTCOME" = skipped ] && printf 'runtime resolution did not pass' || true)"
+            phase_row 'Renovate execution' "$RENOVATE_SECONDS" "$RENOVATE_OUTCOME" \
+              "$([ "$RENOVATE_OUTCOME" = skipped ] && printf 'GitHub App token mint did not pass' || true)"
+          } > "$RUNNER_TEMP/renovate-phases.tsv"
+          receipt_status=0
+          node tools/renovate-run-receipt.mjs \
+            --log "$LOG_FILE" \
+            --repositories "$RENOVATE_REPOSITORIES" \
+            --token-outcome "$TOKEN_OUTCOME" \
+            --outcome "$RENOVATE_OUTCOME" \
+            --phase-file "$RUNNER_TEMP/renovate-phases.tsv" \
+            --version "${RENOVATE_VERSION:-unresolved}" \
+            --log-level "$LOG_LEVEL" \
+            --started-epoch "$JOB_STARTED_EPOCH" \
+            --finished-epoch "$(date +%s)" \
+            --output renovate-run-receipt.json \
+            --summary "$RUNNER_TEMP/renovate-summary.md" || receipt_status=$?
+          [ ! -f "$RUNNER_TEMP/renovate-summary.md" ] \
+            || cat "$RUNNER_TEMP/renovate-summary.md" >> "$GITHUB_STEP_SUMMARY" \
+            || echo "::warning title=Job summary unavailable::The authoritative Renovate receipt was written, but its Markdown view could not be appended."
+          # The receipt producer consumes the raw debug log after parsing and
+          # fails the sanitized receipt if deletion does not succeed. Retain
+          # the bounded receipt, never the source log.
+          if [ -e "$LOG_FILE" ]; then
+            cleanup_status=0
+            rm -f "$LOG_FILE" || cleanup_status=$?
+            if [ "$cleanup_status" -eq 0 ]; then
+              echo "::error title=Raw Renovate log cleanup fallback used::Receipt production did not consume the raw log; the workflow removed it and remains failed."
+            else
+              echo "::error title=Raw Renovate log cleanup failed::The workflow could not remove the raw structured log from runner temporary storage."
             fi
-          } >> "$GITHUB_STEP_SUMMARY" || true
+            [ "$receipt_status" -ne 0 ] || receipt_status=1
+          fi
+          if [ "$TOKEN_OUTCOME" = failure ]; then
+            echo "::error title=GitHub App token mint failed::Approve the App installation permission update so it grants the canonical RENOVATE_APP_PERMISSIONS union, then rerun Renovate. Do not remove required scopes to bypass HTTP 422."
+          elif [ "$TOKEN_OUTCOME" != success ]; then
+            echo "::error title=GitHub App token mint did not run::Repair the preceding setup or runtime phase, then rerun Renovate."
+          elif [ "$RENOVATE_OUTCOME" != success ]; then
+            echo "::error title=Renovate run failed::Re-dispatch with log_level=debug and inspect the structured repository failures before changing configuration or credentials."
+          fi
+          exit "$receipt_status"
+
+      - name: Upload sanitized run receipt
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: renovate-run-receipt-${{ github.run_id }}-${{ github.run_attempt }}
+          path: renovate-run-receipt.json
+          if-no-files-found: error
+          retention-days: 30

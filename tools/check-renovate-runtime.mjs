@@ -11,13 +11,8 @@ import { readRenovateVersion } from './renovate-runtime.mjs'
 import { workflowJobSteps } from './workflow-structure.mjs'
 
 const EXPECTED_TEST = 'node --test tools/*.test.mjs'
-const EXPECTED_VALIDATE = [
-  'node tools/check-toolchain.mjs',
-  'node tools/check-preset-freeze.mjs',
-  'node tools/check-workflow-timeouts.mjs',
-  'node tools/check-renovate-runtime.mjs',
-  'node tools/validate-renovate.mjs',
-].join(' && ')
+const EXPECTED_VALIDATE = 'node tools/validate.mjs'
+const EXPECTED_VERIFY = 'node tools/verify.mjs'
 const EXPECTED_FORMATTER_COMMAND = '^node tools/renovate-format-artifacts\\.mjs$'
 const EXPECTED_RUNTIME_MANAGER = {
   customType: 'regex',
@@ -32,6 +27,8 @@ const EXPECTED_RUNTIME_MANAGER = {
 const EXPECTED_RUNTIME_RESOLVER =
   'echo "version=$(node tools/renovate-runtime.mjs --print-version)" >> "$GITHUB_OUTPUT"'
 const EXPECTED_RUNTIME_INPUT = '${{ steps.renovate-runtime.outputs.version }}'
+const EXPECTED_RENOVATE_ENV_REGEX =
+  '^(?:RENOVATE_\\w+|LOG_(?:LEVEL|FILE|FILE_FORMAT|FILE_LEVEL)|GITHUB_COM_TOKEN|NODE_OPTIONS|NO_COLOR|(?:HTTPS?|NO)_PROXY|(?:https?|no)_proxy)$'
 const EXPECTED_CLEAN_CHECK = 'node tools/check-verification-clean.mjs'
 
 function read(repoRoot, relativePath) {
@@ -61,11 +58,18 @@ function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
-function duplicateRuntimeFiles(repoRoot, version, candidateFiles) {
+function runtimeFixturePaths(version) {
+  return [
+    `tools/fixtures/renovate-${version}-structured-log.jsonl`,
+    `tools/fixtures/renovate-${version}-structured-log.md`,
+  ]
+}
+
+function duplicateRuntimeFiles(repoRoot, version, candidateFiles, acceptedRuntimeFiles) {
   const versionToken = new RegExp(`(?<!\\d)${escapeRegExp(version)}(?!\\d)`)
   const duplicates = []
   for (const file of candidateFiles) {
-    if (file === '.renovate-version') continue
+    if (file === '.renovate-version' || acceptedRuntimeFiles.has(file)) continue
     let buffer
     try {
       buffer = fs.readFileSync(path.join(repoRoot, file))
@@ -93,7 +97,8 @@ export function collectRenovateRuntimeProblems(
   if (version) {
     try {
       const files = candidateFiles ?? repositoryFiles(repoRoot)
-      for (const file of duplicateRuntimeFiles(repoRoot, version, files)) {
+      const acceptedRuntimeFiles = new Set(runtimeFixturePaths(version))
+      for (const file of duplicateRuntimeFiles(repoRoot, version, files, acceptedRuntimeFiles)) {
         problems.push(`${file} duplicates the canonical Renovate runtime ${version}.`)
       }
     } catch (error) {
@@ -101,43 +106,64 @@ export function collectRenovateRuntimeProblems(
     }
   }
 
-  let ciSteps = []
+  let ciTestSteps = []
+  let ciValidationSteps = []
+  let ciSource = ''
   try {
-    ciSteps = workflowJobSteps(read(repoRoot, '.github/workflows/ci.yml'), 'validate')
+    ciSource = read(repoRoot, '.github/workflows/ci.yml')
+    ciTestSteps = workflowJobSteps(ciSource, 'tests')
+    ciValidationSteps = workflowJobSteps(ciSource, 'validation')
   } catch {
     problems.push('.github/workflows/ci.yml must be readable.')
   }
-  if (ciSteps.filter((step) => step.run === 'pnpm test').length !== 1) {
-    problems.push('ci.yml validate job must execute pnpm test exactly once.')
+  if (ciTestSteps.filter((step) => step.run === 'pnpm test').length !== 1) {
+    problems.push('ci.yml tests job must execute pnpm test exactly once.')
   }
-  const ciValidate = ciSteps.filter((step) => step.run === 'pnpm validate')
-  if (ciValidate.length !== 1 || ciValidate[0].id !== 'validate-config') {
-    problems.push('ci.yml validate job must execute pnpm validate once as validate-config.')
+  const ciValidate = ciValidationSteps.filter((step) => step.run === 'pnpm validate')
+  if (ciValidate.length !== 1 || ciValidate[0].id !== 'validate') {
+    problems.push('ci.yml validation job must execute pnpm validate once as validate.')
   }
   const expectedReadOnlyChecks = [
-    ['pnpm test', 'test-read-only'],
-    ['pnpm validate', 'validate-read-only'],
+    [ciTestSteps, 'pnpm test'],
+    [ciValidationSteps, 'pnpm validate'],
   ]
-  for (const [command, checkId] of expectedReadOnlyChecks) {
-    const commandIndex = ciSteps.findIndex((step) => step.run === command)
-    const check = ciSteps[commandIndex + 1]
+  for (const [steps, command] of expectedReadOnlyChecks) {
+    const commandIndex = steps.findIndex((step) => step.run === command)
+    const check = steps[commandIndex + 1]
     if (
       commandIndex < 0 ||
-      check?.id !== checkId ||
+      check?.id !== 'read_only' ||
       check.run !== EXPECTED_CLEAN_CHECK
     ) {
       problems.push(
-        `ci.yml validate job must check repository cleanliness immediately after ${command}.`
+        `ci.yml must check repository cleanliness immediately after ${command}.`
       )
     }
   }
-  if (ciSteps.filter((step) => step.run === EXPECTED_CLEAN_CHECK).length !== 2) {
-    problems.push('ci.yml validate job must contain exactly two verification cleanliness checks.')
+  if (
+    [...ciTestSteps, ...ciValidationSteps]
+      .filter((step) => step.run === EXPECTED_CLEAN_CHECK).length !== 2
+  ) {
+    problems.push('ci.yml test and validation jobs must contain exactly two cleanliness checks.')
+  }
+  if (!/^permissions:\n  contents: read$/mu.test(ciSource)) {
+    problems.push('ci.yml must default the workflow token to contents: read.')
+  }
+  if (/if-no-files-found:\s*ignore/u.test(ciSource)) {
+    problems.push('ci.yml authoritative receipt uploads must fail when the file is missing.')
+  }
+  if (!ciSource.includes("--reproduce-label 'Local tests/validation equivalent'")) {
+    problems.push('ci.yml must identify pnpm verify as the local tests/validation equivalent, not the CI security proof.')
+  }
+  if (!ciSource.includes('RENOVATE_VALIDATION_TIMING_OUTPUT') || !ciSource.includes('validation-timing-summary.mjs')) {
+    problems.push('ci.yml must publish bounded internal validation phase timings.')
   }
 
   let runnerSteps = []
+  let runnerSource = ''
   try {
-    runnerSteps = workflowJobSteps(read(repoRoot, '.github/workflows/renovate.yml'), 'renovate')
+    runnerSource = read(repoRoot, '.github/workflows/renovate.yml')
+    runnerSteps = workflowJobSteps(runnerSource, 'renovate')
   } catch {
     problems.push('.github/workflows/renovate.yml must be readable.')
   }
@@ -150,9 +176,80 @@ export function collectRenovateRuntimeProblems(
   )
   if (
     renovateActions.length !== 1 ||
-    renovateActions[0].with['renovate-version'] !== EXPECTED_RUNTIME_INPUT
+    renovateActions[0].with['renovate-version'] !== EXPECTED_RUNTIME_INPUT ||
+    renovateActions[0].with['env-regex'] !== EXPECTED_RENOVATE_ENV_REGEX
   ) {
-    problems.push('renovate.yml must pass the resolved canonical version to the runner action.')
+    problems.push(
+      'renovate.yml must pass the canonical version and exact structured-log environment allowlist to the runner action.'
+    )
+  }
+  if (!/^permissions:\n  contents: read$/mu.test(runnerSource)) {
+    problems.push('renovate.yml must default the workflow token to contents: read.')
+  }
+  if (/if-no-files-found:\s*ignore/u.test(runnerSource)) {
+    problems.push('renovate.yml authoritative receipt upload must fail when the file is missing.')
+  }
+
+  let verifySource = ''
+  try {
+    verifySource = read(repoRoot, 'tools/verify.mjs')
+  } catch {
+    problems.push('tools/verify.mjs must be readable.')
+  }
+  for (const [contract, pattern] of [
+    ['a 300-second total deadline', /HARD_DEADLINE_MILLISECONDS\s*=\s*300_000/u],
+    ['bounded fingerprint Git commands', /timeout:\s*15_000/u],
+    ['an external whole-transaction watchdog', /runVerificationWatchdog[\s\S]*--verification-core/u],
+    ['explicit verification-relevant ignored-state fingerprinting', /VERIFICATION_RELEVANT_IGNORED_PATHS/u],
+    ['bounded Git-visible fingerprint input', /GIT_VISIBLE_CONTENT_BYTE_LIMIT/u],
+    ['chunked file hashing', /HASH_CHUNK_BYTES/u],
+    ['a launch-window cancellation guard', /controller\.signal\.aborted/u],
+    ['a persistent lane supervisor', /processSupervisor/u],
+    ['bounded unterminated output buffering', /MAX_PENDING_OUTPUT_BYTES/u],
+    ['bounded process-group escalation', /SIGTERM[\s\S]*SIGKILL/u],
+  ]) {
+    if (!pattern.test(verifySource)) problems.push(`tools/verify.mjs must preserve ${contract}.`)
+  }
+  for (const fixture of version ? runtimeFixturePaths(version) : []) {
+    try {
+      read(repoRoot, fixture)
+    } catch {
+      problems.push(`${fixture} must preserve pinned-runtime structured-log provenance.`)
+    }
+  }
+  if (/collectVerificationCleanProblems/u.test(verifySource)) {
+    problems.push('tools/verify.mjs must not require a clean implementation tree.')
+  }
+
+  let supervisorSource = ''
+  try {
+    supervisorSource = read(repoRoot, 'tools/process-supervisor.mjs')
+  } catch {
+    problems.push('tools/process-supervisor.mjs must be readable.')
+  }
+  if (!/command-status/u.test(supervisorSource) || !/releaseRequested/u.test(supervisorSource)) {
+    problems.push('the verification lane supervisor must remain alive until explicit release.')
+  }
+  if (!/process\.kill\(-process\.pid,\s*'SIGKILL'\)/u.test(supervisorSource)) {
+    problems.push('the verification lane supervisor must kill its complete owned group when its outer owner disconnects.')
+  }
+
+  let renovateReceiptSource = ''
+  try {
+    renovateReceiptSource = read(repoRoot, 'tools/renovate-run-receipt.mjs')
+  } catch {
+    problems.push('tools/renovate-run-receipt.mjs must be readable.')
+  }
+  for (const [contract, pattern] of [
+    ['bounded structured-log bytes', /DEFAULT_LOG_BYTE_LIMIT/u],
+    ['bounded structured-log lines', /DEFAULT_LOG_LINE_LIMIT/u],
+    ['bounded structured-log line length', /DEFAULT_LOG_LINE_BYTE_LIMIT/u],
+    ['streamed structured-log parsing', /parseRenovateLogFile/u],
+    ['advisory unexpected informational evidence', /unexpectedRepositoryInformational/u],
+  ]) {
+    if (!pattern.test(renovateReceiptSource)) {
+      problems.push(`tools/renovate-run-receipt.mjs must preserve ${contract}.`)
+    }
   }
 
   const manifest = json(repoRoot, 'package.json', problems)
@@ -161,6 +258,9 @@ export function collectRenovateRuntimeProblems(
   }
   if (manifest?.scripts?.validate !== EXPECTED_VALIDATE) {
     problems.push('package.json validate must own every deterministic validation entry point.')
+  }
+  if (manifest?.scripts?.verify !== EXPECTED_VERIFY) {
+    problems.push('package.json verify must own the concurrent final-tree proof.')
   }
 
   const renovate = json(repoRoot, 'renovate.json', problems)

@@ -1,4 +1,5 @@
 name: CI
+run-name: CI · ${{ github.event.pull_request.number && format('PR {0}', github.event.pull_request.number) || github.ref_name }} · ${{ github.sha }}
 
 on:
   push:
@@ -13,14 +14,20 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  validate:
-    name: validate
+  tests:
+    name: tests
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    permissions:
-      contents: read
-      security-events: write # zizmor-action SARIF upload to code scanning
+    timeout-minutes: 5
+    outputs:
+      result: ${{ steps.report.outputs.result }}
+      seconds: ${{ steps.report.outputs.seconds }}
+      read_only: ${{ steps.report.outputs.read_only }}
+      started_epoch: ${{ steps.job_start.outputs.epoch }}
     steps:
+      - name: Record runner start
+        id: job_start
+        run: echo "epoch=$(date +%s)" >> "$GITHUB_OUTPUT"
+
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -35,59 +42,407 @@ jobs:
         run: corepack enable
 
       - name: Test
+        id: tests
+        continue-on-error: true
         run: pnpm test
 
       - name: Check tests are read-only
-        id: test-read-only
+        id: read_only
+        if: always()
+        continue-on-error: true
         run: node tools/check-verification-clean.mjs
 
-      # Two legs, one pin: SARIF upload first so the code-scanning tab stays
-      # current even when the gate fails, then a plain-mode leg that FAILS the
-      # job on findings — in advanced-security mode the action never fails, so
-      # without the gate a new finding merges green and waits in a tab (the
-      # github-app token finding sat there 21 days).
+      - name: Report test lane
+        id: report
+        if: always()
+        env:
+          STARTED_EPOCH: ${{ steps.job_start.outputs.epoch || '0' }}
+          TEST_OUTCOME: ${{ steps.tests.outcome }}
+          READ_ONLY_OUTCOME: ${{ steps.read_only.outcome }}
+        run: |
+          set -euo pipefail
+          case "$STARTED_EPOCH" in
+            '' | 0 | *[!0-9]*) echo "::error::Test lane start epoch is invalid"; exit 1 ;;
+          esac
+          finished_epoch=$(date +%s)
+          [ "$finished_epoch" -ge "$STARTED_EPOCH" ] || { echo "::error::Test timing moved backwards"; exit 1; }
+          seconds=$(( finished_epoch - STARTED_EPOCH ))
+          result=failed
+          [ "$TEST_OUTCOME" = success ] && [ "$READ_ONLY_OUTCOME" = success ] && result=passed
+          {
+            echo "result=$result"
+            echo "seconds=$seconds"
+            echo "read_only=$READ_ONLY_OUTCOME"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo '## Tests · '"$result"
+            echo
+            echo '| Contract | Result |'
+            echo '| --- | --- |'
+            echo '| `pnpm test` | '"${TEST_OUTCOME:-skipped}"' |'
+            echo '| Dependency-free read-only proof | '"${READ_ONLY_OUTCOME:-skipped}"' |'
+            echo
+            echo "Duration: **${seconds}s**"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Enforce test lane
+        if: always()
+        env:
+          RESULT: ${{ steps.report.outputs.result || 'failed' }}
+        run: test "$RESULT" = passed
+
+  validation:
+    name: validation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      result: ${{ steps.report.outputs.result }}
+      seconds: ${{ steps.report.outputs.seconds }}
+      read_only: ${{ steps.report.outputs.read_only }}
+      failed_configs: ${{ steps.validate.outputs.failed }}
+      renovate_version: ${{ steps.validate.outputs.version }}
+      validation_timing: ${{ steps.report.outputs.validation_timing }}
+      started_epoch: ${{ steps.job_start.outputs.epoch }}
+    steps:
+      - name: Record runner start
+        id: job_start
+        run: echo "epoch=$(date +%s)" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Install Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .node-version
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Validate repository configuration
+        id: validate
+        continue-on-error: true
+        env:
+          RENOVATE_VALIDATION_TIMING_OUTPUT: ${{ runner.temp }}/validation-timing.json
+        run: pnpm validate
+
+      - name: Check validation is read-only
+        id: read_only
+        if: always()
+        continue-on-error: true
+        run: node tools/check-verification-clean.mjs
+
+      - name: Report validation lane
+        id: report
+        if: always()
+        env:
+          STARTED_EPOCH: ${{ steps.job_start.outputs.epoch || '0' }}
+          VALIDATE_OUTCOME: ${{ steps.validate.outcome }}
+          READ_ONLY_OUTCOME: ${{ steps.read_only.outcome }}
+          FAILED_CONFIGS: ${{ steps.validate.outputs.failed }}
+          RENOVATE_VERSION: ${{ steps.validate.outputs.version }}
+        run: |
+          set -euo pipefail
+          case "$STARTED_EPOCH" in
+            '' | 0 | *[!0-9]*) echo "::error::Validation lane start epoch is invalid"; exit 1 ;;
+          esac
+          finished_epoch=$(date +%s)
+          [ "$finished_epoch" -ge "$STARTED_EPOCH" ] || { echo "::error::Validation timing moved backwards"; exit 1; }
+          seconds=$(( finished_epoch - STARTED_EPOCH ))
+          result=failed
+          [ "$VALIDATE_OUTCOME" = success ] && [ "$READ_ONLY_OUTCOME" = success ] && result=passed
+          if ! test -s "$RUNNER_TEMP/validation-timing.json" || ! node tools/validation-timing-summary.mjs \
+            --input "$RUNNER_TEMP/validation-timing.json" \
+            --summary "$RUNNER_TEMP/validation-phases-summary.md" \
+            --github-output "$GITHUB_OUTPUT"; then
+            echo "::error::Validation timing receipt is missing or invalid"
+            echo "validation_timing=unavailable" >> "$GITHUB_OUTPUT"
+            result=failed
+          fi
+          {
+            echo "result=$result"
+            echo "seconds=$seconds"
+            echo "read_only=$READ_ONLY_OUTCOME"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo '## Validation · '"$result"
+            echo
+            echo '| Contract | Result |'
+            echo '| --- | --- |'
+            echo '| `pnpm validate` | '"${VALIDATE_OUTCOME:-skipped}"' |'
+            echo '| Dependency-free read-only proof | '"${READ_ONLY_OUTCOME:-skipped}"' |'
+            echo
+            printf 'Renovate: `%s` · Failed configs: `%s`\n' \
+              "${RENOVATE_VERSION:-unresolved}" "${FAILED_CONFIGS:-none}"
+            echo
+            echo "Duration: **${seconds}s**"
+          } >> "$GITHUB_STEP_SUMMARY"
+          [ ! -f "$RUNNER_TEMP/validation-phases-summary.md" ] \
+            || cat "$RUNNER_TEMP/validation-phases-summary.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Enforce validation lane
+        if: always()
+        env:
+          RESULT: ${{ steps.report.outputs.result || 'failed' }}
+        run: test "$RESULT" = passed
+
+  workflow_security:
+    name: workflow-security
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      security-events: write # zizmor-action SARIF upload to code scanning
+    outputs:
+      result: ${{ steps.report.outputs.result }}
+      seconds: ${{ steps.report.outputs.seconds }}
+      sarif: ${{ steps.zizmor_sarif.outcome }}
+      gate: ${{ steps.zizmor_gate.outcome }}
+      started_epoch: ${{ steps.job_start.outputs.epoch }}
+    steps:
+      - name: Record runner start
+        id: job_start
+        run: echo "epoch=$(date +%s)" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      # Two legs, one pin: SARIF upload keeps code scanning current, while the
+      # plain-mode leg is the authoritative merge gate for new findings.
       - name: Check workflow security (SARIF upload)
+        id: zizmor_sarif
+        continue-on-error: true
         uses: zizmorcore/zizmor-action@192e21d79ab29983730a13d1382995c2307fbcaa # v0.5.7
         with:
           persona: pedantic
           advanced-security: true
 
       - name: Check workflow security (gate)
+        id: zizmor_gate
+        continue-on-error: true
         uses: zizmorcore/zizmor-action@192e21d79ab29983730a13d1382995c2307fbcaa # v0.5.7
         with:
           persona: pedantic
           advanced-security: false
           annotations: true
 
-      # Includes the toolchain, preset freeze, workflow timeout, runtime
-      # contract, and strict Renovate config checks used locally.
-      - name: Validate
-        id: validate-config
-        run: pnpm validate
-
-      - name: Check validation is read-only
-        id: validate-read-only
-        run: node tools/check-verification-clean.mjs
-
-      - name: Report validation results
+      - name: Report workflow-security lane
+        id: report
         if: always()
         env:
-          CONFIG_OUTCOME: ${{ steps.validate-config.outcome }}
-          FAILED_CONFIGS: ${{ steps.validate-config.outputs.failed }}
-          RENOVATE_VERSION: ${{ steps.validate-config.outputs.version }}
-          TEST_READ_ONLY_OUTCOME: ${{ steps.test-read-only.outcome }}
-          VALIDATE_READ_ONLY_OUTCOME: ${{ steps.validate-read-only.outcome }}
+          STARTED_EPOCH: ${{ steps.job_start.outputs.epoch || '0' }}
+          SARIF_OUTCOME: ${{ steps.zizmor_sarif.outcome }}
+          GATE_OUTCOME: ${{ steps.zizmor_gate.outcome }}
         run: |
-          label() { case "$1" in success) echo pass ;; failure) echo fail ;; *) echo "$1" ;; esac; }
+          set -euo pipefail
+          case "$STARTED_EPOCH" in
+            '' | 0 | *[!0-9]*) echo "::error::Workflow-security lane start epoch is invalid"; exit 1 ;;
+          esac
+          finished_epoch=$(date +%s)
+          [ "$finished_epoch" -ge "$STARTED_EPOCH" ] || { echo "::error::Workflow-security timing moved backwards"; exit 1; }
+          seconds=$(( finished_epoch - STARTED_EPOCH ))
+          result=failed
+          [ "$SARIF_OUTCOME" = success ] && [ "$GATE_OUTCOME" = success ] && result=passed
           {
-            echo "### Renovate config validation"
-            echo ""
-            echo "- Configs: \`default.json\`, \`renovate.json\`, \`runner.json\`"
-            echo "- Result: $(label "$CONFIG_OUTCOME")"
-            echo "- Renovate version: \`${RENOVATE_VERSION:-unresolved}\`"
-            echo "- Reproduce: \`pnpm validate\`"
-            echo "- Read-only proof: tests $(label "$TEST_READ_ONLY_OUTCOME"); validation $(label "$VALIDATE_READ_ONLY_OUTCOME")"
-            if [ "$CONFIG_OUTCOME" = "failure" ]; then
-              echo "- Failed configs: \`${FAILED_CONFIGS:-unknown}\`"
+            echo "result=$result"
+            echo "seconds=$seconds"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo '## Workflow security · '"$result"
+            echo
+            echo '| Contract | Result |'
+            echo '| --- | --- |'
+            echo '| SARIF upload | '"${SARIF_OUTCOME:-skipped}"' |'
+            echo '| Merge gate | '"${GATE_OUTCOME:-skipped}"' |'
+            echo
+            echo "Duration: **${seconds}s**"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Enforce workflow-security lane
+        if: always()
+        env:
+          RESULT: ${{ steps.report.outputs.result || 'failed' }}
+        run: test "$RESULT" = passed
+
+  ci-gate:
+    name: ci-gate
+    if: always()
+    needs: [tests, validation, workflow_security]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Record gate start
+        id: gate_start
+        run: echo "epoch=$(date +%s)" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Install Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .node-version
+
+      - name: Build authoritative CI receipt
+        id: receipt
+        if: always()
+        env:
+          TEST_JOB_RESULT: ${{ needs.tests.result }}
+          TEST_DECLARED_RESULT: ${{ needs.tests.outputs.result || 'missing' }}
+          TEST_SECONDS: ${{ needs.tests.outputs.seconds || '0' }}
+          TEST_READ_ONLY: ${{ needs.tests.outputs.read_only || 'skipped' }}
+          TEST_STARTED_EPOCH: ${{ needs.tests.outputs.started_epoch || '0' }}
+          VALIDATION_JOB_RESULT: ${{ needs.validation.result }}
+          VALIDATION_DECLARED_RESULT: ${{ needs.validation.outputs.result || 'missing' }}
+          VALIDATION_SECONDS: ${{ needs.validation.outputs.seconds || '0' }}
+          VALIDATION_READ_ONLY: ${{ needs.validation.outputs.read_only || 'skipped' }}
+          VALIDATION_STARTED_EPOCH: ${{ needs.validation.outputs.started_epoch || '0' }}
+          VALIDATION_TIMING: ${{ needs.validation.outputs.validation_timing || 'unavailable' }}
+          FAILED_CONFIGS: ${{ needs.validation.outputs.failed_configs }}
+          RENOVATE_VERSION: ${{ needs.validation.outputs.renovate_version }}
+          SECURITY_JOB_RESULT: ${{ needs.workflow_security.result }}
+          SECURITY_DECLARED_RESULT: ${{ needs.workflow_security.outputs.result || 'missing' }}
+          SECURITY_SECONDS: ${{ needs.workflow_security.outputs.seconds || '0' }}
+          SECURITY_SARIF: ${{ needs.workflow_security.outputs.sarif || 'skipped' }}
+          SECURITY_GATE: ${{ needs.workflow_security.outputs.gate || 'skipped' }}
+          SECURITY_STARTED_EPOCH: ${{ needs.workflow_security.outputs.started_epoch || '0' }}
+          GATE_STARTED_EPOCH: ${{ steps.gate_start.outputs.epoch || '0' }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -uo pipefail
+          errors=()
+          result=passed
+          add_error() {
+            errors+=("$1")
+            result=failed
+            echo "::error::$1"
+          }
+          evaluate_lane() {
+            label="$1"
+            direct="$2"
+            declared="$3"
+            output_name="$4"
+            case "$direct" in
+              success) direct_result=passed ;;
+              failure) direct_result=failed ;;
+              cancelled) direct_result=cancelled ;;
+              skipped) direct_result=skipped ;;
+              *) direct_result=failed; add_error "$label GitHub job result is invalid" ;;
+            esac
+            case "$declared" in
+              passed | failed | cancelled | skipped) declared_result="$declared" ;;
+              *) declared_result=failed; add_error "$label declared result is missing or invalid" ;;
+            esac
+            if [ "$direct_result" != "$declared_result" ]; then
+              add_error "$label GitHub job result and declared lane result disagree"
+              declared_result=failed
             fi
-          } >> "$GITHUB_STEP_SUMMARY" || true
+            [ "$declared_result" = passed ] || result=failed
+            printf -v "$output_name" '%s' "$declared_result"
+          }
+          evaluate_lane tests "$TEST_JOB_RESULT" "$TEST_DECLARED_RESULT" tests_result
+          evaluate_lane validation "$VALIDATION_JOB_RESULT" "$VALIDATION_DECLARED_RESULT" validation_result
+          evaluate_lane workflow-security "$SECURITY_JOB_RESULT" "$SECURITY_DECLARED_RESULT" security_result
+
+          normalize_positive() {
+            case "$2" in
+              '' | 0 | *[!0-9]*) add_error "$1 must be a positive integer"; printf -v "$3" 0 ;;
+              *) printf -v "$3" '%s' "$2" ;;
+            esac
+          }
+          normalize_nonnegative() {
+            case "$2" in
+              '' | *[!0-9]*) add_error "$1 must be a non-negative integer"; printf -v "$3" 0 ;;
+              *) printf -v "$3" '%s' "$2" ;;
+            esac
+          }
+          now_epoch=$(date +%s)
+          normalize_positive 'gate start epoch' "$GATE_STARTED_EPOCH" gate_started
+          [ "$gate_started" -gt 0 ] || gate_started="$now_epoch"
+          normalize_positive 'test start epoch' "$TEST_STARTED_EPOCH" test_started
+          normalize_positive 'validation start epoch' "$VALIDATION_STARTED_EPOCH" validation_started
+          normalize_positive 'workflow-security start epoch' "$SECURITY_STARTED_EPOCH" security_started
+          normalize_nonnegative 'test duration' "$TEST_SECONDS" test_seconds
+          normalize_nonnegative 'validation duration' "$VALIDATION_SECONDS" validation_seconds
+          normalize_nonnegative 'workflow-security duration' "$SECURITY_SECONDS" security_seconds
+          [ "$test_started" -gt 0 ] || tests_result=failed
+          [ "$validation_started" -gt 0 ] || validation_result=failed
+          [ "$security_started" -gt 0 ] || security_result=failed
+
+          started_epoch="$gate_started"
+          for candidate in "$test_started" "$validation_started" "$security_started"; do
+            if [ "$candidate" -gt 0 ] && [ "$candidate" -lt "$started_epoch" ]; then
+              started_epoch="$candidate"
+            fi
+          done
+          finished_epoch="$now_epoch"
+          if [ "$finished_epoch" -lt "$started_epoch" ]; then
+            add_error 'CI timing moved backwards'
+            started_epoch="$finished_epoch"
+          fi
+          aggregate_seconds=$(( test_seconds + validation_seconds + security_seconds ))
+          observed_span_seconds=$(( finished_epoch - started_epoch ))
+
+          phase_row() {
+            phase_name="$1"
+            phase_seconds="$2"
+            phase_result="$3"
+            if [ "$phase_result" != passed ]; then
+              printf '%s\t%s\t%s\tlane failed, was cancelled, or has incomplete evidence; see Evidence errors\n' \
+                "$phase_name" "$phase_seconds" "$phase_result"
+            else
+              printf '%s\t%s\t%s\n' "$phase_name" "$phase_seconds" "$phase_result"
+            fi
+          }
+          {
+            phase_row 'tests and read-only proof' "$test_seconds" "$tests_result"
+            phase_row 'strict configuration validation' "$validation_seconds" "$validation_result"
+            phase_row 'workflow security' "$security_seconds" "$security_result"
+          } > "$RUNNER_TEMP/ci-phases.tsv"
+          evidence_errors=none
+          if [ "${#errors[@]}" -gt 0 ]; then
+            evidence_errors="$(IFS='; '; echo "${errors[*]}")"
+          fi
+          printf 'Configs\t%s\nRenovate version\t%s\nValidation phases\t%s\nWorkflow security\tSARIF %s; gate %s\nRead-only proof\ttests %s; validation %s\nEvidence errors\t%s\nLocal equivalent\tpnpm verify covers tests and validation; workflow security is CI-only\nFailed configs\t%s\nObserved workflow span after first required lane started\t%ss\nAggregate compute time\t%ss\nBudget enforcement\tadvisory for the first five representative final-tree runs\nCache state\tunavailable\n' \
+            'default.json, renovate.json, runner.json' "${RENOVATE_VERSION:-unresolved}" \
+            "$VALIDATION_TIMING" "$SECURITY_SARIF" "$SECURITY_GATE" "$TEST_READ_ONLY" "$VALIDATION_READ_ONLY" \
+            "$evidence_errors" "${FAILED_CONFIGS:-none}" "$observed_span_seconds" "$aggregate_seconds" \
+            > "$RUNNER_TEMP/ci-facts.tsv"
+          receipt_status=0
+          node tools/renovate-config-receipt.mjs \
+            --output ci-receipt.json \
+            --summary "$RUNNER_TEMP/ci-summary.md" \
+            --receipt-kind ci-gate \
+            --title 'Renovate config CI' \
+            --result "$result" \
+            --scope 'parallel tests, strict validation, read-only proofs, and CI-only workflow security' \
+            --platform ubuntu-24.04 \
+            --proof-type 'parallel deterministic repository validation' \
+            --started-epoch "$started_epoch" \
+            --finished-epoch "$finished_epoch" \
+            --budget-seconds 300 \
+            --phase-file "$RUNNER_TEMP/ci-phases.tsv" \
+            --fact-file "$RUNNER_TEMP/ci-facts.tsv" \
+            --tested-sha "$GITHUB_SHA" \
+            --head-sha "$HEAD_SHA" \
+            --reproduce 'pnpm verify' \
+            --reproduce-label 'Local tests/validation equivalent' || receipt_status=$?
+          [ ! -f "$RUNNER_TEMP/ci-summary.md" ] \
+            || cat "$RUNNER_TEMP/ci-summary.md" >> "$GITHUB_STEP_SUMMARY" \
+            || echo "::warning title=Job summary unavailable::The authoritative CI receipt was written, but its Markdown view could not be appended."
+          [ "$result" = passed ] && [ "$receipt_status" -eq 0 ]
+
+      - name: Upload CI receipt
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: renovate-config-ci-receipt-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ci-receipt.json
+          if-no-files-found: error
+          retention-days: 30

@@ -129,7 +129,22 @@ This repo follows Roost's portable project-local toolchain contract:
 - `pnpm-workspace.yaml` disables pnpm 11's implicit install-before-run behavior
   and module-directory writes; this dependency-free repository's `pnpm test`
   and `pnpm validate` commands must not create a lockfile, `node_modules`, or
-  local store. CI checks repository cleanliness immediately after each command.
+  local store. `pnpm verify` accepts an implementation tree with staged,
+  unstaged, and untracked work, fingerprints exact Git-visible state plus a
+  bounded list of named ignored verification outputs before and after, and
+  requires that baseline to remain unchanged. It does not enumerate or read
+  arbitrary ignored caches, worktrees, or `.env*` files. It refuses
+  pre-existing dependency artifacts before launch, runs the complementary
+  contracts concurrently through persistent process-group supervisors. An
+  event-loop-independent parent watchdog bounds the complete transaction,
+  including both synchronous fingerprints, at five minutes and prints
+  wall-clock time separately from aggregate compute time. CI runs tests and
+  validation as parallel visible jobs, applies the stricter clean-checkout
+  proof to each, and aggregates them with CI-only workflow security behind
+  stable `ci-gate`.
+  Add `-- --report /absolute/path/outside/the/repository.json` to persist the
+  same local receipt atomically for a machine-readable handoff; it remains
+  non-reusable evidence for only the observed local tree.
 - `node tools/check-toolchain.mjs` fails early on declaration, runtime, package
   manager, or CI drift and offers manager-neutral recovery commands.
 - `.renovate-version` is the one canonical Renovate runtime pin. Both the
@@ -143,8 +158,17 @@ This repo follows Roost's portable project-local toolchain contract:
   `config.js`/`config.cjs`/`config.mjs` global configuration.
 
 Validation failures annotate the run with the exact command to reproduce
-locally, and every CI and Renovate run writes a pass/fail job summary so
-scheduled runs are triageable at a glance.
+locally, and every CI and Renovate run writes phase timings plus a pass/fail job
+summary so scheduled runs are triageable at a glance.
+
+Renovate's temporary debug JSONL is streamed under explicit file, line-count,
+line-size, and parse-time limits, then deleted before the sanitized receipt is
+published. Global ERROR/FATAL records and unexpected-repository timing,
+warning, or error evidence fail closed; a well-formed unexpected informational
+record is counted as advisory. The parser shape is pinned by the sanitized
+fixture whose filename is derived from `.renovate-version`, plus its
+immutable-source provenance note under `tools/fixtures/`. A runtime pin bump
+fails validation until the matching fixture is deliberately accepted.
 
 ## Versioning
 

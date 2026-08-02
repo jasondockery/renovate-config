@@ -5,15 +5,23 @@ import path from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { collectRenovateRuntimeProblems } from './check-renovate-runtime.mjs'
+import { readRenovateVersion } from './renovate-runtime.mjs'
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+const RENOVATE_VERSION = readRenovateVersion(REPO_ROOT)
+const RUNTIME_FIXTURES = [
+  `tools/fixtures/renovate-${RENOVATE_VERSION}-structured-log.jsonl`,
+  `tools/fixtures/renovate-${RENOVATE_VERSION}-structured-log.md`,
+]
 const CONTRACT_FILES = [
   '.renovate-version',
   '.github/workflows/ci.yml',
   '.github/workflows/renovate.yml',
+  'tools/verify.mjs',
   'package.json',
   'renovate.json',
   'runner.json',
+  ...RUNTIME_FIXTURES,
 ]
 
 function fixture(context) {
@@ -72,8 +80,21 @@ test('rejects commented-out CI and runner steps even when decoy text remains', (
   )
 
   const result = problems(repoRoot)
-  assert.match(result, /execute pnpm validate once/)
+  assert.match(result, /validation job must execute pnpm validate once/)
   assert.match(result, /resolve the runtime from \.renovate-version/)
+})
+
+test('rejects removal or widening of the Renovate structured-log environment allowlist', (context) => {
+  const repoRoot = fixture(context)
+  write(
+    repoRoot,
+    '.github/workflows/renovate.yml',
+    read(repoRoot, '.github/workflows/renovate.yml').replace(
+      "          env-regex: '^(?:RENOVATE_\\w+|LOG_(?:LEVEL|FILE|FILE_FORMAT|FILE_LEVEL)|GITHUB_COM_TOKEN|NODE_OPTIONS|NO_COLOR|(?:HTTPS?|NO)_PROXY|(?:https?|no)_proxy)$'",
+      "          env-regex: '.*'"
+    )
+  )
+  assert.match(problems(repoRoot), /exact structured-log environment allowlist/)
 })
 
 test('rejects a missing or displaced verification cleanliness check', async (context) => {
@@ -89,7 +110,7 @@ test('rejects a missing or displaced verification cleanliness check', async (con
     )
     const result = problems(repoRoot)
     assert.match(result, /cleanliness immediately after pnpm test/)
-    assert.match(result, /exactly two verification cleanliness checks/)
+    assert.match(result, /exactly two cleanliness checks/)
   })
 
   await context.test('check moved away from validation', (subcontext) => {
@@ -106,6 +127,41 @@ test('rejects a missing or displaced verification cleanliness check', async (con
       )
     )
     assert.match(problems(repoRoot), /cleanliness immediately after pnpm validate/)
+  })
+})
+
+test('rejects weakened workflow permissions, artifact retention, or local deadline bounds', async (context) => {
+  await context.test('workflow permissions', (subcontext) => {
+    const repoRoot = fixture(subcontext)
+    write(repoRoot, '.github/workflows/ci.yml', read(repoRoot, '.github/workflows/ci.yml').replace(
+      'permissions:\n  contents: read',
+      'permissions:\n  contents: write'
+    ))
+    assert.match(problems(repoRoot), /default the workflow token to contents: read/)
+  })
+  await context.test('missing receipt accepted', (subcontext) => {
+    const repoRoot = fixture(subcontext)
+    write(repoRoot, '.github/workflows/renovate.yml', read(repoRoot, '.github/workflows/renovate.yml').replace(
+      'if-no-files-found: error',
+      'if-no-files-found: ignore'
+    ))
+    assert.match(problems(repoRoot), /receipt upload must fail/)
+  })
+  await context.test('local command mislabeled as full reproduction', (subcontext) => {
+    const repoRoot = fixture(subcontext)
+    write(repoRoot, '.github/workflows/ci.yml', read(repoRoot, '.github/workflows/ci.yml').replace(
+      "--reproduce-label 'Local tests/validation equivalent'",
+      "--reproduce-label 'Reproduce'"
+    ))
+    assert.match(problems(repoRoot), /local tests\/validation equivalent/)
+  })
+  await context.test('deadline removed', (subcontext) => {
+    const repoRoot = fixture(subcontext)
+    write(repoRoot, 'tools/verify.mjs', read(repoRoot, 'tools/verify.mjs').replace(
+      'const HARD_DEADLINE_MILLISECONDS = 300_000',
+      'const HARD_DEADLINE_MILLISECONDS = 0'
+    ))
+    assert.match(problems(repoRoot), /300-second total deadline/)
   })
 })
 
@@ -160,6 +216,14 @@ test('rejects malformed versions, duplicate pins, and ambient global config', as
     const repoRoot = fixture(subcontext)
     write(repoRoot, 'new-runtime.txt', `${read(repoRoot, '.renovate-version')}`)
     assert.match(problems(repoRoot, ['new-runtime.txt']), /duplicates the canonical Renovate runtime/)
+  })
+  await context.test('runtime bump without an accepted matching log fixture', (subcontext) => {
+    const repoRoot = fixture(subcontext)
+    write(repoRoot, '.renovate-version', '43.272.7\n')
+    assert.match(
+      problems(repoRoot),
+      /renovate-43\.272\.7-structured-log\.jsonl must preserve pinned-runtime structured-log provenance/
+    )
   })
   await context.test('ambient config.js', (subcontext) => {
     const repoRoot = fixture(subcontext)

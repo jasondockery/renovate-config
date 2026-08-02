@@ -48,11 +48,13 @@ jobs:
       # collection, summary, issue, or artifact may happen until the caller is
       # proven private. Metadata lookup failure also fails closed.
       - name: Refuse public output repository
+        id: private-boundary
         env:
           GH_TOKEN: ${{ github.token }}
           IMPLEMENTATION_REF: ${{ inputs.implementation_ref }}
         run: |
           set -euo pipefail
+          started_epoch="$(date +%s)"
           if [[ ! "$IMPLEMENTATION_REF" =~ ^[0-9a-f]{40}$ ]]; then
             echo "::error::implementation_ref must be one exact lowercase 40-character commit SHA."
             exit 1
@@ -62,6 +64,7 @@ jobs:
             echo "::error title=Private output boundary required::Security-hygiene execution is allowed only from a private caller; got visibility '$visibility' for $GITHUB_REPOSITORY."
             exit 1
           fi
+          echo "started_epoch=$started_epoch" >> "$GITHUB_OUTPUT"
 
       - name: Checkout implementation
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -139,14 +142,21 @@ jobs:
           HYGIENE_SUMMARY_FILE: security-hygiene-summary.md
         run: |
           set -euo pipefail
+          started="$(date +%s)"
           status=0
           node tools/security-hygiene-report.mjs > security-hygiene-report.md || status=$?
-          cat security-hygiene-summary.md >> "$GITHUB_STEP_SUMMARY"
+          [ ! -f security-hygiene-summary.md ] \
+            || cat security-hygiene-summary.md >> "$GITHUB_STEP_SUMMARY" \
+            || echo "::warning title=Job summary unavailable::The authoritative security report was written, but its Markdown view could not be appended."
           case "$status" in
             0|2|3) ;;
             *) exit "$status" ;;
           esac
           node tools/security-hygiene-state.mjs hygiene-state.json >> "$GITHUB_OUTPUT"
+          case "$started" in '' | 0 | *[!0-9]*) echo "::error::Report start epoch is invalid"; exit 1 ;; esac
+          finished="$(date +%s)"
+          [ "$finished" -ge "$started" ] || { echo "::error::Report timing moved backwards"; exit 1; }
+          echo "elapsed=$(( finished - started ))" >> "$GITHUB_OUTPUT"
 
       # One durable issue, found by its dedicated label plus exact title —
       # multiple matches fail loudly. A newly created issue's number is
@@ -156,6 +166,7 @@ jobs:
       # applied incrementally, so a concurrent human-added unmanaged label is
       # never erased by whole-set replacement.
       - name: Upsert the durable report issue
+        id: durable-issue
         if: ${{ !cancelled() && steps.report.outcome == 'success' }}
         working-directory: renovate-config
         env:
@@ -232,12 +243,92 @@ jobs:
 
       # The complete report and durable issue are independent deliveries.
       # Either delivery may fail without suppressing the other or enforcement.
-      - name: Upload complete report artifact
+      - name: Prove complete report files
+        id: report-files
         if: ${{ !cancelled() && steps.report.outcome == 'success' }}
+        working-directory: renovate-config
+        run: |
+          set -euo pipefail
+          for file in security-hygiene-report.md hygiene-state.json; do
+            test -s "$file" || {
+              echo "::error::Required security-hygiene artifact file is missing or empty: $file"
+              exit 1
+            }
+          done
+          sha256sum security-hygiene-report.md hygiene-state.json \
+            > "$RUNNER_TEMP/security-hygiene-artifact.sha256"
+          manifest_sha256="$(sha256sum "$RUNNER_TEMP/security-hygiene-artifact.sha256" | cut -d' ' -f1)"
+          echo "manifest_sha256=$manifest_sha256" >> "$GITHUB_OUTPUT"
+
+      - name: Upload complete report artifact
+        id: complete-report
+        if: ${{ !cancelled() && steps.report.outcome == 'success' && steps.report-files.outcome == 'success' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: security-hygiene-report
-          path: renovate-config/security-hygiene-report.md
+          path: |
+            renovate-config/security-hygiene-report.md
+            renovate-config/hygiene-state.json
+            ${{ runner.temp }}/security-hygiene-artifact.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Report run timing
+        if: ${{ !cancelled() && steps.report.outcome == 'success' }}
+        id: run-receipt
+        working-directory: renovate-config
+        env:
+          ARTIFACT_OUTCOME: ${{ steps.complete-report.outcome }}
+          CALLER_REPOSITORY: ${{ github.repository }}
+          CALLER_SHA: ${{ github.sha }}
+          IMPLEMENTATION_REF: ${{ inputs.implementation_ref }}
+          ISSUE_OUTCOME: ${{ steps.durable-issue.outcome }}
+          MANIFEST_SHA256: ${{ steps.report-files.outputs.manifest_sha256 || 'unavailable' }}
+          JOB_STARTED_EPOCH: ${{ steps.private-boundary.outputs.started_epoch }}
+          MONITOR_BROKEN: ${{ steps.report.outputs.monitor_broken }}
+          OVERDUE_COUNT: ${{ steps.report.outputs.overdue_count }}
+          REPORT_SECONDS: ${{ steps.report.outputs.elapsed || '0' }}
+        run: |
+          result=passed
+          [ "$ISSUE_OUTCOME" = success ] && [ "$ARTIFACT_OUTCOME" = success ] \
+            && [ "$MONITOR_BROKEN" = false ] && [ "$OVERDUE_COUNT" = 0 ] || result=failed
+          printf 'security report collection\t%s\tpassed\n' "$REPORT_SECONDS" > "$RUNNER_TEMP/hygiene-phases.tsv"
+          printf 'Monitor broken\t%s\nOverdue alerts\t%s\nDurable issue delivery\t%s\nComplete report artifact\t%s\nArtifact manifest SHA-256\t%s\nCaller repository\t%s\nCaller SHA\t%s\nOutput boundary\tprivate caller only\nCache state\tnot-applicable\n' \
+            "$MONITOR_BROKEN" "$OVERDUE_COUNT" "$ISSUE_OUTCOME" "$ARTIFACT_OUTCOME" \
+            "$MANIFEST_SHA256" "$CALLER_REPOSITORY" "$CALLER_SHA" > "$RUNNER_TEMP/hygiene-facts.tsv"
+          node tools/renovate-config-receipt.mjs \
+            --output security-hygiene-run.json \
+            --summary "$RUNNER_TEMP/hygiene-timing-summary.md" \
+            --receipt-kind security-hygiene \
+            --title 'Security hygiene delivery' \
+            --result "$result" \
+            --scope 'three-repository alert collection and durable private delivery' \
+            --platform ubuntu-24.04 \
+            --proof-type 'live private-caller security monitor receipt' \
+            --started-epoch "$JOB_STARTED_EPOCH" \
+            --finished-epoch "$(date +%s)" \
+            --budget-seconds 300 \
+            --phase-file "$RUNNER_TEMP/hygiene-phases.tsv" \
+            --fact-file "$RUNNER_TEMP/hygiene-facts.tsv" \
+            --repository jasondockery/renovate-config \
+            --workflow 'Security hygiene' \
+            --job report \
+            --tested-sha "$IMPLEMENTATION_REF" \
+            --implementation-sha "$IMPLEMENTATION_REF" \
+            --caller-repository "$CALLER_REPOSITORY" \
+            --caller-sha "$CALLER_SHA" \
+            --reproduce 'dispatch the pinned private security-hygiene caller'
+          [ ! -f "$RUNNER_TEMP/hygiene-timing-summary.md" ] \
+            || cat "$RUNNER_TEMP/hygiene-timing-summary.md" >> "$GITHUB_STEP_SUMMARY" \
+            || echo "::warning title=Job summary unavailable::The authoritative security receipt was written, but its Markdown view could not be appended."
+
+      - name: Upload run receipt
+        if: ${{ !cancelled() && steps.run-receipt.outcome == 'success' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: security-hygiene-run-receipt-${{ github.run_id }}-${{ github.run_attempt }}
+          path: renovate-config/security-hygiene-run.json
+          if-no-files-found: error
           retention-days: 30
 
       - name: Enforce alert states

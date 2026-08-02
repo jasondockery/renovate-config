@@ -18,6 +18,16 @@ repositories and publishes the shared preset they consume.
 Explain what policy changed, why it belongs in the shared preset or runner, and
 what validation ran.
 
+For a cross-cutting final proof, `pnpm verify` prints the authoritative local
+receipt. Add `-- --report /absolute/path/outside/this/repository.json` when a
+machine-readable handoff is useful; the report is atomic, contains no reusable
+CI identity, and is valid only for the exact local tree it observed.
+
+For an authorized push, reconcile the index and create the intended local
+commit before final proof. Run `pnpm verify` on that exact clean commit and do
+not edit, restage, amend, or otherwise change source, index, or history before
+pushing it.
+
 ## Running the security-hygiene report locally
 
 The report is read-only against GitHub. Use a token that can read the three
@@ -52,7 +62,7 @@ Git tags without a `v` prefix. Classify the consumer impact with the
 patch/minor/major contract in `CHARTER.md`, then:
 
 1. Keep `default.json` unchanged while `.preset-bootstrap-freeze` exists.
-2. Run `pnpm test` and `pnpm validate`, open a focused PR, and wait for CI.
+2. Run one final `pnpm verify`, open a focused PR, and wait for `ci-gate`.
 3. Before the first release, have the owner configure a GitHub tag ruleset that
    prevents release-tag updates and deletions.
 4. After the release commit reaches `main`, have the owner create and push the

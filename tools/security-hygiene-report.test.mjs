@@ -576,9 +576,10 @@ test('workflow repository scopes and delivery contracts match authoritative poli
     assert.match(build, new RegExp(`HYGIENE_${source}_MINT_OUTCOME:`))
   }
   const issueIndex = workflow.indexOf('      - name: Upsert the durable report issue')
+  const artifactProofIndex = workflow.indexOf('      - name: Prove complete report files')
   const artifactIndex = workflow.indexOf('      - name: Upload complete report artifact')
   const enforceIndex = workflow.indexOf('      - name: Enforce alert states')
-  assert.ok(issueIndex < artifactIndex && artifactIndex < enforceIndex)
+  assert.ok(issueIndex < artifactProofIndex && artifactProofIndex < artifactIndex && artifactIndex < enforceIndex)
   for (const name of [
     'Upsert the durable report issue',
     'Upload complete report artifact',
@@ -598,6 +599,21 @@ test('workflow repository scopes and delivery contracts match authoritative poli
   assert.match(workflowStep(workflow, 'Upsert the durable report issue'), /--add-label/)
   assert.match(workflowStep(workflow, 'Upsert the durable report issue'), /--remove-label/)
   assert.match(workflowStep(workflow, 'Upload complete report artifact'), /retention-days: 30/)
+  assert.match(workflowStep(workflow, 'Prove complete report files'), /test -s "\$file"/)
+  assert.match(workflowStep(workflow, 'Prove complete report files'), /sha256sum/)
+  assert.match(workflowStep(workflow, 'Upload complete report artifact'), /if-no-files-found: error/)
+  assert.match(workflowStep(workflow, 'Upload complete report artifact'), /security-hygiene-artifact\.sha256/)
+  assert.match(workflowStep(workflow, 'Report run timing'), /tools\/renovate-config-receipt\.mjs/)
+  assert.match(workflowStep(workflow, 'Report run timing'), /security-hygiene-run\.json/)
+  assert.match(workflowStep(workflow, 'Report run timing'), /--tested-sha "\$IMPLEMENTATION_REF"/)
+  assert.match(workflowStep(workflow, 'Report run timing'), /--implementation-sha "\$IMPLEMENTATION_REF"/)
+  assert.match(workflowStep(workflow, 'Report run timing'), /--caller-sha "\$CALLER_SHA"/)
+  assert.match(workflowStep(workflow, 'Report run timing'), /Caller repository/)
+  assert.match(workflowStep(workflow, 'Report run timing'), /ARTIFACT_OUTCOME/)
+  assert.match(workflowStep(workflow, 'Report run timing'), /Artifact manifest SHA-256/)
+  assert.match(workflowStep(workflow, 'Upload complete report artifact'), /hygiene-state\.json/)
+  assert.match(workflowStep(workflow, 'Upload run receipt'), /security-hygiene-run\.json/)
+  assert.match(workflowStep(workflow, 'Upload run receipt'), /retention-days: 30/)
   assert.doesNotMatch(workflow, /^\s+schedule:/m)
   for (const name of ['Build report', 'Upsert the durable report issue', 'Enforce alert states']) {
     assert.match(workflowStep(workflow, name), /run: \|\n\s+set -euo pipefail/)

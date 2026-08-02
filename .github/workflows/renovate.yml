@@ -75,19 +75,19 @@ jobs:
           esac
           log_dir="$(mktemp -d "/tmp/renovate-run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.XXXXXX")"
           chmod 0700 "$log_dir"
-          runner_uid="$(id -u)"
-          case "$runner_uid" in
-            '' | *[!0-9]*) echo "::error::Runner UID is invalid"; exit 1 ;;
-            0) echo "::error::Renovate must not run as root"; exit 1 ;;
-          esac
           log_directory_identity="$(stat -Lc '%d:%i' "$log_dir")"
           case "$log_directory_identity" in
             *[!0-9:]* | :* | *: | *:*:*) echo "::error::Renovate log directory identity is invalid"; exit 1 ;;
           esac
+          [ -f runner.json ] && [ ! -L runner.json ] \
+            || { echo "::error::Renovate runner configuration is not a regular file"; exit 1; }
+          config_copy="$RUNNER_TEMP/renovate-runner.json"
+          cp -- runner.json "$config_copy"
+          chmod 0444 "$config_copy"
           printf 'LOG_FILE=%s/renovate.jsonl\n' "$log_dir" >> "$GITHUB_ENV"
           printf 'directory=%s\n' "$log_dir" >> "$GITHUB_OUTPUT"
           printf 'identity=%s\n' "$log_directory_identity" >> "$GITHUB_OUTPUT"
-          printf 'runner-uid=%s\n' "$runner_uid" >> "$GITHUB_OUTPUT"
+          printf 'configuration-file=%s\n' "$config_copy" >> "$GITHUB_OUTPUT"
 
       - name: Begin Node setup timing
         id: node-start
@@ -187,14 +187,18 @@ jobs:
         id: renovate
         uses: renovatebot/github-action@dd5302ec17783b2fc721b19ae7209b57b1587765 # v46.1.17
         with:
-          configurationFile: runner.json
+          # Root inside the container must never receive a writable mount of
+          # the checked-out source tree. The action mounts this disposable
+          # runner-owned copy instead of repository runner.json.
+          configurationFile: ${{ steps.renovate-log.outputs.configuration-file }}
           token: ${{ steps.app-token.outputs.token }}
           renovate-version: ${{ steps.renovate-runtime.outputs.version }}
           # The image's default unprivileged UID cannot enter the runner-owned
-          # 0700 directory. Keep Renovate unprivileged, but align its numeric
-          # UID with the runner so the container can create the raw log and the
-          # runner can remove it without sudo or ownership repair.
-          docker-user: ${{ steps.renovate-log.outputs.runner-uid }}
+          # 0700 directory. Root is confined to the container, receives no
+          # Docker socket, and gets only the exact private log mount plus the
+          # disposable config copy; the runner-owned parent still governs
+          # host-side unlink and rmdir.
+          docker-user: root
           # Expose only this run's randomized private directory, not all of
           # shared /tmp. The container must not create or replace the parent.
           docker-volumes: '${{ steps.renovate-log.outputs.directory }}:${{ steps.renovate-log.outputs.directory }}'

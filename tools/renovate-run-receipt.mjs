@@ -22,6 +22,7 @@ const DEFAULT_LOG_LINE_LIMIT = 500_000
 const DEFAULT_LOG_LINE_BYTE_LIMIT = 1024 * 1024
 const DEFAULT_LOG_PARSE_MILLISECONDS = 30_000
 const LOG_READ_CHUNK_BYTES = 64 * 1024
+const CONTAINER_LOG_PREFLIGHT_MESSAGE = 'Renovate log mount preflight passed'
 
 const TOKEN_PERMISSION_REPAIR =
   'Approve the GitHub App installation permission update so the installation grants the canonical RENOVATE_APP_PERMISSIONS union, then rerun Renovate. Do not remove required workflow scopes to bypass HTTP 422.'
@@ -89,6 +90,7 @@ function parseRenovateEntries(entries, expectedRepositories, {
   const timings = new Set()
   const parseStarted = performance.now()
   const evidence = {
+    containerLogPreflight: false,
     globalWarnings: 0,
     globalErrors: 0,
     unexpectedRepositoryRecords: 0,
@@ -106,6 +108,15 @@ function parseRenovateEntries(entries, expectedRepositories, {
     const repository = entry.repository ?? entry.repo
     const message = entry.msg
     if (repository === undefined) {
+      if (message === CONTAINER_LOG_PREFLIGHT_MESSAGE) {
+        if (level !== 30) {
+          throw new Error('container log-mount preflight record has an invalid level')
+        }
+        if (evidence.containerLogPreflight) {
+          throw new Error('structured Renovate log contains duplicate container log-mount preflight records')
+        }
+        evidence.containerLogPreflight = true
+      }
       if (level >= 50) evidence.globalErrors += 1
       else if (level >= 40) evidence.globalWarnings += 1
       continue
@@ -415,6 +426,7 @@ export function writeRenovateReceipt(options, {
   let rawLogMissing = false
   let repositories
   let evidence = {
+    containerLogPreflight: false,
     globalWarnings: 0,
     globalErrors: 0,
     unexpectedRepositoryRecords: 0,
@@ -451,6 +463,9 @@ export function writeRenovateReceipt(options, {
       repositories = parsed.repositories
       evidence = parsed.evidence
       const evidenceProblems = []
+      if (!evidence.containerLogPreflight) {
+        evidenceProblems.push('structured Renovate log omitted the container log-mount preflight record')
+      }
       if (evidence.globalErrors > 0) {
         evidenceProblems.push(`structured Renovate log contains ${evidence.globalErrors} global ERROR/FATAL record(s)`)
       }
@@ -522,6 +537,9 @@ export function writeRenovateReceipt(options, {
       'Renovate version': values['--version'],
       'Console log level': values['--log-level'],
       'Structured log level': 'debug',
+      'Container log preflight': evidence.containerLogPreflight ? 'passed' : (
+        actionResult === 'skipped' ? 'not run' : 'not observed'
+      ),
       'Structured evidence': evidenceError ?? (
         rawLogMissing
           ? 'not produced because Renovate did not run'

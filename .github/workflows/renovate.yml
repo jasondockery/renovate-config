@@ -59,9 +59,8 @@ jobs:
           [ "$finished" -ge "$STARTED" ] || { echo "::error::Checkout timing moved backwards"; exit 1; }
           echo "seconds=$(( finished - STARTED ))" >> "$GITHUB_OUTPUT"
 
-      # /tmp is the action's shared host/container volume. The runner creates
-      # the randomized parent first so it, rather than container root, owns the
-      # non-sticky directory that governs unlink permission.
+      # Keep host and container paths distinct. The runner owns the randomized
+      # host directory, while the container sees only the fixed private mount.
       - name: Prepare private Renovate log directory
         id: renovate-log
         shell: bash
@@ -73,7 +72,9 @@ jobs:
           case "${GITHUB_RUN_ATTEMPT:-}" in
             '' | *[!0-9]*) echo "::error::GitHub run attempt is invalid"; exit 1 ;;
           esac
-          log_dir="$(mktemp -d "/tmp/renovate-run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.XXXXXX")"
+          [ -d "$RUNNER_TEMP" ] && [ ! -L "$RUNNER_TEMP" ] \
+            || { echo "::error::GitHub runner temporary directory is not a real directory"; exit 1; }
+          log_dir="$(mktemp -d "$RUNNER_TEMP/renovate-run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.XXXXXX")"
           chmod 0700 "$log_dir"
           log_directory_identity="$(stat -Lc '%d:%i' "$log_dir")"
           case "$log_directory_identity" in
@@ -84,10 +85,17 @@ jobs:
           config_copy="$RUNNER_TEMP/renovate-runner.json"
           cp -- runner.json "$config_copy"
           chmod 0444 "$config_copy"
-          printf 'LOG_FILE=%s/renovate.jsonl\n' "$log_dir" >> "$GITHUB_ENV"
+          [ -f tools/renovate-container-entrypoint.sh ] && [ ! -L tools/renovate-container-entrypoint.sh ] \
+            || { echo "::error::Renovate container entrypoint is not a regular file"; exit 1; }
+          entrypoint_copy="$RUNNER_TEMP/renovate-container-entrypoint.sh"
+          cp -- tools/renovate-container-entrypoint.sh "$entrypoint_copy"
+          chmod 0555 "$entrypoint_copy"
+          printf 'LOG_FILE=/renovate-log/renovate.jsonl\n' >> "$GITHUB_ENV"
           printf 'directory=%s\n' "$log_dir" >> "$GITHUB_OUTPUT"
+          printf 'host-log=%s/renovate.jsonl\n' "$log_dir" >> "$GITHUB_OUTPUT"
           printf 'identity=%s\n' "$log_directory_identity" >> "$GITHUB_OUTPUT"
           printf 'configuration-file=%s\n' "$config_copy" >> "$GITHUB_OUTPUT"
+          printf 'entrypoint=%s\n' "$entrypoint_copy" >> "$GITHUB_OUTPUT"
 
       - name: Begin Node setup timing
         id: node-start
@@ -199,9 +207,12 @@ jobs:
           # disposable config copy; the runner-owned parent still governs
           # host-side unlink and rmdir.
           docker-user: root
-          # Expose only this run's randomized private directory, not all of
-          # shared /tmp. The container must not create or replace the parent.
-          docker-volumes: '${{ steps.renovate-log.outputs.directory }}:${{ steps.renovate-log.outputs.directory }}'
+          # Expose only this run's randomized private directory at one fixed
+          # container path. Never mount all of /tmp or the Docker socket.
+          docker-volumes: '${{ steps.renovate-log.outputs.directory }}:/renovate-log'
+          # The action mounts this disposable copy as the container command.
+          # It proves the exact log mount is writable before execing Renovate.
+          docker-cmd-file: ${{ steps.renovate-log.outputs.entrypoint }}
           # The action passes only an allowlist into its container. Keep the
           # default set and add exactly Renovate's documented file-log knobs.
           env-regex: '^(?:RENOVATE_\w+|LOG_(?:LEVEL|FILE|FILE_FORMAT|FILE_LEVEL)|GITHUB_COM_TOKEN|NODE_OPTIONS|NO_COLOR|(?:HTTPS?|NO)_PROXY|(?:https?|no)_proxy)$'
@@ -234,6 +245,7 @@ jobs:
           RENOVATE_VERSION: ${{ steps.renovate-runtime.outputs.version }}
           JOB_STARTED_EPOCH: ${{ steps.job-start.outputs.epoch }}
           RENOVATE_LOG_DIR: ${{ steps.renovate-log.outputs.directory }}
+          RENOVATE_LOG_FILE: ${{ steps.renovate-log.outputs.host-log }}
           RENOVATE_LOG_DIR_IDENTITY: ${{ steps.renovate-log.outputs.identity }}
         run: |
           phase_result() {
@@ -262,7 +274,7 @@ jobs:
           } > "$RUNNER_TEMP/renovate-phases.tsv"
           receipt_status=0
           node tools/renovate-run-receipt.mjs \
-            --log "$LOG_FILE" \
+            --log "$RENOVATE_LOG_FILE" \
             --log-directory "$RENOVATE_LOG_DIR" \
             --log-directory-identity "$RENOVATE_LOG_DIR_IDENTITY" \
             --repositories "$RENOVATE_REPOSITORIES" \

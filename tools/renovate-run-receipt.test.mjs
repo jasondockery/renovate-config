@@ -23,6 +23,10 @@ const capturedFixture = path.join(
   'fixtures',
   `renovate-${renovateVersion}-structured-log.jsonl`
 )
+const preflightRecord = {
+  level: 30,
+  msg: 'Renovate log mount preflight passed',
+}
 const log = [
   { level: 30, repository: expected[0], msg: 'Repository started' },
   { level: 40, repository: expected[0], msg: 'Transient provider warning' },
@@ -51,6 +55,7 @@ const log = [
 
 function successfulLog(extraEntries = []) {
   return [
+    preflightRecord,
     ...extraEntries,
     ...expected.map((repository, index) => ({
       level: 30,
@@ -139,6 +144,7 @@ test('Renovate structured logs become bounded per-repository facts', () => {
       },
     ],
     evidence: {
+      containerLogPreflight: false,
       globalWarnings: 0,
       globalErrors: 0,
       unexpectedRepositoryRecords: 0,
@@ -262,6 +268,7 @@ test('global severity and unexpected repositories become bounded fail-closed evi
   ]
   const parsed = parseRenovateLog(successfulLog(entries), expected)
   assert.deepEqual(parsed.evidence, {
+    containerLogPreflight: true,
     globalWarnings: 1,
     globalErrors: 1,
     unexpectedRepositoryRecords: 2,
@@ -451,8 +458,28 @@ test('a complete successful run publishes only bounded facts and deletes the raw
   )
   assert.equal(receipt.facts['Raw structured log'], 'deleted before receipt publication')
   assert.equal(receipt.facts['Private log directory'], 'removed before receipt publication')
+  assert.equal(receipt.facts['Container log preflight'], 'passed')
   assert.doesNotMatch(serialized, new RegExp(secretMarker))
   assert.doesNotMatch(fs.readFileSync(fixture.summary, 'utf8'), new RegExp(secretMarker))
+})
+
+test('a successful action without the container preflight record fails closed', () => {
+  const logWithoutPreflight = expected.map((repository, index) => ({
+    level: 30,
+    repository,
+    msg: 'Repository timing splits (milliseconds)',
+    total: (index + 1) * 1000,
+  })).map((entry) => JSON.stringify(entry)).join('\n')
+  const fixture = cliFixture({ logText: logWithoutPreflight })
+
+  const result = spawnSync(process.execPath, fixture.arguments_)
+
+  assert.equal(result.status, 1)
+  assert.equal(fs.existsSync(fixture.logFile), false)
+  const receipt = JSON.parse(fs.readFileSync(fixture.output, 'utf8'))
+  assert.equal(receipt.result, 'failed')
+  assert.equal(receipt.facts['Container log preflight'], 'not observed')
+  assert.match(receipt.facts['Structured evidence'], /omitted the container log-mount preflight record/)
 })
 
 test('an action failure before repository completion publishes sanitized failure evidence', () => {

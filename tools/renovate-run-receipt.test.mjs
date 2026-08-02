@@ -61,24 +61,34 @@ function successfulLog(extraEntries = []) {
   ].map((entry) => JSON.stringify(entry)).join('\n')
 }
 
+function directoryIdentity(directory) {
+  const status = fs.lstatSync(directory, { bigint: true })
+  return `${status.dev}:${status.ino}`
+}
+
 function cliFixture({
   prefix = 'renovate-run-case-',
   logText = successfulLog(),
   phaseText = 'GitHub App token mint\t1\tpassed\t\nRenovate execution\t2\tpassed\t\n',
   tokenOutcome = 'success',
   actionOutcome = 'success',
+  createLog = true,
   output,
   summary,
 } = {}) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), prefix))
-  const logFile = path.join(directory, 'renovate.jsonl')
+  const logDirectory = path.join(directory, 'private-log')
+  fs.mkdirSync(logDirectory, { mode: 0o700 })
+  const logFile = path.join(logDirectory, 'renovate.jsonl')
   const phaseFile = path.join(directory, 'phases.tsv')
   const outputFile = output ?? path.join(directory, 'receipt.json')
   const summaryFile = summary ?? path.join(directory, 'summary.md')
-  fs.writeFileSync(logFile, logText)
+  if (createLog) fs.writeFileSync(logFile, logText)
   fs.writeFileSync(phaseFile, phaseText)
   const values = {
     '--log': logFile,
+    '--log-directory': logDirectory,
+    '--log-directory-identity': directoryIdentity(logDirectory),
     '--repositories': expected.join(','),
     '--token-outcome': tokenOutcome,
     '--outcome': actionOutcome,
@@ -94,6 +104,7 @@ function cliFixture({
   for (const [name, value] of Object.entries(values)) arguments_.push(name, value)
   return {
     directory,
+    logDirectory,
     logFile,
     output: outputFile,
     summary: summaryFile,
@@ -306,7 +317,9 @@ test('action-success receipts fail on dangerous unexpected evidence but advise o
 
 test('a repository error makes an action-success receipt and process fail after writing evidence', () => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'renovate-run-receipt-'))
-  const logFile = path.join(directory, 'renovate.jsonl')
+  const logDirectory = path.join(directory, 'private-log')
+  fs.mkdirSync(logDirectory, { mode: 0o700 })
+  const logFile = path.join(logDirectory, 'renovate.jsonl')
   const output = path.join(directory, 'receipt.json')
   const summary = path.join(directory, 'summary.md')
   const phases = path.join(directory, 'phases.tsv')
@@ -315,6 +328,8 @@ test('a repository error makes an action-success receipt and process fail after 
   const result = spawnSync(process.execPath, [
     tool,
     '--log', logFile,
+    '--log-directory', logDirectory,
+    '--log-directory-identity', directoryIdentity(logDirectory),
     '--repositories', expected.join(','),
     '--token-outcome', 'success',
     '--outcome', 'success',
@@ -333,7 +348,9 @@ test('a repository error makes an action-success receipt and process fail after 
 
 test('a failed token mint and skipped Renovate action produce owner-directed failure evidence', () => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'renovate-token-receipt-'))
-  const logFile = path.join(directory, 'renovate.jsonl')
+  const logDirectory = path.join(directory, 'private-log')
+  fs.mkdirSync(logDirectory, { mode: 0o700 })
+  const logFile = path.join(logDirectory, 'renovate.jsonl')
   const phaseFile = path.join(directory, 'phases.tsv')
   const output = path.join(directory, 'receipt.json')
   const summary = path.join(directory, 'summary.md')
@@ -345,6 +362,8 @@ test('a failed token mint and skipped Renovate action produce owner-directed fai
   const result = spawnSync(process.execPath, [
     tool,
     '--log', logFile,
+    '--log-directory', logDirectory,
+    '--log-directory-identity', directoryIdentity(logDirectory),
     '--repositories', expected.join(','),
     '--token-outcome', 'failure',
     '--outcome', 'skipped',
@@ -368,7 +387,9 @@ test('a failed token mint and skipped Renovate action produce owner-directed fai
 
 test('missing successful-run timing writes a failed evidence receipt instead of losing the summary', () => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'renovate-missing-evidence-'))
-  const logFile = path.join(directory, 'renovate.jsonl')
+  const logDirectory = path.join(directory, 'private-log')
+  fs.mkdirSync(logDirectory, { mode: 0o700 })
+  const logFile = path.join(logDirectory, 'renovate.jsonl')
   const phaseFile = path.join(directory, 'phases.tsv')
   const output = path.join(directory, 'receipt.json')
   const summary = path.join(directory, 'summary.md')
@@ -382,6 +403,8 @@ test('missing successful-run timing writes a failed evidence receipt instead of 
   const result = spawnSync(process.execPath, [
     tool,
     '--log', logFile,
+    '--log-directory', logDirectory,
+    '--log-directory-identity', directoryIdentity(logDirectory),
     '--repositories', expected.join(','),
     '--token-outcome', 'success',
     '--outcome', 'success',
@@ -412,10 +435,12 @@ test('a complete successful run publishes only bounded facts and deletes the raw
       payload: { authorization: secretMarker },
     }]),
   })
+  fs.chmodSync(fixture.logFile, 0o444)
   const result = spawnSync(process.execPath, fixture.arguments_)
 
   assert.equal(result.status, 0)
   assert.equal(fs.existsSync(fixture.logFile), false)
+  assert.equal(fs.existsSync(fixture.logDirectory), false)
   const serialized = fs.readFileSync(fixture.output, 'utf8')
   const receipt = JSON.parse(serialized)
   assert.equal(receipt.receiptKind, 'renovate-run')
@@ -425,6 +450,7 @@ test('a complete successful run publishes only bounded facts and deletes the raw
     ['passed', 'passed', 'passed']
   )
   assert.equal(receipt.facts['Raw structured log'], 'deleted before receipt publication')
+  assert.equal(receipt.facts['Private log directory'], 'removed before receipt publication')
   assert.doesNotMatch(serialized, new RegExp(secretMarker))
   assert.doesNotMatch(fs.readFileSync(fixture.summary, 'utf8'), new RegExp(secretMarker))
 })
@@ -477,9 +503,131 @@ test('raw-log deletion failure is explicit, sanitized, and authoritative', () =>
 
   assert.equal(receipt.result, 'failed')
   assert.equal(receipt.facts['Raw structured log'], 'deletion failed; raw log was not uploaded')
+  assert.equal(receipt.facts['Private log directory'], 'not removed because raw log deletion failed')
   assert.match(receipt.repair, /temporary-file deletion failure/)
   assert.equal(fs.existsSync(fixture.logFile), true)
   assert.doesNotMatch(fs.readFileSync(fixture.output, 'utf8'), /host path and token/)
+})
+
+test('private log containment rejects an external file without reading or deleting it', () => {
+  const fixture = cliFixture()
+  const externalDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'renovate-external-log-'))
+  const externalLog = path.join(externalDirectory, 'renovate.jsonl')
+  const secretMarker = 'external-log-must-not-be-read'
+  fs.writeFileSync(externalLog, secretMarker)
+  fixture.values['--log'] = externalLog
+
+  const receipt = writeRenovateReceipt(
+    { values: fixture.values, repositories: expected }
+  )
+
+  assert.equal(receipt.result, 'failed')
+  assert.match(receipt.facts['Structured evidence'], /expected direct child/)
+  assert.equal(receipt.facts['Raw structured log'], 'validation failed; raw log was not uploaded')
+  assert.equal(fs.readFileSync(externalLog, 'utf8'), secretMarker)
+  assert.doesNotMatch(fs.readFileSync(fixture.output, 'utf8'), new RegExp(secretMarker))
+})
+
+test('private log containment rejects symlinks without following or deleting them', () => {
+  const fixture = cliFixture()
+  const target = path.join(fixture.directory, 'external-target.jsonl')
+  const secretMarker = 'symlink-target-must-not-be-read'
+  fs.writeFileSync(target, secretMarker)
+  fs.unlinkSync(fixture.logFile)
+  fs.symlinkSync(target, fixture.logFile)
+
+  const result = spawnSync(process.execPath, fixture.arguments_)
+
+  assert.equal(result.status, 1)
+  assert.equal(fs.lstatSync(fixture.logFile).isSymbolicLink(), true)
+  assert.equal(fs.readFileSync(target, 'utf8'), secretMarker)
+  const receipt = JSON.parse(fs.readFileSync(fixture.output, 'utf8'))
+  assert.match(receipt.facts['Structured evidence'], /regular non-symlink file/)
+  assert.doesNotMatch(JSON.stringify(receipt), new RegExp(secretMarker))
+})
+
+test('parent-directory symlink replacement preserves the external target through CLI cleanup', () => {
+  const fixture = cliFixture()
+  const externalDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'renovate-symlink-target-'))
+  const externalLog = path.join(externalDirectory, 'renovate.jsonl')
+  const secretMarker = 'parent-symlink-target-must-not-be-read-or-deleted'
+  fs.writeFileSync(externalLog, secretMarker)
+  fs.rmSync(fixture.logDirectory, { recursive: true })
+  fs.symlinkSync(externalDirectory, fixture.logDirectory)
+
+  const result = spawnSync(process.execPath, fixture.arguments_)
+
+  assert.equal(result.status, 1)
+  assert.equal(fs.lstatSync(fixture.logDirectory).isSymbolicLink(), true)
+  assert.equal(fs.readFileSync(externalLog, 'utf8'), secretMarker)
+  const receipt = JSON.parse(fs.readFileSync(fixture.output, 'utf8'))
+  assert.match(receipt.facts['Structured evidence'], /not a real directory/)
+  assert.doesNotMatch(JSON.stringify(receipt), new RegExp(secretMarker))
+})
+
+test('same-path directory replacement with matching owner and mode fails identity binding', () => {
+  const fixture = cliFixture()
+  const originalIdentity = fixture.values['--log-directory-identity']
+  const replacementDirectory = path.join(fixture.directory, 'replacement-private-log')
+  fs.mkdirSync(replacementDirectory, { mode: 0o700 })
+  const replacementIdentity = directoryIdentity(replacementDirectory)
+  assert.notEqual(replacementIdentity, originalIdentity)
+  fs.writeFileSync(path.join(replacementDirectory, 'renovate.jsonl'), successfulLog())
+  fs.rmSync(fixture.logDirectory, { recursive: true })
+  fs.renameSync(replacementDirectory, fixture.logDirectory)
+  assert.equal(directoryIdentity(fixture.logDirectory), replacementIdentity)
+
+  const result = spawnSync(process.execPath, fixture.arguments_)
+
+  assert.equal(result.status, 1)
+  assert.equal(fs.existsSync(fixture.logFile), true)
+  const receipt = JSON.parse(fs.readFileSync(fixture.output, 'utf8'))
+  assert.match(receipt.facts['Structured evidence'], /identity changed after runner creation/)
+})
+
+test('special permission bits fail the exact private-directory mode contract', () => {
+  const fixture = cliFixture()
+  fs.chmodSync(fixture.logDirectory, 0o1700)
+
+  const result = spawnSync(process.execPath, fixture.arguments_)
+
+  assert.equal(result.status, 1)
+  assert.equal(fs.existsSync(fixture.logFile), true)
+  const receipt = JSON.parse(fs.readFileSync(fixture.output, 'utf8'))
+  assert.match(receipt.facts['Structured evidence'], /does not have mode 0700/)
+})
+
+test('a skipped Renovate action records no raw log and removes the exact empty directory', () => {
+  const fixture = cliFixture({
+    createLog: false,
+    tokenOutcome: 'failure',
+    actionOutcome: 'skipped',
+  })
+
+  const result = spawnSync(process.execPath, fixture.arguments_)
+
+  assert.equal(result.status, 1)
+  assert.equal(fs.existsSync(fixture.logDirectory), false)
+  const receipt = JSON.parse(fs.readFileSync(fixture.output, 'utf8'))
+  assert.equal(receipt.facts['Raw structured log'], 'not produced because Renovate did not run')
+  assert.equal(receipt.facts['Private log directory'], 'removed before receipt publication')
+  assert.equal(receipt.facts['Structured evidence'], 'not produced because Renovate did not run')
+  assert.doesNotMatch(receipt.repair, /containment failure/)
+})
+
+test('unexpected private-directory entries make cleanup fail closed after raw-log deletion', () => {
+  const fixture = cliFixture()
+  fs.writeFileSync(path.join(fixture.logDirectory, 'unexpected-entry'), 'bounded')
+
+  const result = spawnSync(process.execPath, fixture.arguments_)
+
+  assert.equal(result.status, 1)
+  assert.equal(fs.existsSync(fixture.logFile), false)
+  assert.equal(fs.existsSync(fixture.logDirectory), true)
+  const receipt = JSON.parse(fs.readFileSync(fixture.output, 'utf8'))
+  assert.equal(receipt.facts['Raw structured log'], 'deleted before receipt publication')
+  assert.equal(receipt.facts['Private log directory'], 'removal failed; private directory was not uploaded')
+  assert.match(receipt.repair, /unexpected entries/)
 })
 
 test('run receipt write fails closed and summary write fails open after receipt publication', () => {

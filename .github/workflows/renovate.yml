@@ -32,9 +32,6 @@ jobs:
     # Job-level so both the Renovate step and the run summary read one copy.
     env:
       LOG_LEVEL: ${{ github.event.inputs.log_level || 'info' }}
-      # /tmp is the action's default shared host/container volume. A workspace-
-      # relative file would stay inside the Renovate container and disappear.
-      LOG_FILE: /tmp/renovate-run-${{ github.run_id }}-${{ github.run_attempt }}.jsonl
       LOG_FILE_FORMAT: json
       LOG_FILE_LEVEL: debug
       # Every targeted repo carries its own renovate.json; never open
@@ -61,6 +58,30 @@ jobs:
           finished="$(date +%s)"
           [ "$finished" -ge "$STARTED" ] || { echo "::error::Checkout timing moved backwards"; exit 1; }
           echo "seconds=$(( finished - STARTED ))" >> "$GITHUB_OUTPUT"
+
+      # /tmp is the action's shared host/container volume. The runner creates
+      # the randomized parent first so it, rather than container root, owns the
+      # non-sticky directory that governs unlink permission.
+      - name: Prepare private Renovate log directory
+        id: renovate-log
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${GITHUB_RUN_ID:-}" in
+            '' | *[!0-9]*) echo "::error::GitHub run ID is invalid"; exit 1 ;;
+          esac
+          case "${GITHUB_RUN_ATTEMPT:-}" in
+            '' | *[!0-9]*) echo "::error::GitHub run attempt is invalid"; exit 1 ;;
+          esac
+          log_dir="$(mktemp -d "/tmp/renovate-run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.XXXXXX")"
+          chmod 0700 "$log_dir"
+          log_directory_identity="$(stat -Lc '%d:%i' "$log_dir")"
+          case "$log_directory_identity" in
+            *[!0-9:]* | :* | *: | *:*:*) echo "::error::Renovate log directory identity is invalid"; exit 1 ;;
+          esac
+          printf 'LOG_FILE=%s/renovate.jsonl\n' "$log_dir" >> "$GITHUB_ENV"
+          printf 'directory=%s\n' "$log_dir" >> "$GITHUB_OUTPUT"
+          printf 'identity=%s\n' "$log_directory_identity" >> "$GITHUB_OUTPUT"
 
       - name: Begin Node setup timing
         id: node-start
@@ -194,8 +215,9 @@ jobs:
           RENOVATE_SECONDS: ${{ steps.renovate-time.outputs.seconds }}
           RENOVATE_VERSION: ${{ steps.renovate-runtime.outputs.version }}
           JOB_STARTED_EPOCH: ${{ steps.job-start.outputs.epoch }}
+          RENOVATE_LOG_DIR: ${{ steps.renovate-log.outputs.directory }}
+          RENOVATE_LOG_DIR_IDENTITY: ${{ steps.renovate-log.outputs.identity }}
         run: |
-          [ -f "$LOG_FILE" ] || : > "$LOG_FILE"
           phase_result() {
             case "$1" in
               success) printf passed ;;
@@ -223,6 +245,8 @@ jobs:
           receipt_status=0
           node tools/renovate-run-receipt.mjs \
             --log "$LOG_FILE" \
+            --log-directory "$RENOVATE_LOG_DIR" \
+            --log-directory-identity "$RENOVATE_LOG_DIR_IDENTITY" \
             --repositories "$RENOVATE_REPOSITORIES" \
             --token-outcome "$TOKEN_OUTCOME" \
             --outcome "$RENOVATE_OUTCOME" \
@@ -236,17 +260,11 @@ jobs:
           [ ! -f "$RUNNER_TEMP/renovate-summary.md" ] \
             || cat "$RUNNER_TEMP/renovate-summary.md" >> "$GITHUB_STEP_SUMMARY" \
             || echo "::warning title=Job summary unavailable::The authoritative Renovate receipt was written, but its Markdown view could not be appended."
-          # The receipt producer consumes the raw debug log after parsing and
-          # fails the sanitized receipt if deletion does not succeed. Retain
-          # the bounded receipt, never the source log.
-          if [ -e "$LOG_FILE" ]; then
-            cleanup_status=0
-            rm -f "$LOG_FILE" || cleanup_status=$?
-            if [ "$cleanup_status" -eq 0 ]; then
-              echo "::error title=Raw Renovate log cleanup fallback used::Receipt production did not consume the raw log; the workflow removed it and remains failed."
-            else
-              echo "::error title=Raw Renovate log cleanup failed::The workflow could not remove the raw structured log from runner temporary storage."
-            fi
+          # The receipt producer is the only cleanup authority: it revalidates
+          # the captured directory identity before unlink and rmdir. The shell
+          # observes leftovers without traversing or deleting a rejected path.
+          if [ -n "$RENOVATE_LOG_DIR" ] && { [ -e "$RENOVATE_LOG_DIR" ] || [ -L "$RENOVATE_LOG_DIR" ]; }; then
+            echo "::error title=Renovate log cleanup incomplete::The receipt producer left the private log path in place; no fallback deletion was attempted."
             [ "$receipt_status" -ne 0 ] || receipt_status=1
           fi
           if [ "$TOKEN_OUTCOME" = failure ]; then

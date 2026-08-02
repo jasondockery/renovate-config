@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import fs from 'node:fs'
+import path from 'node:path'
 import process from 'node:process'
 import { performance } from 'node:perf_hooks'
 import { isMainModule } from './is-main.mjs'
@@ -279,7 +280,67 @@ function writeAtomic(file, contents) {
 }
 
 function usage() {
-  return 'usage: node tools/renovate-run-receipt.mjs --log FILE --repositories CSV --token-outcome OUTCOME --outcome OUTCOME --phase-file FILE --version VERSION --log-level LEVEL --started-epoch N --finished-epoch N --output FILE --summary FILE'
+  return 'usage: node tools/renovate-run-receipt.mjs --log FILE --log-directory DIRECTORY --log-directory-identity DEVICE:INODE --repositories CSV --token-outcome OUTCOME --outcome OUTCOME --phase-file FILE --version VERSION --log-level LEVEL --started-epoch N --finished-epoch N --output FILE --summary FILE'
+}
+
+function validatePrivateLogDirectory(directory, expectedIdentity) {
+  if (!/^\d+:\d+$/u.test(expectedIdentity)) {
+    throw new Error('private Renovate log directory identity is invalid')
+  }
+  const resolvedDirectory = path.resolve(directory)
+  let directoryStatus
+  try {
+    directoryStatus = fs.lstatSync(resolvedDirectory, { bigint: true })
+  } catch {
+    throw new Error('private Renovate log directory is missing or unreadable')
+  }
+  if (directoryStatus.isSymbolicLink() || !directoryStatus.isDirectory()) {
+    throw new Error('private Renovate log directory is not a real directory')
+  }
+  if ((directoryStatus.mode & 0o7777n) !== 0o700n) {
+    throw new Error('private Renovate log directory does not have mode 0700')
+  }
+  if (typeof process.getuid === 'function' && directoryStatus.uid !== BigInt(process.getuid())) {
+    throw new Error('private Renovate log directory is not owned by the receipt runner')
+  }
+  if (`${directoryStatus.dev}:${directoryStatus.ino}` !== expectedIdentity) {
+    throw new Error('private Renovate log directory identity changed after runner creation')
+  }
+  return resolvedDirectory
+}
+
+function inspectPrivateLogFile(file, directory, expectedIdentity) {
+  const resolvedDirectory = validatePrivateLogDirectory(directory, expectedIdentity)
+  const resolvedFile = path.resolve(file)
+  if (resolvedFile !== path.join(resolvedDirectory, 'renovate.jsonl')) {
+    throw new Error('structured Renovate log is not the expected direct child of the private log directory')
+  }
+
+  let fileStatus
+  try {
+    fileStatus = fs.lstatSync(resolvedFile)
+  } catch (error) {
+    if (error && typeof error === 'object' && error.code === 'ENOENT') {
+      return { missing: true }
+    }
+    throw new Error('structured Renovate log is missing or unreadable')
+  }
+  if (fileStatus.isSymbolicLink() || !fileStatus.isFile()) {
+    throw new Error('structured Renovate log is not a regular non-symlink file')
+  }
+
+  let realDirectory
+  let realFile
+  try {
+    realDirectory = fs.realpathSync(resolvedDirectory)
+    realFile = fs.realpathSync(resolvedFile)
+  } catch {
+    throw new Error('structured Renovate log containment could not be resolved')
+  }
+  if (realFile !== path.join(realDirectory, 'renovate.jsonl')) {
+    throw new Error('structured Renovate log escapes the private log directory')
+  }
+  return { missing: false }
 }
 
 function readPhases(file) {
@@ -301,6 +362,8 @@ function readPhases(file) {
 function parseArguments(argv) {
   const supported = new Set([
     '--log',
+    '--log-directory',
+    '--log-directory-identity',
     '--repositories',
     '--token-outcome',
     '--outcome',
@@ -332,18 +395,24 @@ function parseArguments(argv) {
   if (!(values['--token-outcome'] in ACTION_RESULTS)) {
     throw new Error(`unsupported GitHub App token outcome: ${values['--token-outcome']}`)
   }
+  if (!/^\d+:\d+$/u.test(values['--log-directory-identity'])) {
+    throw new Error('--log-directory-identity must be DEVICE:INODE')
+  }
   const repositories = values['--repositories'].split(',').map((value) => value.trim()).filter(Boolean)
   return { values, repositories }
 }
 
 export function writeRenovateReceipt(options, {
   removeLog = (file) => fs.unlinkSync(file),
+  removeLogDirectory = (directory) => fs.rmdirSync(directory),
   warn = (message) => console.error(message),
 } = {}) {
   const { values, repositories: expected } = options
   const tokenResult = ACTION_RESULTS[values['--token-outcome']]
   const actionResult = ACTION_RESULTS[values['--outcome']]
   let evidenceError
+  let privateLogStateValidated = false
+  let rawLogMissing = false
   let repositories
   let evidence = {
     globalWarnings: 0,
@@ -355,35 +424,55 @@ export function writeRenovateReceipt(options, {
     unexpectedRepositoryTimings: 0,
   }
   try {
-    const parsed = parseRenovateLogFile(
+    const logState = inspectPrivateLogFile(
       values['--log'],
-      expected,
-      { requireComplete: false }
+      values['--log-directory'],
+      values['--log-directory-identity']
     )
-    repositories = parsed.repositories
-    evidence = parsed.evidence
-    const evidenceProblems = []
-    if (evidence.globalErrors > 0) {
-      evidenceProblems.push(`structured Renovate log contains ${evidence.globalErrors} global ERROR/FATAL record(s)`)
-    }
-    if (
-      evidence.unexpectedRepositoryWarnings > 0 ||
-      evidence.unexpectedRepositoryErrors > 0 ||
-      evidence.unexpectedRepositoryTimings > 0
-    ) {
-      evidenceProblems.push(
-        'structured Renovate log contains warning, error, or timing evidence for unexpected repositories'
-      )
-    }
-    if (tokenResult === 'passed' && actionResult === 'passed') {
-      const missing = repositories
-        .filter((repository) => repository.durationSeconds === null)
-        .map((repository) => repository.repository)
-      if (missing.length > 0) {
-        evidenceProblems.push(`structured Renovate log omitted repository timing for: ${missing.join(', ')}`)
+    privateLogStateValidated = true
+    rawLogMissing = logState.missing
+    if (rawLogMissing) {
+      repositories = expected.map((repository) => ({
+        repository,
+        durationSeconds: null,
+        warnings: 0,
+        errors: 0,
+        result: 'unknown',
+      }))
+      if (actionResult !== 'skipped') {
+        evidenceError = 'structured Renovate log is missing after Renovate execution'
       }
+    } else {
+      const parsed = parseRenovateLogFile(
+        values['--log'],
+        expected,
+        { requireComplete: false }
+      )
+      repositories = parsed.repositories
+      evidence = parsed.evidence
+      const evidenceProblems = []
+      if (evidence.globalErrors > 0) {
+        evidenceProblems.push(`structured Renovate log contains ${evidence.globalErrors} global ERROR/FATAL record(s)`)
+      }
+      if (
+        evidence.unexpectedRepositoryWarnings > 0 ||
+        evidence.unexpectedRepositoryErrors > 0 ||
+        evidence.unexpectedRepositoryTimings > 0
+      ) {
+        evidenceProblems.push(
+          'structured Renovate log contains warning, error, or timing evidence for unexpected repositories'
+        )
+      }
+      if (tokenResult === 'passed' && actionResult === 'passed') {
+        const missing = repositories
+          .filter((repository) => repository.durationSeconds === null)
+          .map((repository) => repository.repository)
+        if (missing.length > 0) {
+          evidenceProblems.push(`structured Renovate log omitted repository timing for: ${missing.join(', ')}`)
+        }
+      }
+      if (evidenceProblems.length > 0) evidenceError = evidenceProblems.join('; ')
     }
-    if (evidenceProblems.length > 0) evidenceError = evidenceProblems.join('; ')
   } catch (error) {
     evidenceError = error instanceof Error ? error.message : String(error)
     repositories = expected.map((repository) => ({
@@ -406,7 +495,7 @@ export function writeRenovateReceipt(options, {
   } else if (actionResult !== 'passed' || evidenceError || repositoriesFailed) {
     repairs.push('Re-dispatch Renovate with log_level=debug and inspect the Run Renovate step before changing configuration or credentials.')
   }
-  const receiptInput = (rawLogState) => ({
+  const receiptInput = (rawLogState, privateDirectoryState) => ({
     receiptKind: 'renovate-run',
     title: 'Renovate run',
     result,
@@ -433,7 +522,11 @@ export function writeRenovateReceipt(options, {
       'Renovate version': values['--version'],
       'Console log level': values['--log-level'],
       'Structured log level': 'debug',
-      'Structured evidence': evidenceError ?? 'complete for every configured repository',
+      'Structured evidence': evidenceError ?? (
+        rawLogMissing
+          ? 'not produced because Renovate did not run'
+          : 'complete for every configured repository'
+      ),
       'Global warnings': String(evidence.globalWarnings),
       'Global errors': String(evidence.globalErrors),
       'Unexpected repository records': String(evidence.unexpectedRepositoryRecords),
@@ -442,6 +535,7 @@ export function writeRenovateReceipt(options, {
       'Unexpected repository errors': String(evidence.unexpectedRepositoryErrors),
       'Unexpected repository timings': String(evidence.unexpectedRepositoryTimings),
       'Raw structured log': rawLogState,
+      'Private log directory': privateDirectoryState,
       'Cache state': 'unavailable',
     },
     reproduce: `workflow_dispatch Renovate with log_level=${values['--log-level']}`,
@@ -450,17 +544,65 @@ export function writeRenovateReceipt(options, {
   // Validate every receipt input before the first side effect. The raw log is
   // consumed only after parsing; no receipt may claim it was removed until the
   // unlink has actually succeeded.
-  buildRenovateConfigReceipt(receiptInput('pending deletion'))
-  let rawLogState = 'deleted before receipt publication'
-  try {
-    removeLog(values['--log'])
-  } catch {
+  const absentLogState = actionResult === 'skipped'
+    ? 'not produced because Renovate did not run'
+    : 'missing after Renovate execution; raw log was not uploaded'
+  buildRenovateConfigReceipt(receiptInput(rawLogMissing ? absentLogState : 'pending deletion', 'pending removal'))
+  let rawLogState = rawLogMissing ? absentLogState : 'deleted before receipt publication'
+  let privateDirectoryState = 'removed before receipt publication'
+  if (!privateLogStateValidated) {
     result = 'failed'
-    rawLogState = 'deletion failed; raw log was not uploaded'
-    repairs.unshift('Repair the runner temporary-file deletion failure, remove the raw structured log, then rerun Renovate.')
+    rawLogState = 'validation failed; raw log was not uploaded'
+    privateDirectoryState = 'validation failed; private directory was not removed'
+    repairs.unshift('Repair the private Renovate log containment failure, remove the runner temporary directory, then rerun Renovate.')
+  } else {
+    let rawLogRemoved = rawLogMissing
+    if (!rawLogMissing) {
+      let cleanupRevalidated = false
+      try {
+        const currentLogState = inspectPrivateLogFile(
+          values['--log'],
+          values['--log-directory'],
+          values['--log-directory-identity']
+        )
+        if (currentLogState.missing) {
+          throw new Error('structured Renovate log disappeared before deletion')
+        }
+        cleanupRevalidated = true
+      } catch {
+        result = 'failed'
+        rawLogState = 'deletion revalidation failed; raw log was not uploaded'
+        privateDirectoryState = 'not removed because raw log deletion failed'
+        repairs.unshift('Repair the runner temporary-file deletion failure, remove the raw structured log and private directory, then rerun Renovate.')
+      }
+      if (cleanupRevalidated) {
+        try {
+          removeLog(values['--log'])
+          rawLogRemoved = true
+        } catch {
+          result = 'failed'
+          rawLogState = 'deletion failed; raw log was not uploaded'
+          privateDirectoryState = 'not removed because raw log deletion failed'
+          repairs.unshift('Repair the runner temporary-file deletion failure, remove the raw structured log and private directory, then rerun Renovate.')
+        }
+      }
+    }
+    if (rawLogRemoved) {
+      try {
+        validatePrivateLogDirectory(
+          values['--log-directory'],
+          values['--log-directory-identity']
+        )
+        removeLogDirectory(values['--log-directory'])
+      } catch {
+        result = 'failed'
+        privateDirectoryState = 'removal failed; private directory was not uploaded'
+        repairs.unshift('Repair the private Renovate log directory cleanup failure, remove unexpected entries, then rerun Renovate.')
+      }
+    }
   }
 
-  const receipt = buildRenovateConfigReceipt(receiptInput(rawLogState))
+  const receipt = buildRenovateConfigReceipt(receiptInput(rawLogState, privateDirectoryState))
   receipt.repositories = repositories
   if (repairs.length > 0) receipt.repair = repairs.join(' ')
   writeAtomic(values['--output'], `${JSON.stringify(receipt, null, 2)}\n`)

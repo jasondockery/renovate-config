@@ -473,17 +473,28 @@ test('supervisor owner loss kills an orphan after the direct command exits', asy
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'renovate-supervisor-orphan-'))
   context.after(() => fs.rmSync(directory, { recursive: true, force: true }))
   const ready = path.join(directory, 'ready')
-  const leaker = path.join(directory, 'leaker.sh')
-  fs.writeFileSync(leaker, `#!/usr/bin/env bash
-(trap '' TERM; while :; do sleep 1; done) &
-printf '%s\n' "$RENOVATE_CONFIG_VERIFICATION_SUPERVISOR" >"$1"
-exit 0
+  const leaker = path.join(directory, 'leaker.mjs')
+  fs.writeFileSync(leaker, `import fs from 'node:fs'
+import { spawn } from 'node:child_process'
+
+const orphan = spawn('/bin/bash', ['-c', "trap '' TERM; while :; do sleep 1; done"], {
+  stdio: 'ignore',
+})
+orphan.unref()
+fs.writeFileSync(process.argv[2], \`\${process.env.RENOVATE_CONFIG_VERIFICATION_SUPERVISOR}\\n\`)
 `)
-  fs.chmodSync(leaker, 0o755)
-  const supervisor = spawn(process.execPath, [processSupervisor, '--', leaker, ready], {
+  const supervisor = spawn(process.execPath, [processSupervisor, '--', process.execPath, leaker, ready], {
     cwd: directory,
     detached: true,
     stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
+  })
+  context.after(() => {
+    if (supervisor.exitCode !== null || supervisor.signalCode !== null) return
+    try {
+      process.kill(-supervisor.pid, 'SIGKILL')
+    } catch (error) {
+      if (error?.code !== 'ESRCH') throw error
+    }
   })
   const commandStatus = new Promise((resolve, reject) => {
     const timeout = setTimeout(

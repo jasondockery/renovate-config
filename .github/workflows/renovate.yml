@@ -75,6 +75,11 @@ jobs:
           esac
           log_dir="$(mktemp -d "/tmp/renovate-run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.XXXXXX")"
           chmod 0700 "$log_dir"
+          runner_uid="$(id -u)"
+          case "$runner_uid" in
+            '' | *[!0-9]*) echo "::error::Runner UID is invalid"; exit 1 ;;
+            0) echo "::error::Renovate must not run as root"; exit 1 ;;
+          esac
           log_directory_identity="$(stat -Lc '%d:%i' "$log_dir")"
           case "$log_directory_identity" in
             *[!0-9:]* | :* | *: | *:*:*) echo "::error::Renovate log directory identity is invalid"; exit 1 ;;
@@ -82,6 +87,7 @@ jobs:
           printf 'LOG_FILE=%s/renovate.jsonl\n' "$log_dir" >> "$GITHUB_ENV"
           printf 'directory=%s\n' "$log_dir" >> "$GITHUB_OUTPUT"
           printf 'identity=%s\n' "$log_directory_identity" >> "$GITHUB_OUTPUT"
+          printf 'runner-uid=%s\n' "$runner_uid" >> "$GITHUB_OUTPUT"
 
       - name: Begin Node setup timing
         id: node-start
@@ -184,6 +190,14 @@ jobs:
           configurationFile: runner.json
           token: ${{ steps.app-token.outputs.token }}
           renovate-version: ${{ steps.renovate-runtime.outputs.version }}
+          # The image's default unprivileged UID cannot enter the runner-owned
+          # 0700 directory. Keep Renovate unprivileged, but align its numeric
+          # UID with the runner so the container can create the raw log and the
+          # runner can remove it without sudo or ownership repair.
+          docker-user: ${{ steps.renovate-log.outputs.runner-uid }}
+          # Expose only this run's randomized private directory, not all of
+          # shared /tmp. The container must not create or replace the parent.
+          docker-volumes: '${{ steps.renovate-log.outputs.directory }}:${{ steps.renovate-log.outputs.directory }}'
           # The action passes only an allowlist into its container. Keep the
           # default set and add exactly Renovate's documented file-log knobs.
           env-regex: '^(?:RENOVATE_\w+|LOG_(?:LEVEL|FILE|FILE_FORMAT|FILE_LEVEL)|GITHUB_COM_TOKEN|NODE_OPTIONS|NO_COLOR|(?:HTTPS?|NO)_PROXY|(?:https?|no)_proxy)$'

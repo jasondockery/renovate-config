@@ -485,20 +485,17 @@ exit 0
     detached: true,
     stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
   })
-  const commandStatus = Promise.race([
-    new Promise((resolve) => {
-      supervisor.on('message', (message) => {
-        if (message?.type === 'command-status') resolve(message)
-      })
-    }),
-    new Promise((_, reject) => {
-      const timeout = setTimeout(
-        () => reject(new Error('timed out waiting for supervisor status')),
-        1000
-      )
-      timeout.unref()
-    }),
-  ])
+  const commandStatus = new Promise((resolve, reject) => {
+    const timeout = setTimeout(
+      () => reject(new Error('timed out waiting for supervisor status')),
+      1000
+    )
+    supervisor.on('message', (message) => {
+      if (message?.type !== 'command-status') return
+      clearTimeout(timeout)
+      resolve(message)
+    })
+  })
   const launchDeadline = Date.now() + 1000
   while (!fs.existsSync(ready) && Date.now() < launchDeadline) {
     await new Promise((resolve) => setTimeout(resolve, 5))

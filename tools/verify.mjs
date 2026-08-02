@@ -786,6 +786,23 @@ function sendGroup(pid, signal, writeError = (value) => process.stderr.write(val
   }
 }
 
+export function completeVerificationCore({
+  send = process.send?.bind(process),
+  disconnect = () => process.disconnect(),
+} = {}) {
+  if (!send) return Promise.resolve()
+  return new Promise((resolve, reject) => {
+    send({ type: 'receipt-completed' }, (error) => {
+      if (error) {
+        reject(error)
+        return
+      }
+      disconnect()
+      resolve()
+    })
+  })
+}
+
 export function runVerificationWatchdog({
   command = process.execPath,
   arguments_,
@@ -817,9 +834,11 @@ export function runVerificationWatchdog({
     const stop = () => {
       if (reason || settled) return
       reason = controller.signal.reason ?? { type: 'cancelled' }
-      try {
-        child.send({ type: 'cancel', reason })
-      } catch {}
+      if (child.connected) {
+        try {
+          child.send({ type: 'cancel', reason }, () => {})
+        } catch {}
+      }
       cooperativeTimer = setTimeout(() => {
         sendGroup(child.pid, reason.signal ?? 'SIGTERM', writeError)
         for (const group of groups) sendGroup(group, reason.signal ?? 'SIGTERM', writeError)
@@ -857,10 +876,7 @@ export function runVerificationWatchdog({
     child.on('message', (message) => {
       if (message?.type === 'register-group' && Number.isSafeInteger(message.pid)) groups.add(message.pid)
       if (message?.type === 'unregister-group' && Number.isSafeInteger(message.pid)) groups.delete(message.pid)
-      if (message?.type === 'receipt-completed') {
-        receiptCompleted = true
-        if (child.connected) child.disconnect()
-      }
+      if (message?.type === 'receipt-completed') receiptCompleted = true
     })
     child.once('error', (error) => {
       if (settled) return
@@ -943,7 +959,7 @@ if (isMainModule(import.meta.url)) {
           unregisterChild: (child) => process.send?.({ type: 'unregister-group', pid: child.pid }),
         })
         if (report) writeAtomicJson(report, receipt)
-        process.send?.({ type: 'receipt-completed' })
+        await completeVerificationCore()
         process.exitCode = terminalSignal
           ? SIGNAL_EXIT_CODES[terminalSignal]
           : receipt.result === 'passed' ? 0 : 1

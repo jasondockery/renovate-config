@@ -18,6 +18,7 @@ import {
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const verifyTool = fileURLToPath(new URL('./verify.mjs', import.meta.url))
+const verifyModuleUrl = new URL('./verify.mjs', import.meta.url).href
 const processSupervisor = fileURLToPath(new URL('./process-supervisor.mjs', import.meta.url))
 
 function registerSupervisorCleanup(context, supervisor) {
@@ -363,7 +364,11 @@ test('external watchdog disconnects a completed verification core', async (conte
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'renovate-verify-complete-'))
   context.after(() => fs.rmSync(directory, { recursive: true, force: true }))
   const completed = path.join(directory, 'completed.mjs')
-  fs.writeFileSync(completed, "process.send?.({ type: 'receipt-completed' })\n")
+  fs.writeFileSync(
+    completed,
+    `import { completeVerificationCore } from ${JSON.stringify(verifyModuleUrl)}\n` +
+      'await completeVerificationCore()\n'
+  )
   const started = Date.now()
   const status = await runVerificationWatchdog({
     command: process.execPath,

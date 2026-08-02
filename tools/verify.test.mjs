@@ -20,6 +20,44 @@ const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url))
 const verifyTool = fileURLToPath(new URL('./verify.mjs', import.meta.url))
 const processSupervisor = fileURLToPath(new URL('./process-supervisor.mjs', import.meta.url))
 
+function registerSupervisorCleanup(context, supervisor) {
+  context.after(() => {
+    if (supervisor.exitCode !== null || supervisor.signalCode !== null) return
+    try {
+      process.kill(-supervisor.pid, 'SIGKILL')
+    } catch (error) {
+      if (error?.code !== 'ESRCH') throw error
+    }
+  })
+}
+
+function waitForSupervisorExit(supervisor, label) {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(
+      () => reject(new Error(`timed out waiting for ${label} supervisor exit`)),
+      1000
+    )
+    supervisor.once('exit', (exitCode, signalCode) => {
+      clearTimeout(timeout)
+      resolve({ exitCode, signalCode })
+    })
+  })
+}
+
+async function waitForProcessGroupGone(processGroup, label) {
+  const deadline = Date.now() + 1000
+  while (Date.now() < deadline) {
+    try {
+      process.kill(-processGroup, 0)
+    } catch (error) {
+      if (error?.code === 'ESRCH') return
+      throw error
+    }
+    await new Promise((resolve) => setTimeout(resolve, 5))
+  }
+  assert.fail(`${label} process group survived owner-loss cleanup`)
+}
+
 function fixture(context) {
   const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'renovate-verify-'))
   context.after(() => fs.rmSync(repoRoot, { recursive: true, force: true }))
@@ -456,16 +494,17 @@ wait
     detached: true,
     stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
   })
+  registerSupervisorCleanup(context, supervisor)
   const launchDeadline = Date.now() + 1000
   while (!fs.existsSync(ready) && Date.now() < launchDeadline) {
     await new Promise((resolve) => setTimeout(resolve, 5))
   }
   assert.equal(fs.existsSync(ready), true, 'hostile process did not reach its ready marker')
   const group = Number(fs.readFileSync(ready, 'utf8').trim())
-  const closed = new Promise((resolve) => supervisor.once('close', resolve))
+  const exited = waitForSupervisorExit(supervisor, 'running-command owner-loss')
   supervisor.disconnect()
-  await closed
-  assert.throws(() => process.kill(-group, 0), { code: 'ESRCH' })
+  await exited
+  await waitForProcessGroupGone(group, 'running-command owner-loss')
 })
 
 test('supervisor owner loss kills an orphan after the direct command exits', async (context) => {
@@ -488,14 +527,7 @@ fs.writeFileSync(process.argv[2], \`\${process.env.RENOVATE_CONFIG_VERIFICATION_
     detached: true,
     stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
   })
-  context.after(() => {
-    if (supervisor.exitCode !== null || supervisor.signalCode !== null) return
-    try {
-      process.kill(-supervisor.pid, 'SIGKILL')
-    } catch (error) {
-      if (error?.code !== 'ESRCH') throw error
-    }
-  })
+  registerSupervisorCleanup(context, supervisor)
   const commandStatus = new Promise((resolve, reject) => {
     const timeout = setTimeout(
       () => reject(new Error('timed out waiting for supervisor status')),
@@ -514,10 +546,10 @@ fs.writeFileSync(process.argv[2], \`\${process.env.RENOVATE_CONFIG_VERIFICATION_
   assert.equal(fs.existsSync(ready), true, 'orphan fixture did not reach its ready marker')
   assert.equal((await commandStatus).exitCode, 0, 'direct command did not exit successfully')
   const group = Number(fs.readFileSync(ready, 'utf8').trim())
-  const closed = new Promise((resolve) => supervisor.once('close', resolve))
+  const exited = waitForSupervisorExit(supervisor, 'exited-command owner-loss')
   supervisor.disconnect()
-  await closed
-  assert.throws(() => process.kill(-group, 0), { code: 'ESRCH' })
+  await exited
+  await waitForProcessGroupGone(group, 'exited-command owner-loss')
 })
 
 test('a successful lane that leaks a descendant fails after bounded cleanup', async (context) => {

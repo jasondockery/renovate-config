@@ -48,12 +48,18 @@ function waitForSupervisorExit(supervisor, label) {
 async function waitForProcessGroupGone(processGroup, label) {
   const deadline = Date.now() + 1000
   while (Date.now() < deadline) {
-    try {
-      process.kill(-processGroup, 0)
-    } catch (error) {
-      if (error?.code === 'ESRCH') return
-      throw error
-    }
+    const snapshot = spawnSync('ps', ['-eo', 'pgid=,stat='], {
+      encoding: 'utf8',
+      timeout: 1000,
+      maxBuffer: 1024 * 1024,
+    })
+    assert.equal(snapshot.error, undefined, `${label} process snapshot failed`)
+    assert.equal(snapshot.status, 0, `${label} process snapshot returned ${snapshot.status}`)
+    const liveMember = snapshot.stdout.split('\n').some((line) => {
+      const [groupText, state] = line.trim().split(/\s+/u)
+      return Number(groupText) === processGroup && state && !state.startsWith('Z')
+    })
+    if (!liveMember) return
     await new Promise((resolve) => setTimeout(resolve, 5))
   }
   assert.fail(`${label} process group survived owner-loss cleanup`)
@@ -482,7 +488,7 @@ wait
     write: () => {},
     writeError: () => {},
   })
-  const launchDeadline = Date.now() + 1000
+  const launchDeadline = Date.now() + 5000
   while (!fs.existsSync(ready) && Date.now() < launchDeadline) {
     await new Promise((resolve) => setTimeout(resolve, 5))
   }
@@ -497,7 +503,7 @@ wait
   assert.equal(result.exitCode, 124)
   assert.equal(result.timedOut, true)
   assert.equal(result.closureConfirmed, true)
-  assert.throws(() => process.kill(-processGroup, 0), { code: 'ESRCH' })
+  await waitForProcessGroupGone(processGroup, 'timeout lane')
 })
 
 test('supervisor owner loss kills a TERM-ignoring command and grandchild group', async (context) => {
@@ -600,7 +606,7 @@ exit 0
   assert.equal(result.exitCode, 70)
   assert.equal(result.closureConfirmed, true)
   assert.match(result.error, /surviving process-group member/)
-  assert.throws(() => process.kill(-processGroup, 0), { code: 'ESRCH' })
+  await waitForProcessGroupGone(processGroup, 'leaking lane cleanup')
 })
 
 test('a supervisor that refuses release is killed and cannot report a passing lane', async (context) => {

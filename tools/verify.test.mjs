@@ -245,12 +245,25 @@ test('final verification starts complementary lanes concurrently and reports cri
 })
 
 test('verify rejects unknown arguments before starting either lane', () => {
-  const result = spawnSync(process.execPath, [verifyTool, '--unexpected'], {
+  for (const arguments_ of [['--unexpected'], ['--', '--unexpected']]) {
+    const result = spawnSync(process.execPath, [verifyTool, ...arguments_], {
+      cwd: repositoryRoot,
+      encoding: 'utf8',
+    })
+    assert.equal(result.status, 64)
+    assert.match(result.stderr, /unexpected argument/)
+    assert.doesNotMatch(`${result.stdout}${result.stderr}`, /\[tests\]|\[validate\]/)
+  }
+})
+
+test('verify accepts pnpm argument separation before report validation', () => {
+  const result = spawnSync(process.execPath, [verifyTool, '--', '--report', 'relative.json'], {
     cwd: repositoryRoot,
     encoding: 'utf8',
   })
   assert.equal(result.status, 64)
-  assert.match(result.stderr, /unexpected argument/)
+  assert.match(result.stderr, /absolute path/)
+  assert.doesNotMatch(result.stderr, /unexpected argument/)
   assert.doesNotMatch(`${result.stdout}${result.stderr}`, /\[tests\]|\[validate\]/)
 })
 

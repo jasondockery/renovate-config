@@ -903,7 +903,8 @@ function usage() {
 }
 
 if (isMainModule(import.meta.url)) {
-  const arguments_ = process.argv.slice(2)
+  const rawArguments = process.argv.slice(2)
+  const arguments_ = rawArguments[0] === '--' ? rawArguments.slice(1) : rawArguments
   if (arguments_.length === 1 && arguments_[0] === '--help') {
     console.log(usage())
   } else {

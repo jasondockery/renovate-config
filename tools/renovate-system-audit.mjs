@@ -197,7 +197,12 @@ function attributablePr(pr, branchByName, started, finished) {
 }
 
 function invalidIdentityIsRelevant(pr, branchByName, started, finished) {
-  return prState(pr) === 'OPEN' || branchByName.has(pr.headRefName) || prTouchedByRun(pr, started, finished)
+  const currentBranchSha = branchByName.get(pr.headRefName)
+  return (
+    prState(pr) === 'OPEN' ||
+    (currentBranchSha !== undefined && currentBranchSha === pr.headRefOid) ||
+    prTouchedByRun(pr, started, finished)
+  )
 }
 
 function dashboardExplanation(counts) {

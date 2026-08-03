@@ -65,6 +65,60 @@ function runtimeFixturePaths(version) {
   ]
 }
 
+function validateRuntimeFixtures(repoRoot, version, problems) {
+  const [logPath, provenancePath] = runtimeFixturePaths(version)
+  try {
+    const lines = read(repoRoot, logPath)
+      .split('\n')
+      .filter((line) => line.trim() !== '')
+    if (lines.length === 0) {
+      problems.push(logPath + ' must contain structured-log records.')
+    }
+    for (const [index, line] of lines.entries()) {
+      let record
+      try {
+        record = JSON.parse(line)
+      } catch {
+        problems.push(logPath + ' line ' + (index + 1) + ' must be valid JSON.')
+        continue
+      }
+      if (
+        record === null ||
+        Array.isArray(record) ||
+        typeof record !== 'object' ||
+        record.fixtureRuntime !== version
+      ) {
+        problems.push(
+          logPath +
+            ' line ' +
+            (index + 1) +
+            ' must explicitly declare fixtureRuntime ' +
+            version +
+            '.'
+        )
+      }
+    }
+  } catch {
+    problems.push(logPath + ' must preserve pinned-runtime structured-log provenance.')
+  }
+
+  try {
+    const provenance = read(repoRoot, provenancePath)
+    const expectedHeading = '# Renovate ' + version + ' structured-log fixture provenance\n'
+    if (!provenance.startsWith(expectedHeading)) {
+      problems.push(provenancePath + ' heading must identify Renovate ' + version + '.')
+    }
+    if (!/immutable commit\n?\x60[0-9a-f]{40}\x60/u.test(provenance)) {
+      problems.push(provenancePath + ' must name the immutable source commit.')
+    }
+    if (!provenance.includes('source-verified')) {
+      problems.push(provenancePath + ' must state that runtime shapes were source-verified.')
+    }
+  } catch {
+    problems.push(provenancePath + ' must preserve pinned-runtime structured-log provenance.')
+  }
+}
+
 function duplicateRuntimeFiles(repoRoot, version, candidateFiles, acceptedRuntimeFiles) {
   const versionToken = new RegExp(`(?<!\\d)${escapeRegExp(version)}(?!\\d)`)
   const duplicates = []
@@ -233,6 +287,7 @@ export function collectRenovateRuntimeProblems(
   ]) {
     if (!pattern.test(verifySource)) problems.push(`tools/verify.mjs must preserve ${contract}.`)
   }
+  if (version) validateRuntimeFixtures(repoRoot, version, problems)
   for (const fixture of version ? runtimeFixturePaths(version) : []) {
     try {
       read(repoRoot, fixture)

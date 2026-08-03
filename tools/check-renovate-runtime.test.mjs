@@ -249,6 +249,29 @@ test('rejects malformed versions, duplicate pins, and ambient global config', as
       /renovate-43\.272\.7-structured-log\.jsonl must preserve pinned-runtime structured-log provenance/
     )
   })
+  await context.test('renamed fixtures cannot silently accept a new runtime', (subcontext) => {
+    const repoRoot = fixture(subcontext)
+    const futureVersion = '43.288.1'
+    write(repoRoot, '.renovate-version', futureVersion + '\n')
+    for (const extension of ['jsonl', 'md']) {
+      const current = path.join(
+        repoRoot,
+        'tools/fixtures/renovate-' +
+          RENOVATE_VERSION +
+          '-structured-log.' +
+          extension
+      )
+      const renamed = path.join(
+        repoRoot,
+        'tools/fixtures/renovate-' + futureVersion + '-structured-log.' + extension
+      )
+      fs.copyFileSync(current, renamed)
+    }
+
+    const result = problems(repoRoot)
+    assert.match(result, /must explicitly declare fixtureRuntime 43\.288\.1/)
+    assert.match(result, /heading must identify Renovate 43\.288\.1/)
+  })
   await context.test('ambient config.js', (subcontext) => {
     const repoRoot = fixture(subcontext)
     write(repoRoot, 'config.js', 'module.exports = {}\n')

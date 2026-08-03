@@ -299,6 +299,30 @@ test('historical closed PR metadata edits do not create attribution or identity 
   }
 })
 
+test('historical wrong-author PRs do not inherit relevance from a reused current branch name', () => {
+  const current = renovatePr()
+  const historical = renovatePr({
+    state: 'CLOSED',
+    author: { login: 'human-maintainer' },
+    headRefOid: 'c'.repeat(40),
+    createdAt: '2026-07-01T01:18:00Z',
+    updatedAt: '2026-07-02T01:19:00Z',
+    closedAt: '2026-07-02T01:20:00Z',
+  })
+  const state = repositories({
+    'jasondockery/roost': {
+      dashboard: dashboard({ Open: 1 }),
+      branches: [{ name: current.headRefName, sha: current.headRefOid }],
+      pullRequests: [current, historical],
+    },
+  })
+
+  const audit = auditSystem({ run, receipt, repositories: state })
+  const row = audit.repositories.find(({ repository }) => repository.endsWith('/roost'))
+  assert.equal(audit.result, 'passed')
+  assert.doesNotMatch(row.problems.join('\n'), /unexpected author or base branch/)
+})
+
 test('wrong-author or wrong-base Renovate-prefix PRs fail and cannot mask branches', () => {
   for (const changed of [
     { author: { login: 'someone-else[bot]' } },

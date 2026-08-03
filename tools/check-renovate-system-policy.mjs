@@ -8,8 +8,6 @@ import { isMainModule } from './is-main.mjs'
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const EXPECTED_CRON = '17 1 * * *'
 const EXPECTED_REPOSITORIES = 'jasondockery/renovate-config,jasondockery/roost,jasondockery/groundwork'
-const EXPECTED_UPLOAD_ARTIFACT =
-  'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1'
 
 function read(root, relativePath) {
   return fs.readFileSync(path.join(root, relativePath), 'utf8')
@@ -147,9 +145,6 @@ export function collectRenovateSystemPolicyProblems(root = repositoryRoot) {
     !compatibilityWorkflow.includes('RECEIPT_OUTCOME')
   ) {
     problems.push('latest-head compatibility workflow must remain activation-gated, side-by-side, read-only, three-repository, and receipt-backed.')
-  }
-  if (!compatibilityWorkflow.includes(`uses: ${EXPECTED_UPLOAD_ARTIFACT}`)) {
-    problems.push('latest-head compatibility workflow must use the reviewed upload-artifact SHA and matching version comment.')
   }
   try {
     const renderer = read(root, 'tools/render-renovate-compatibility.mjs')

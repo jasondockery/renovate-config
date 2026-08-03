@@ -98,6 +98,16 @@ test('rejects schedule, activation, scope, security, and manager-coverage drift'
     assert.match(collectRenovateSystemPolicyProblems(root).join('\n'), /explicit activation state/)
   })
 
+  await context.test('compatibility artifact action pin identity', (subcontext) => {
+    const root = fixture(subcontext)
+    const file = path.join(root, '.github/workflows/renovate-compatibility.yml')
+    fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace(
+      'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1',
+      'actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32 # v7.0.0',
+    ))
+    assert.match(collectRenovateSystemPolicyProblems(root).join('\n'), /matching version comment/)
+  })
+
   await context.test('truthful acceptance status', (subcontext) => {
     const root = fixture(subcontext)
     const file = path.join(root, 'specs/renovate-system-acceptance.md')

@@ -2,14 +2,26 @@
 
 Shared dependency-update automation for the owner's repositories.
 
-This repo has four moving pieces:
+This repo has seven moving pieces:
+
+- `AI_THESIS.md` is the enduring goal and real-world definition of success;
+  `CHARTER.md` owns detailed scope, governance, and proof boundaries.
 
 - `default.json` is the shared Renovate preset consumed by owner repos such as
   `jasondockery/roost` and `jasondockery/groundwork`.
 - `runner.json` is the self-hosted Renovate runner config. It contains only
   runner behavior, not dependency policy.
-- `.github/workflows/renovate.yml` runs self-hosted Renovate on a fixed cadence
-  plus manual dispatch, with logs in GitHub Actions.
+- `.github/workflows/renovate.yml` runs self-hosted Renovate once daily plus
+  manual dispatch. The accepted frozen preset limits routine update and branch
+  work to the early-Monday window, but its inherited npm rule means it does not
+  yet establish the target effective strict five-day floor.
+- `specs/renovate-system-acceptance.md` defines the observable end-to-end
+  contract across the runner and all three consumers.
+- `dependency-coverage.json`, the pinned-runtime fixture, and the bounded
+  convention scanner define the reviewed ownership model. A separate
+  manual-only latest-head compatibility workflow maps actual extraction for
+  all three repositories and records their exact tested identities. Its daily
+  schedule activates only after both consumer inventories land.
 - `.github/workflows/security-hygiene.yml` is the public reusable
   implementation of the read-only security inbox for the same three
   repositories. A private caller owns all execution and output.
@@ -135,13 +147,13 @@ This repo follows Roost's portable project-local toolchain contract:
   requires that baseline to remain unchanged. It does not enumerate or read
   arbitrary ignored caches, worktrees, or `.env*` files. It refuses
   pre-existing dependency artifacts before launch, runs the complementary
-  contracts concurrently through persistent process-group supervisors. An
+  offline contracts concurrently through persistent process-group supervisors. An
   event-loop-independent parent watchdog bounds the complete transaction,
   including both synchronous fingerprints, at five minutes and prints
   wall-clock time separately from aggregate compute time. CI runs tests and
-  validation as parallel visible jobs, applies the stricter clean-checkout
-  proof to each, and aggregates them with CI-only workflow security behind
-  stable `ci-gate`.
+  validation, pinned Renovate configuration integration, and workflow security as parallel
+  visible jobs. It applies clean-checkout proof to every source-reading lane
+  and aggregates them behind stable `ci-gate`.
   Add `-- --report /absolute/path/outside/the/repository.json` to persist the
   same local receipt atomically for a machine-readable handoff; it remains
   non-reusable evidence for only the observed local tree.
@@ -150,16 +162,82 @@ This repo follows Roost's portable project-local toolchain contract:
 - `.renovate-version` is the one canonical Renovate runtime pin. Both the
   self-hosted action and `tools/validate-renovate.mjs` resolve that file; the
   repo's custom manager updates the file rather than synchronizing copies.
-- No installed dependencies: `pnpm validate` invokes the exact pinned Renovate
-  distribution through `npx` with `--strict`, validating `default.json` and
-  `renovate.json` as repository configuration and `runner.json` as self-hosted
-  global configuration. The validator subprocess removes ambient
-  `RENOVATE_*` variables, and the runtime guard rejects accidental
+- No installed dependencies: `pnpm validate` is the deterministic offline
+  structure gate. Required `pnpm renovate:integration` is explicitly
+  network/cache-backed: it acquires exactly `.renovate-version` once, exercises
+  the synthetic manager fixture, and strict-validates `default.json`,
+  `renovate.json`, and `runner.json`. It does not read moving consumer heads.
+  `pnpm renovate:policy-proposal` separately proves the owner-gated five-day
+  proposal fixture without changing the accepted frozen preset.
+  `.github/workflows/renovate-compatibility.yml` is the separate manual-only
+  latest-head watch: it extracts all three actual checkouts, requires
+  exactly one inventory owner for every tuple and bounded discovery hit, and
+  records starting/ending SHA, complete Git status, tracked fingerprint, and
+  relevant ignored-output fingerprint for each checkout. Both lanes remove
+  ambient `RENOVATE_*` variables; the runtime guard rejects accidental
   `config.js`/`config.cjs`/`config.mjs` global configuration.
+  The current extract-only command has no permitted ignored output, so those
+  path sets are intentionally empty. A future command that can generate an
+  ignored artifact must name that bounded path before landing.
 
 Validation failures annotate the run with the exact command to reproduce
 locally, and every CI and Renovate run writes phase timings plus a pass/fail job
 summary so scheduled runs are triageable at a glance.
+
+## Policy status and target operating contract
+
+- **Current:** `default.json` remains byte-frozen. It declares a top-level
+  five-day age, but `config:best-practices` contributes a later three-day npm
+  rule, so the effective strict five-day npm target is not active. The accepted
+  security block guarantees immediate creation and automerge, not the proposal's
+  explicit schedule, age, and routine-rate bypasses.
+- **Approved in principle:** the isolated proposal fixture adds the reviewed
+  npm override, strict internal checks, and explicit security bypass fields.
+  Its proof is `pnpm renovate:policy-proposal`; it is not required CI and does
+  not change the accepted preset.
+- **Target after activation:** the following table becomes the production
+  contract only after the owner-approved preset commit, release, consumer pin,
+  and field evidence.
+
+The process and routine update clocks are intentionally separate:
+
+| Concern | Contract |
+| --- | --- |
+| Renovate inspection | Daily at `01:17 UTC`, plus manual dispatch |
+| Routine updates and branches | Weekly early-Monday window |
+| Normal release age | Five days with strict internal checks where the datasource supplies timestamps and the update type supports age enforcement |
+| Pins, digests, replacements, and lockfile maintenance | No universal Renovate age guarantee; consumer inventories name their package-manager, integrity, CI, and review controls |
+| Vulnerability-alert PRs | Next daily run; explicit configuration bypasses normal age, schedule, and routine rate limits |
+| Lockfile maintenance | Weekly |
+
+A green runner receipt proves execution and cleanup, not that dependency
+automation works end to end. The durable acceptance contract is
+[`specs/renovate-system-acceptance.md`](specs/renovate-system-acceptance.md).
+After a live run, inspect its exact sanitized receipt, dashboard state,
+Renovate branches and PR checks without mutating GitHub:
+
+```bash
+pnpm renovate:audit --run <run-id>
+```
+
+The current receipt does not yet encode an authoritative no-eligible-update
+result. The audit therefore reports a dashboard-only negative conclusion as
+pending instead of converting `Detected Dependencies` into proof of a no-op.
+
+Every consumer also owns a machine-checked `dependency-coverage.json`. A
+dependency is acceptable only when a tested built-in manager detects it, a
+repository-owned custom manager detects it, another guarded canonical pin owns
+it, or its deliberate manual owner is recorded. Every row also records its age
+policy, compensating control, extraction matcher where applicable, and scanner
+ownership for repository constants or download/checksum conventions. The
+file-aware scanner is a bounded discovery guard, not a claim of mathematical
+completeness: documentation and fixtures are excluded unless a matcher or
+reasoned suppression explicitly opts them in, likely source/JSON/YAML version
+assignments are discovered without preselecting their paths, and every
+non-optional matcher must produce evidence. Suppressions require a line-level
+pattern and exact expected count. JSON and JSONC files are structurally parsed
+here. TOML and YAML use bounded line-aware discovery; each consumer's own
+validator remains responsible for their syntax.
 
 Renovate's temporary debug JSONL is streamed under explicit file, line-count,
 line-size, and parse-time limits, then deleted before the sanitized receipt is
@@ -180,7 +258,11 @@ without a `v` prefix, and consumers pin an exact tag such as
 The initial pinning bootstrap is in progress. Until the owner tags `1.0.0`,
 proves that released reference resolves, and moves all three consumers to it,
 `.preset-bootstrap-freeze` keeps `default.json` unchanged. See `ROADMAP.md` for
-the ordered owner gates and `CONTRIBUTING.md` for the release procedure.
+the ordered owner gates and `CONTRIBUTING.md` for the release procedure. The
+executable proposal is isolated in
+`tools/fixtures/preset/default-five-day-policy.json` and documented in
+`specs/preset-freeze-exception.md`; `default.json` and its checksum remain at
+the accepted frozen state so earlier implementation slices can stay green.
 
 ## Policy Boundary
 
@@ -223,8 +305,10 @@ artifacts, and one durable issue ("Security hygiene report", label
 `security-hygiene`). The implementation's first step queries the caller's
 visibility and fails closed before checkout or token mint unless it is private.
 Ownership split:
-GitHub detects and tracks findings; Renovate proposes dependency-update PRs
-(security PRs immediately, bypassing the cooldown); workflow and token
+GitHub detects and tracks findings; Renovate proposes dependency-update PRs.
+The accepted frozen security block requests immediate creation and automerge;
+the isolated proposal, not current production policy, adds explicit cooldown,
+weekly-window, and routine-rate bypass fields for the next daily run. Workflow and token
 findings are repository code, fixed in the repository that owns them. The
 report only keeps everything visible — it never dismisses or remediates.
 

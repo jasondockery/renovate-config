@@ -14,6 +14,7 @@ const SILENT = { log() {}, error() {} }
 function fixture() {
   const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'renovate-validator-'))
   fs.writeFileSync(path.join(repoRoot, '.renovate-version'), '1.2.3\n')
+  fs.writeFileSync(path.join(repoRoot, 'package.json'), '{"name":"renovate","version":"1.2.3"}\n')
   return repoRoot
 }
 
@@ -35,11 +36,12 @@ test('runs the exact strict validators in the correct configuration modes', (con
   const result = validateRenovate({
     repoRoot,
     environment: {
-      PATH: '/bin',
+      PATH: process.env.PATH,
       RENOVATE_CONFIG_FILE: 'other.json',
       RENOVATE_ALLOWED_COMMANDS: '["^.*$"]',
     },
     output: SILENT,
+    findRuntime: () => repoRoot,
     run(command, args, options) {
       calls.push({ command, args, options })
       return { status: 0 }
@@ -59,7 +61,8 @@ test('runs the exact strict validators in the correct configuration modes', (con
   assert.ok(calls.every(({ args }) => args.includes('--strict')))
   assert.ok(calls.every(({ options }) => options.cwd === repoRoot))
   assert.ok(calls.every(({ options }) => options.stdio === 'inherit'))
-  assert.ok(calls.every(({ options }) => options.env.PATH === '/bin'))
+  assert.ok(calls.every(({ command }) => command === 'renovate-config-validator'))
+  assert.ok(calls.every(({ options }) => options.env.PATH === process.env.PATH))
   assert.ok(
     calls.every(({ options }) =>
       Object.keys(options.env).every((name) => !name.startsWith('RENOVATE_'))
@@ -79,6 +82,7 @@ test('continues after spawn errors, non-zero exits, and signal termination', (co
   const result = validateRenovate({
     repoRoot,
     output: SILENT,
+    findRuntime: () => repoRoot,
     run() {
       const value = results[calls]
       calls += 1
@@ -100,6 +104,7 @@ test('reports success only when every validator succeeds', (context) => {
   const result = validateRenovate({
     repoRoot,
     output: SILENT,
+    findRuntime: () => repoRoot,
     run() {
       return { status: 0 }
     },

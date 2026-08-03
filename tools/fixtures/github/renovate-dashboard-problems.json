@@ -1,0 +1,10 @@
+{
+  "schema": "renovate-config.github-dashboard-fixture",
+  "capturedAt": "2026-08-03",
+  "sources": [
+    "https://github.com/apache/polaris/issues/642",
+    "https://github.com/objectionary/eoc/issues/41"
+  ],
+  "note": "Sanitized section shapes captured from public Renovate Dependency Dashboards; repository and dependency names are replaced.",
+  "body": "## Repository Problems\n* ⚠️ WARN: Error updating branch: sanitized failure\n* ⚠️ WARN: Package lookup failures\n\n## Warnings\n* ⚠️ WARN: Sanitized configuration warning\n\n## Errored\n- [ ] Pin example/action digest\n\n## Config Migration Needed\n- [ ] Select this checkbox to create a configuration migration PR\n\n## PR Edited (Blocked)\n- [ ] Update dependency example-one\n\n## PR Closed (Blocked)\n- [ ] Update dependency example-two\n"
+}

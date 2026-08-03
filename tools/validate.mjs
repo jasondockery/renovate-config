@@ -11,9 +11,9 @@ const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url))
 export const VALIDATION_PHASES = Object.freeze([
   { name: 'Toolchain contract', script: 'tools/check-toolchain.mjs' },
   { name: 'Preset freeze', script: 'tools/check-preset-freeze.mjs' },
+  { name: 'Renovate system policy', script: 'tools/check-renovate-system-policy.mjs' },
   { name: 'Workflow timeout policy', script: 'tools/check-workflow-timeouts.mjs' },
   { name: 'Renovate runtime contract', script: 'tools/check-renovate-runtime.mjs' },
-  { name: 'Renovate config validation', script: 'tools/validate-renovate.mjs' },
 ])
 
 function formatDuration(milliseconds) {

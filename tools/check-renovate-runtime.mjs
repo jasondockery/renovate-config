@@ -108,11 +108,13 @@ export function collectRenovateRuntimeProblems(
 
   let ciTestSteps = []
   let ciValidationSteps = []
+  let ciIntegrationSteps = []
   let ciSource = ''
   try {
     ciSource = read(repoRoot, '.github/workflows/ci.yml')
     ciTestSteps = workflowJobSteps(ciSource, 'tests')
     ciValidationSteps = workflowJobSteps(ciSource, 'validation')
+    ciIntegrationSteps = workflowJobSteps(ciSource, 'renovate_integration')
   } catch {
     problems.push('.github/workflows/ci.yml must be readable.')
   }
@@ -123,9 +125,14 @@ export function collectRenovateRuntimeProblems(
   if (ciValidate.length !== 1 || ciValidate[0].id !== 'validate') {
     problems.push('ci.yml validation job must execute pnpm validate once as validate.')
   }
+  const ciIntegration = ciIntegrationSteps.filter((step) => step.run === 'pnpm renovate:integration')
+  if (ciIntegration.length !== 1 || ciIntegration[0].id !== 'integration') {
+    problems.push('ci.yml integration job must execute pnpm renovate:integration once as integration.')
+  }
   const expectedReadOnlyChecks = [
     [ciTestSteps, 'pnpm test'],
     [ciValidationSteps, 'pnpm validate'],
+    [ciIntegrationSteps, 'pnpm renovate:integration'],
   ]
   for (const [steps, command] of expectedReadOnlyChecks) {
     const commandIndex = steps.findIndex((step) => step.run === command)
@@ -141,10 +148,10 @@ export function collectRenovateRuntimeProblems(
     }
   }
   if (
-    [...ciTestSteps, ...ciValidationSteps]
-      .filter((step) => step.run === EXPECTED_CLEAN_CHECK).length !== 2
+    [...ciTestSteps, ...ciValidationSteps, ...ciIntegrationSteps]
+      .filter((step) => step.run === EXPECTED_CLEAN_CHECK).length !== 3
   ) {
-    problems.push('ci.yml test and validation jobs must contain exactly two cleanliness checks.')
+    problems.push('ci.yml test, validation, and integration jobs must contain exactly three cleanliness checks.')
   }
   if (!/^permissions:\n  contents: read$/mu.test(ciSource)) {
     problems.push('ci.yml must default the workflow token to contents: read.')
@@ -152,11 +159,27 @@ export function collectRenovateRuntimeProblems(
   if (/if-no-files-found:\s*ignore/u.test(ciSource)) {
     problems.push('ci.yml authoritative receipt uploads must fail when the file is missing.')
   }
-  if (!ciSource.includes("--reproduce-label 'Local tests/validation equivalent'")) {
-    problems.push('ci.yml must identify pnpm verify as the local tests/validation equivalent, not the CI security proof.')
+  if (!ciSource.includes("--reproduce 'pnpm verify && pnpm renovate:integration'") ||
+      !ciSource.includes("--reproduce-label 'Local tests/validation equivalent'")) {
+    problems.push('ci.yml must identify the separate offline and pinned-integration local equivalents, not the CI security proof.')
   }
   if (!ciSource.includes('RENOVATE_VALIDATION_TIMING_OUTPUT') || !ciSource.includes('validation-timing-summary.mjs')) {
     problems.push('ci.yml must publish bounded internal validation phase timings.')
+  }
+  if (/repository:\s*jasondockery\/(?:roost|groundwork)/u.test(ciSource) || /Mint read-only consumer token/u.test(ciSource)) {
+    problems.push('required ci.yml must not bind renovate-config proof to mutable consumer default branches.')
+  }
+  try {
+    const integrationSource = read(repoRoot, 'tools/validate-renovate-integration.mjs')
+    const innerSource = read(repoRoot, 'tools/run-renovate-integration.mjs')
+    if ((integrationSource.match(/spawnSync\(\s*['"]npx['"]/gu) ?? []).length !== 1) {
+      problems.push('Renovate integration must acquire the exact runtime once.')
+    }
+    if (!integrationSource.includes('tools/run-renovate-integration.mjs') || /\bnpx\b/u.test(innerSource)) {
+      problems.push('Renovate integration phases must share the one provisioned runtime environment.')
+    }
+  } catch {
+    problems.push('single-acquisition Renovate integration tools must be readable.')
   }
 
   let runnerSteps = []

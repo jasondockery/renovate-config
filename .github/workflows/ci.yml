@@ -188,6 +188,83 @@ jobs:
           RESULT: ${{ steps.report.outputs.result || 'failed' }}
         run: test "$RESULT" = passed
 
+  renovate_integration:
+    name: renovate-integration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      result: ${{ steps.report.outputs.result }}
+      seconds: ${{ steps.report.outputs.seconds }}
+      read_only: ${{ steps.report.outputs.read_only }}
+      started_epoch: ${{ steps.job_start.outputs.epoch }}
+    steps:
+      - name: Record runner start
+        id: job_start
+        run: echo "epoch=$(date +%s)" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Install Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .node-version
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Prove synthetic extraction and accepted configuration
+        id: integration
+        continue-on-error: true
+        run: pnpm renovate:integration
+
+      - name: Check integration is read-only
+        id: read_only
+        if: always()
+        continue-on-error: true
+        run: node tools/check-verification-clean.mjs
+
+      - name: Report Renovate integration lane
+        id: report
+        if: always()
+        env:
+          STARTED_EPOCH: ${{ steps.job_start.outputs.epoch || '0' }}
+          INTEGRATION_OUTCOME: ${{ steps.integration.outcome }}
+          READ_ONLY_OUTCOME: ${{ steps.read_only.outcome }}
+        run: |
+          set -euo pipefail
+          case "$STARTED_EPOCH" in
+            '' | 0 | *[!0-9]*) echo "::error::Renovate integration start epoch is invalid"; exit 1 ;;
+          esac
+          finished_epoch=$(date +%s)
+          [ "$finished_epoch" -ge "$STARTED_EPOCH" ] || { echo "::error::Integration timing moved backwards"; exit 1; }
+          seconds=$(( finished_epoch - STARTED_EPOCH ))
+          result=failed
+          [ "$INTEGRATION_OUTCOME" = success ] && [ "$READ_ONLY_OUTCOME" = success ] && result=passed
+          {
+            echo "result=$result"
+            echo "seconds=$seconds"
+            echo "read_only=$READ_ONLY_OUTCOME"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo '## Renovate integration · '"$result"
+            echo
+            echo '| Contract | Result |'
+            echo '| --- | --- |'
+            echo '| One pinned runtime, synthetic fixture extraction, and strict accepted-config validation | '"${INTEGRATION_OUTCOME:-skipped}"' |'
+            echo '| Read-only proof | '"${READ_ONLY_OUTCOME:-skipped}"' |'
+            echo
+            echo "Duration: **${seconds}s**"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Enforce Renovate integration lane
+        if: always()
+        env:
+          RESULT: ${{ steps.report.outputs.result || 'failed' }}
+        run: test "$RESULT" = passed
+
   workflow_security:
     name: workflow-security
     runs-on: ubuntu-24.04
@@ -271,7 +348,7 @@ jobs:
   ci-gate:
     name: ci-gate
     if: always()
-    needs: [tests, validation, workflow_security]
+    needs: [tests, validation, renovate_integration, workflow_security]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -306,6 +383,11 @@ jobs:
           VALIDATION_TIMING: ${{ needs.validation.outputs.validation_timing || 'unavailable' }}
           FAILED_CONFIGS: ${{ needs.validation.outputs.failed_configs }}
           RENOVATE_VERSION: ${{ needs.validation.outputs.renovate_version }}
+          INTEGRATION_JOB_RESULT: ${{ needs.renovate_integration.result }}
+          INTEGRATION_DECLARED_RESULT: ${{ needs.renovate_integration.outputs.result || 'missing' }}
+          INTEGRATION_SECONDS: ${{ needs.renovate_integration.outputs.seconds || '0' }}
+          INTEGRATION_READ_ONLY: ${{ needs.renovate_integration.outputs.read_only || 'skipped' }}
+          INTEGRATION_STARTED_EPOCH: ${{ needs.renovate_integration.outputs.started_epoch || '0' }}
           SECURITY_JOB_RESULT: ${{ needs.workflow_security.result }}
           SECURITY_DECLARED_RESULT: ${{ needs.workflow_security.outputs.result || 'missing' }}
           SECURITY_SECONDS: ${{ needs.workflow_security.outputs.seconds || '0' }}
@@ -348,6 +430,7 @@ jobs:
           }
           evaluate_lane tests "$TEST_JOB_RESULT" "$TEST_DECLARED_RESULT" tests_result
           evaluate_lane validation "$VALIDATION_JOB_RESULT" "$VALIDATION_DECLARED_RESULT" validation_result
+          evaluate_lane renovate-integration "$INTEGRATION_JOB_RESULT" "$INTEGRATION_DECLARED_RESULT" integration_result
           evaluate_lane workflow-security "$SECURITY_JOB_RESULT" "$SECURITY_DECLARED_RESULT" security_result
 
           normalize_positive() {
@@ -368,15 +451,18 @@ jobs:
           normalize_positive 'test start epoch' "$TEST_STARTED_EPOCH" test_started
           normalize_positive 'validation start epoch' "$VALIDATION_STARTED_EPOCH" validation_started
           normalize_positive 'workflow-security start epoch' "$SECURITY_STARTED_EPOCH" security_started
+          normalize_positive 'Renovate integration start epoch' "$INTEGRATION_STARTED_EPOCH" integration_started
           normalize_nonnegative 'test duration' "$TEST_SECONDS" test_seconds
           normalize_nonnegative 'validation duration' "$VALIDATION_SECONDS" validation_seconds
           normalize_nonnegative 'workflow-security duration' "$SECURITY_SECONDS" security_seconds
+          normalize_nonnegative 'Renovate integration duration' "$INTEGRATION_SECONDS" integration_seconds
           [ "$test_started" -gt 0 ] || tests_result=failed
           [ "$validation_started" -gt 0 ] || validation_result=failed
           [ "$security_started" -gt 0 ] || security_result=failed
+          [ "$integration_started" -gt 0 ] || integration_result=failed
 
           started_epoch="$gate_started"
-          for candidate in "$test_started" "$validation_started" "$security_started"; do
+          for candidate in "$test_started" "$validation_started" "$integration_started" "$security_started"; do
             if [ "$candidate" -gt 0 ] && [ "$candidate" -lt "$started_epoch" ]; then
               started_epoch="$candidate"
             fi
@@ -386,7 +472,7 @@ jobs:
             add_error 'CI timing moved backwards'
             started_epoch="$finished_epoch"
           fi
-          aggregate_seconds=$(( test_seconds + validation_seconds + security_seconds ))
+          aggregate_seconds=$(( test_seconds + validation_seconds + integration_seconds + security_seconds ))
           observed_span_seconds=$(( finished_epoch - started_epoch ))
 
           phase_row() {
@@ -403,15 +489,16 @@ jobs:
           {
             phase_row 'tests and read-only proof' "$test_seconds" "$tests_result"
             phase_row 'strict configuration validation' "$validation_seconds" "$validation_result"
+            phase_row 'pinned Renovate configuration integration' "$integration_seconds" "$integration_result"
             phase_row 'workflow security' "$security_seconds" "$security_result"
           } > "$RUNNER_TEMP/ci-phases.tsv"
           evidence_errors=none
           if [ "${#errors[@]}" -gt 0 ]; then
             evidence_errors="$(IFS='; '; echo "${errors[*]}")"
           fi
-          printf 'Configs\t%s\nRenovate version\t%s\nValidation phases\t%s\nWorkflow security\tSARIF %s; gate %s\nRead-only proof\ttests %s; validation %s\nEvidence errors\t%s\nLocal equivalent\tpnpm verify covers tests and validation; workflow security is CI-only\nFailed configs\t%s\nObserved workflow span after first required lane started\t%ss\nAggregate compute time\t%ss\nBudget enforcement\tadvisory for the first five representative final-tree runs\nCache state\tunavailable\n' \
+          printf 'Configs\t%s\nRenovate version\t%s\nValidation phases\t%s\nWorkflow security\tSARIF %s; gate %s\nRead-only proof\ttests %s; validation %s; integration %s\nEvidence errors\t%s\nLocal equivalent\tpnpm verify covers offline tests and validation; pnpm renovate:integration is the explicit network-backed proof; workflow security is CI-only\nFailed configs\t%s\nObserved workflow span after first required lane started\t%ss\nAggregate compute time\t%ss\nBudget enforcement\tadvisory for the first five representative final-tree runs\nCache state\tunavailable\n' \
             'default.json, renovate.json, runner.json' "${RENOVATE_VERSION:-unresolved}" \
-            "$VALIDATION_TIMING" "$SECURITY_SARIF" "$SECURITY_GATE" "$TEST_READ_ONLY" "$VALIDATION_READ_ONLY" \
+            "$VALIDATION_TIMING" "$SECURITY_SARIF" "$SECURITY_GATE" "$TEST_READ_ONLY" "$VALIDATION_READ_ONLY" "$INTEGRATION_READ_ONLY" \
             "$evidence_errors" "${FAILED_CONFIGS:-none}" "$observed_span_seconds" "$aggregate_seconds" \
             > "$RUNNER_TEMP/ci-facts.tsv"
           receipt_status=0
@@ -421,9 +508,9 @@ jobs:
             --receipt-kind ci-gate \
             --title 'Renovate config CI' \
             --result "$result" \
-            --scope 'parallel tests, strict validation, read-only proofs, and CI-only workflow security' \
+            --scope 'parallel tests, offline validation, pinned Renovate configuration integration, read-only proofs, and CI-only workflow security' \
             --platform ubuntu-24.04 \
-            --proof-type 'parallel deterministic repository validation' \
+            --proof-type 'parallel offline validation plus explicit network-backed Renovate configuration integration' \
             --started-epoch "$started_epoch" \
             --finished-epoch "$finished_epoch" \
             --budget-seconds 300 \
@@ -431,7 +518,7 @@ jobs:
             --fact-file "$RUNNER_TEMP/ci-facts.tsv" \
             --tested-sha "$GITHUB_SHA" \
             --head-sha "$HEAD_SHA" \
-            --reproduce 'pnpm verify' \
+            --reproduce 'pnpm verify && pnpm renovate:integration' \
             --reproduce-label 'Local tests/validation equivalent' || receipt_status=$?
           [ ! -f "$RUNNER_TEMP/ci-summary.md" ] \
             || cat "$RUNNER_TEMP/ci-summary.md" >> "$GITHUB_STEP_SUMMARY" \

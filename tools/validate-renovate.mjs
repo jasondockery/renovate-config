@@ -4,6 +4,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
+import { findPinnedRenovateRoot } from './pinned-renovate-runtime.mjs'
 import { readRenovateVersion } from './renovate-runtime.mjs'
 
 export const RENOVATE_CONFIGS = [
@@ -12,13 +13,8 @@ export const RENOVATE_CONFIGS = [
   { file: 'runner.json', global: true },
 ]
 
-export function validatorArguments(version, { file, global }) {
+export function validatorArguments({ file, global }) {
   return [
-    '--yes',
-    '--package',
-    `renovate@${version}`,
-    '--',
-    'renovate-config-validator',
     '--strict',
     ...(global ? [] : ['--no-global']),
     file,
@@ -37,8 +33,11 @@ export function validateRenovate({
   configs = RENOVATE_CONFIGS,
   environment = process.env,
   output = console,
+  findRuntime = findPinnedRenovateRoot,
 } = {}) {
   const version = readRenovateVersion(repoRoot)
+  const runtimeManifest = JSON.parse(fs.readFileSync(path.join(findRuntime(environment), 'package.json'), 'utf8'))
+  if (runtimeManifest.version !== version) throw new Error('PATH Renovate does not match .renovate-version')
   const failures = []
 
   for (const config of configs) {
@@ -46,7 +45,7 @@ export function validateRenovate({
     output.log(
       `\nValidating ${config.file} as ${configKind} with Renovate ${version}`
     )
-    const result = run('npx', validatorArguments(version, config), {
+    const result = run('renovate-config-validator', validatorArguments(config), {
       cwd: repoRoot,
       stdio: 'inherit',
       env: validatorEnvironment(environment),

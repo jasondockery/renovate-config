@@ -1,0 +1,11 @@
+name: Extraction fixture
+
+on:
+  workflow_dispatch:
+
+jobs:
+  fixture:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker://ghcr.io/gitleaks/gitleaks:v8.24.3@sha256:0000000000000000000000000000000000000000000000000000000000000000

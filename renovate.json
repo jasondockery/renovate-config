@@ -5,6 +5,7 @@
     "Runner workflow updates are dependency automation infrastructure and stay review-gated."
   ],
   "extends": ["github>jasondockery/renovate-config"],
+  "ignorePaths": ["tools/fixtures/**"],
   "customManagers": [
     {
       "customType": "regex",

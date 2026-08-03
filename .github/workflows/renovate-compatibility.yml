@@ -1,0 +1,93 @@
+name: Renovate compatibility
+run-name: Renovate compatibility · latest consumer heads · ${{ github.run_id }}.${{ github.run_attempt }}
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: renovate-compatibility
+  cancel-in-progress: false
+
+jobs:
+  latest-heads:
+    name: latest-heads
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: renovate
+    steps:
+      - name: Checkout policy repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          path: renovate-config
+          persist-credentials: false
+
+      - name: Mint read-only consumer token
+        id: consumer-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ secrets.RENOVATE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
+          owner: jasondockery
+          repositories: roost,groundwork
+          permission-contents: read
+          permission-metadata: read
+
+      - name: Checkout latest Roost head
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          repository: jasondockery/roost
+          path: roost
+          token: ${{ steps.consumer-token.outputs.token }}
+          persist-credentials: false
+
+      - name: Checkout latest Groundwork head
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          repository: jasondockery/groundwork
+          path: groundwork
+          token: ${{ steps.consumer-token.outputs.token }}
+          persist-credentials: false
+
+      - name: Install Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: renovate-config/.node-version
+
+      - name: Enable Corepack
+        run: corepack enable
+        working-directory: renovate-config
+
+      - name: Extract and map latest consumer heads
+        id: compatibility
+        continue-on-error: true
+        env:
+          RENOVATE_COMPATIBILITY_REPORT: ${{ runner.temp }}/renovate-compatibility.json
+        run: pnpm renovate:compatibility
+        working-directory: renovate-config
+
+      - name: Publish exact tested identities
+        id: receipt
+        if: always()
+        continue-on-error: true
+        run: node tools/render-renovate-compatibility.mjs "$RUNNER_TEMP/renovate-compatibility.json"
+        working-directory: renovate-config
+
+      - name: Upload sanitized compatibility receipt
+        if: always()
+        uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32 # v7.0.0
+        with:
+          name: renovate-compatibility-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/renovate-compatibility.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Enforce latest-head compatibility
+        if: always()
+        env:
+          COMPATIBILITY_OUTCOME: ${{ steps.compatibility.outcome }}
+          RECEIPT_OUTCOME: ${{ steps.receipt.outcome }}
+        run: test "$COMPATIBILITY_OUTCOME" = success && test "$RECEIPT_OUTCOME" = success
+        working-directory: renovate-config

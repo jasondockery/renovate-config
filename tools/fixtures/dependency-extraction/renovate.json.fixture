@@ -1,0 +1,24 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["github>jasondockery/renovate-config#1.0.0"],
+  "ignorePresets": ["github>jasondockery/renovate-config#1.0.0"],
+  "enabledManagers": ["npm", "dockerfile", "docker-compose", "github-actions", "nodenv", "nvm", "mise", "renovate-config", "custom.regex"],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^\\.renovate-version$/"],
+      "matchStrings": ["^(?<currentValue>\\d+\\.\\d+\\.\\d+)\\s*$"],
+      "depNameTemplate": "renovate",
+      "datasourceTemplate": "npm",
+      "versioningTemplate": "semver"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^packages\\/aws\\/src\\/opennext\\.ts$/"],
+      "matchStrings": ["export const OPENNEXT_AWS_VERSION = '(?<currentValue>[^']+)'"],
+      "depNameTemplate": "@opennextjs/aws",
+      "datasourceTemplate": "npm",
+      "versioningTemplate": "semver"
+    }
+  ]
+}

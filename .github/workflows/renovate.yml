@@ -3,7 +3,9 @@ run-name: Renovate · ${{ github.event_name == 'workflow_dispatch' && 'manual' |
 
 on:
   schedule:
-    - cron: '17 1,7,13,19 * * *'
+    # Inspect all consumers daily. The shared preset still limits routine PR
+    # creation to its weekly window; security updates bypass that window.
+    - cron: '17 1 * * *'
   workflow_dispatch:
     inputs:
       log_level:

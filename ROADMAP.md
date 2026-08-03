@@ -7,11 +7,21 @@ verified, never aspirationally.
 ## Versioned distribution
 
 > **Freeze in effect until every consumer is pinned.** Until then all three
-> consumers still resolve this repository's default branch, so a merge to
-> `default.json` changes their dependency policy immediately and silently. Do
-> not change `default.json` during the bootstrap sequence below. Charter,
+> consumers still resolve this repository's default branch, so a merge that
+> changes `default.json` behavior changes their dependency policy immediately
+> and silently. Do not change effective preset behavior during the bootstrap
+> sequence below. Charter,
 > roadmap, guardrail, timeout, and validation changes are safe to merge — they
 > do not alter the resolved preset.
+>
+> An isolated executable fixture now demonstrates why an exception may be necessary:
+> `config:best-practices` contributes a later three-day npm rule, so the frozen
+> preset does not establish its claimed effective five-day npm behavior.
+> The exception design in `specs/preset-freeze-exception.md` is **approved in
+> principle**, but activation is not approved implicitly. `default.json` and
+> the freeze checksum remain at the last accepted state; the proposal proof is
+> separate from required validation until the owner authorizes its isolated
+> policy commit.
 
 Bootstrap sequence, in this order:
 
@@ -49,6 +59,19 @@ Bootstrap sequence, in this order:
 
 ## Proof levels
 
+- [ ] Complete the active cross-repository acceptance playbook in
+      `playbooks/x-renovate-system-acceptance.md`: accept the daily runner,
+      effective five-day floor on supported surfaces, weekly routine
+      update/branch window, offline structural checks, network-backed pinned-
+      Renovate extraction,
+      owner-gated private canary, and one green eligible PR in each consumer.
+      The canonical matrix is `specs/renovate-system-acceptance.md`; a green
+      runner receipt alone is level 3, not end-to-end readiness.
+- [ ] Owner gate: provision the private canary and extend the GitHub App and
+      explicit acceptance-dispatch target set only after reviewing the bounded
+      canary contract. Normal daily production runs continue to target exactly
+      the three current repositories.
+
 - [x] Emit one schema-versioned, sanitized timing receipt from CI, scheduled
       Renovate, and security hygiene, render the same receipt into the job
       summary, and retain the JSON for 30 days. Renovate's raw debug JSON stays
@@ -58,7 +81,9 @@ Bootstrap sequence, in this order:
 - [ ] Accept the first exact-SHA live receipts after this telemetry lands:
       confirm CI phase timings, all three Renovate repository timing rows, raw
       log deletion, the private security-hygiene receipt, and honest advisory
-      budget states before calling the contracts field-proven.
+      budget states. Record this as runner-execution proof only; do not call the
+      dependency system field-proven until behavior and consumer-compatibility
+      rows in the acceptance spec are also green.
 - [ ] Field-prove the repository-owned concurrent final command and parallel CI
       layout. `pnpm verify` fingerprints its declared Git-visible identity and
       named ignored verification outputs, runs `pnpm test` and
@@ -102,13 +127,24 @@ Bootstrap sequence, in this order:
       toolchain/lock state, suite version, and platform. Any future pre-commit
       path stays staged-only under 10 seconds and pre-push affected-only under 2
       minutes; live Renovate and network proof never move into hooks.
-- [ ] Add fixture-based preset tests to the deterministic gate: assert which
-      updates `default.json` groups, schedules, and automerges, so a policy
-      regression fails CI rather than surfacing as a surprising PR. Today CI
-      validates schema only — a schema-valid preset can still be wrong.
-- [ ] Stand up a canary repository for controlled dry runs covering matching,
-      grouping, catalog updates, lockfile behavior, replacement packages, and
-      security-PR routing. Bounded; never mutating a production repo.
+- [ ] Accept the pinned-runtime integration proof for resolved preset behavior:
+      supported normal releases at four days, 23 hours, 59 minutes remain
+      pending, releases at five days and one minute advance, vulnerability
+      alerts bypass the normal gates, and
+      lockfile maintenance remains a separately governed update type. This is
+      network/cache-backed integration evidence, never deterministic static
+      proof. **Implemented locally; pending review and the preset exception.**
+- [ ] Land the manual-only latest-head compatibility tooling after the consumer
+      inventories, then activate its daily schedule in a separate commit only
+      after the Roost and Groundwork schema-v2 inventories are on their default
+      branches. Keep it outside required renovate-config CI, record all three
+      exact tested SHAs and before/after identities, and treat the result as
+      current-head drift evidence rather than reusable proof for future heads.
+- [ ] Stand up the owner-gated private npm canary described in the acceptance
+      spec. It proves matching, weekly scheduling, manifest/lockfile mutation,
+      green CI, and stale-PR recreation for npm only. Dockerfile, Actions,
+      runtime-pin, custom-manager, digest, and manual surfaces retain separate
+      extraction and real-consumer evidence.
 - [ ] Record in each live run's summary whether the store/cache was warm, so a
       live receipt is not mistaken for a cold-network proof.
 

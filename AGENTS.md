@@ -1,12 +1,12 @@
 # Agent Instructions
 
+Read `AI_THESIS.md` before planning substantial work. It defines the project
+outcome. `CHARTER.md` defines ownership, governance, and proof boundaries.
+
 This repository owns dependency-update automation for the owner's repos plus
 the public, reusable implementation of one read-only security-hygiene inbox.
 Keep it small, observable, and boring: one shared Renovate preset, one
 self-hosted runner, one narrow hygiene monitor, and no product code.
-
-`CHARTER.md` owns scope, consumers, distribution, and what counts as proof. Read
-it before changing what this repo owns or how consumers reference it.
 
 ## Operating Rules
 

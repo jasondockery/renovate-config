@@ -9,6 +9,10 @@
   },
   "scripts": {
     "check:toolchain": "node tools/check-toolchain.mjs",
+    "renovate:audit": "node tools/renovate-system-audit.mjs",
+    "renovate:compatibility": "node tools/validate-renovate-compatibility.mjs",
+    "renovate:integration": "node tools/validate-renovate-integration.mjs",
+    "renovate:policy-proposal": "node tools/validate-renovate-policy-proposal.mjs",
     "test": "node --test tools/*.test.mjs",
     "validate": "node tools/validate.mjs",
     "verify": "node tools/verify.mjs",

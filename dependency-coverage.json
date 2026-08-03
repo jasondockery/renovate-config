@@ -1,0 +1,122 @@
+{
+  "$schema": "./specs/dependency-coverage.schema.json",
+  "schemaVersion": 2,
+  "repository": "jasondockery/renovate-config",
+  "surfaces": [
+    {
+      "id": "node-runtime",
+      "classification": "built-in",
+      "manager": "nodenv",
+      "paths": [".node-version"],
+      "canonical": ".node-version",
+      "agePolicy": "renovate-minimum-release-age",
+      "compensatingControl": "Required CI and owner review remain the final compatibility gate.",
+      "extractionMatchers": [
+        { "manager": "nodenv", "packageFilePattern": "^\\.node-version$", "depNamePattern": "^node$" }
+      ],
+      "note": "Renovate detects the canonical Node pin; check-toolchain proves the non-extracted mirrors derive from it."
+    },
+    {
+      "id": "pnpm-runtime",
+      "classification": "built-in",
+      "manager": "npm",
+      "paths": ["package.json"],
+      "canonical": "package.json#packageManager",
+      "agePolicy": "renovate-minimum-release-age",
+      "compensatingControl": "pnpm also enforces its own four-day publication-age floor during resolution.",
+      "extractionMatchers": [
+        { "manager": "npm", "packageFilePattern": "^package.json$", "depNamePattern": "^(?:node|pnpm)$" }
+      ],
+      "note": "The npm manager owns packageManager and engine pins; check-toolchain proves the mirrors agree."
+    },
+    {
+      "id": "mise-runtime-mirror",
+      "classification": "built-in",
+      "manager": "mise",
+      "paths": ["mise.toml"],
+      "canonical": ".node-version and package.json#packageManager",
+      "agePolicy": "renovate-minimum-release-age",
+      "compensatingControl": "check-toolchain rejects a proposal that updates a mirror without the canonical pins.",
+      "extractionMatchers": [
+        { "manager": "mise", "packageFilePattern": "^mise.toml$", "depNamePattern": "^(?:node|pnpm)$" }
+      ],
+      "scanMatchers": [
+        { "pathPattern": "^mise\\.toml$", "pattern": "version-assignment" }
+      ],
+      "note": "Renovate extracts mise pins, while the repository guard requires exact parity with the canonical Node and pnpm declarations."
+    },
+    {
+      "id": "github-actions-and-runners",
+      "classification": "built-in",
+      "manager": "github-actions",
+      "paths": [".github/workflows"],
+      "canonical": ".github/workflows",
+      "agePolicy": "unsupported-by-renovate",
+      "compensatingControl": "Immutable action SHAs, required workflow-security scanning, exact-SHA CI, and owner review govern pins, digests, and runner labels.",
+      "extractionMatchers": [
+        { "manager": "github-actions", "packageFilePattern": "^\\.github/workflows/", "depNamePattern": ".+" }
+      ],
+      "scanMatchers": [
+        { "pathPattern": "^\\.github/workflows/", "pattern": "workflow-reference" },
+        { "pathPattern": "^\\.github/workflows/", "pattern": "container-reference", "optional": true },
+        { "pathPattern": "^\\.github/workflows/", "pattern": "digest", "optional": true }
+      ],
+      "note": "Action SHAs, version comments, container references, and literal runner labels are extracted, but their pin/digest update types do not receive a universal release-age guarantee."
+    },
+    {
+      "id": "renovate-runtime",
+      "classification": "custom-manager",
+      "manager": "custom.regex",
+      "paths": [".renovate-version", "renovate.json"],
+      "canonical": ".renovate-version",
+      "agePolicy": "renovate-minimum-release-age",
+      "compensatingControl": "Strict config validation and the live runner receipt prove the pinned runtime before it is accepted.",
+      "extractionMatchers": [
+        { "manager": "custom.regex", "packageFilePattern": "^\\.renovate-version$", "depNamePattern": "^renovate$" }
+      ],
+      "note": "The repository-owned regex manager tracks the one runtime pin through the npm datasource."
+    },
+    {
+      "id": "shared-preset-reference",
+      "classification": "intentional-manual",
+      "manager": "versioned-distribution-owner-gate",
+      "paths": ["renovate.json"],
+      "canonical": "renovate.json#extends",
+      "agePolicy": "not-applicable",
+      "compensatingControl": "The bootstrap freeze blocks shared-preset changes until all consumers use an owner-approved immutable tag.",
+      "extractionMatchers": [
+        { "manager": "renovate-config", "packageFilePattern": "^renovate.json$", "depNamePattern": "^jasondockery/renovate-config$" }
+      ],
+      "note": "Renovate detects the unversioned reference but cannot update it until versioned distribution is owner-approved and a tag is present."
+    },
+    {
+      "id": "toolchain-mirrors",
+      "classification": "derived",
+      "manager": "repository-guard",
+      "paths": [".nvmrc", "package.json", "tools/check-toolchain.mjs"],
+      "canonical": ".node-version and package.json#packageManager",
+      "agePolicy": "not-applicable",
+      "compensatingControl": "check-toolchain rejects drift between canonical pins and derived adapters.",
+      "extractionMatchers": [
+        { "manager": "nvm", "packageFilePattern": "^\\.nvmrc$", "depNamePattern": "^node$" }
+      ],
+      "note": "These adapters and assertions are not independent dependency owners."
+    },
+    {
+      "id": "extraction-fixtures",
+      "classification": "derived",
+      "manager": "integration-fixture",
+      "paths": ["tools/fixtures/dependency-extraction"],
+      "canonical": "dependency-coverage.json and tools/check-renovate-extraction.mjs",
+      "agePolicy": "not-applicable",
+      "compensatingControl": "The network-backed integration runs these synthetic declarations only to prove manager behavior; they are not production dependencies.",
+      "scanMatchers": [
+        { "pathPattern": "^tools/fixtures/dependency-extraction/", "pattern": "version-assignment" },
+        { "pathPattern": "^tools/fixtures/dependency-extraction/", "pattern": "workflow-reference" },
+        { "pathPattern": "^tools/fixtures/dependency-extraction/", "pattern": "container-reference" },
+        { "pathPattern": "^tools/fixtures/dependency-extraction/", "pattern": "digest" }
+      ],
+      "note": "Fixture-only versions cover every claimed manager family without being accepted as live consumer evidence."
+    }
+  ]
+}

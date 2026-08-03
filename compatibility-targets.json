@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "activation": "manual-only",
+  "targets": [
+    {
+      "repository": "jasondockery/renovate-config",
+      "directory": ".",
+      "ignoredPaths": []
+    },
+    {
+      "repository": "jasondockery/roost",
+      "directory": "../roost",
+      "ignoredPaths": []
+    },
+    {
+      "repository": "jasondockery/groundwork",
+      "directory": "../groundwork",
+      "ignoredPaths": []
+    }
+  ]
+}

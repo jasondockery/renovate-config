@@ -17,6 +17,8 @@ const CONTRACT_FILES = [
   '.renovate-version',
   '.github/workflows/ci.yml',
   '.github/workflows/renovate.yml',
+  'tools/validate-renovate-integration.mjs',
+  'tools/run-renovate-integration.mjs',
   'tools/verify.mjs',
   'package.json',
   'renovate.json',
@@ -110,7 +112,7 @@ test('rejects a missing or displaced verification cleanliness check', async (con
     )
     const result = problems(repoRoot)
     assert.match(result, /cleanliness immediately after pnpm test/)
-    assert.match(result, /exactly two cleanliness checks/)
+    assert.match(result, /exactly three cleanliness checks/)
   })
 
   await context.test('check moved away from validation', (subcontext) => {
@@ -153,7 +155,7 @@ test('rejects weakened workflow permissions, artifact retention, or local deadli
       "--reproduce-label 'Local tests/validation equivalent'",
       "--reproduce-label 'Reproduce'"
     ))
-    assert.match(problems(repoRoot), /local tests\/validation equivalent/)
+    assert.match(problems(repoRoot), /separate offline and pinned-integration local equivalents/)
   })
   await context.test('deadline removed', (subcontext) => {
     const repoRoot = fixture(subcontext)
@@ -162,6 +164,28 @@ test('rejects weakened workflow permissions, artifact retention, or local deadli
       'const HARD_DEADLINE_MILLISECONDS = 0'
     ))
     assert.match(problems(repoRoot), /300-second total deadline/)
+  })
+})
+
+test('requires one pinned-runtime acquisition and no moving consumers in required CI', async (context) => {
+  await context.test('second npx acquisition', (subcontext) => {
+    const repoRoot = fixture(subcontext)
+    write(
+      repoRoot,
+      'tools/run-renovate-integration.mjs',
+      `${read(repoRoot, 'tools/run-renovate-integration.mjs')}\n// npx is not permitted in the inner orchestrator\n`
+    )
+    assert.match(problems(repoRoot), /one provisioned runtime environment/)
+  })
+
+  await context.test('consumer checkout in required CI', (subcontext) => {
+    const repoRoot = fixture(subcontext)
+    write(
+      repoRoot,
+      '.github/workflows/ci.yml',
+      `${read(repoRoot, '.github/workflows/ci.yml')}\n# repository: jasondockery/roost\n`
+    )
+    assert.match(problems(repoRoot), /must not bind renovate-config proof to mutable consumer default branches/)
   })
 })
 

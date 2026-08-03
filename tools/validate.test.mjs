@@ -6,7 +6,7 @@ test('validation runner preserves phase order and reports internal timings', () 
   let clock = 0
   const commands = []
   let output = ''
-  const durations = [15, 25, 35, 45, 1550]
+  const durations = [15, 25, 30, 35, 45]
   const result = runValidation({
     now: () => clock,
     run(command, arguments_, options) {
@@ -24,10 +24,10 @@ test('validation runner preserves phase order and reports internal timings', () 
   )
   assert.equal(commands.every(({ options }) => options.stdio === 'inherit'), true)
   assert.deepEqual(result.records.map(({ result: phaseResult }) => phaseResult), Array(5).fill('passed'))
-  assert.equal(result.totalMilliseconds, 1670)
+  assert.equal(result.totalMilliseconds, 150)
   assert.match(output, /Toolchain contract\s+passed\s+15ms/)
-  assert.match(output, /Renovate config validation\s+passed\s+1\.6s/)
-  assert.match(output, /Total\s+1\.7s/)
+  assert.match(output, /Renovate runtime contract\s+passed\s+45ms/)
+  assert.match(output, /Total\s+150ms/)
 })
 
 test('validation runner fails fast and marks later phases skipped', () => {
@@ -52,7 +52,7 @@ test('validation runner fails fast and marks later phases skipped', () => {
     ['passed', 'failed', 'skipped', 'skipped', 'skipped']
   )
   assert.match(output, /Preset freeze\s+failed\s+10ms/)
-  assert.match(output, /Workflow timeout policy\s+skipped\s+-/)
+  assert.match(output, /Renovate system policy\s+skipped\s+-/)
 })
 
 test('validation runner treats a phase launch error as authoritative failure', () => {

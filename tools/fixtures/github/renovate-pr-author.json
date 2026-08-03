@@ -1,0 +1,17 @@
+{
+  "schema": "renovate-config.github-pr-author-fixture",
+  "capturedAt": "2026-08-03",
+  "capturedCommand": "gh pr list --repo jasondockery/roost --state all --limit 100 --json number,author,baseRefName,headRefName,headRefOid,createdAt,updatedAt",
+  "response": {
+    "author": {
+      "is_bot": true,
+      "login": "app/jasondockery-renovate"
+    },
+    "baseRefName": "main",
+    "createdAt": "2026-07-30T09:48:16Z",
+    "headRefName": "self-hosted-renovate/lock-file-maintenance",
+    "headRefOid": "13c795821ce90eee09dd12634016b9a9d314ebd0",
+    "number": 36,
+    "updatedAt": "2026-08-02T14:11:37Z"
+  }
+}

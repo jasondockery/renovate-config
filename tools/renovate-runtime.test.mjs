@@ -15,12 +15,7 @@ test('rejects ranges, prefixes, whitespace, and extra lines', () => {
 })
 
 test('validates repository configs with no global privileges', () => {
-  assert.deepEqual(validatorArguments('1.2.3', { file: 'default.json', global: false }), [
-    '--yes',
-    '--package',
-    'renovate@1.2.3',
-    '--',
-    'renovate-config-validator',
+  assert.deepEqual(validatorArguments({ file: 'default.json', global: false }), [
     '--strict',
     '--no-global',
     'default.json',
@@ -28,12 +23,7 @@ test('validates repository configs with no global privileges', () => {
 })
 
 test('validates the runner as self-hosted global configuration', () => {
-  assert.deepEqual(validatorArguments('1.2.3', { file: 'runner.json', global: true }), [
-    '--yes',
-    '--package',
-    'renovate@1.2.3',
-    '--',
-    'renovate-config-validator',
+  assert.deepEqual(validatorArguments({ file: 'runner.json', global: true }), [
     '--strict',
     'runner.json',
   ])

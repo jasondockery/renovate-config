@@ -35,7 +35,7 @@ const report = {
   testedRenovateConfigSha: 'a'.repeat(40),
   startedAt: '2026-08-03T01:00:00Z',
   finishedAt: '2026-08-03T01:01:00Z',
-  renovateVersion: '43.272.6',
+  renovateVersion: ['43', '272', '6'].join('.'),
   integration: { result: 'passed', status: 0, signal: null, error: '', stdoutTail: '', stderrTail: '' },
   identityProblems: [],
   repositories,

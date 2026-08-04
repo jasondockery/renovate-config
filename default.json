@@ -4,20 +4,35 @@
     "Owner dependency updates: Renovate owns version PRs; Dependabot owns security alerts. This preset holds only policy that must stay identical across owner repos.",
     "config:best-practices enables digest/SHA pinning maintenance; consuming repos keep repo-specific duplicate-pin and package-rule notes locally.",
     "rebaseWhen=behind-base-branch matches strict status checks: branches must be current before merge, so Renovate needs to rebase stale PRs automatically.",
-    "vulnerabilityAlerts stays enabled and immediate; security PRs are never held by the cooldown.",
-    "minimumReleaseAge is 5 days: pnpm uses a 4-day timestamp-exact minimumReleaseAge, and Renovate evaluates release age at date granularity. The extra day prevents lockfile-less branches when Renovate proposes versions pnpm still refuses."
+    "vulnerabilityAlerts explicitly bypasses the routine schedule, rate limits, and release-age floor; security updates are evaluated on the next daily run.",
+    "Normal major, minor, and patch releases use a strict 5-day floor where their datasource supplies release timestamps. pnpm independently enforces a timestamp-exact 4-day floor during resolution.",
+    "config:best-practices includes a 3-day npm rule. The later npm package rule below deliberately raises effective normal npm updates to 5 days without claiming support for pins, lockfile maintenance, replacements, or digests."
   ],
   "extends": ["config:best-practices", "schedule:weekly"],
   "minimumReleaseAge": "5 days",
+  "internalChecksFilter": "strict",
+  "packageRules": [
+    {
+      "description": "Raise normal npm version updates above config:best-practices' three-day npm floor; update types without Renovate release-age support remain governed by their repository inventory controls.",
+      "matchDatasources": ["npm"],
+      "matchUpdateTypes": ["major", "minor", "patch"],
+      "minimumReleaseAge": "5 days",
+      "internalChecksFilter": "strict"
+    }
+  ],
   "prConcurrentLimit": 5,
   "prHourlyLimit": 3,
   "rebaseWhen": "behind-base-branch",
   "labels": ["dependencies"],
   "vulnerabilityAlerts": {
+    "enabled": true,
     "addLabels": ["security"],
+    "schedule": ["at any time"],
+    "minimumReleaseAge": null,
+    "prHourlyLimit": 0,
+    "prConcurrentLimit": 0,
     "prCreation": "immediate",
     "automerge": true,
     "platformAutomerge": true
   }
 }
-

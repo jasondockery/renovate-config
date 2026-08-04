@@ -33,16 +33,15 @@ observable contract and evidence matrix are in
 
 ## Policy status
 
-- **Current:** the accepted preset is byte-frozen. Its weekly schedule is
-  active, but an inherited npm rule means its top-level five-day declaration
-  does not establish the target effective strict five-day npm behavior. Its
-  security block guarantees immediate creation and automerge only.
-- **Approved in principle:** the isolated proposal fixture adds the reviewed
-  normal npm override, strict internal checks, and explicit security schedule,
-  age, and rate-limit bypass. It remains outside required CI and production.
-- **Target:** after an owner-approved preset commit, release, consumer pin, and
-  field proof, the five-day and security outcomes in this charter and the
-  acceptance spec become active operating guarantees.
+- **Current policy:** the owner-approved exception activates the reviewed
+  strict five-day npm override and the explicit vulnerability-alert schedule,
+  age, and rate-limit bypass. The freeze checksum binds that exact policy while
+  consumers still follow the default branch.
+- **Current evidence:** policy activation is not end-to-end acceptance. The
+  live runner receipt, replacement/current pull requests, consumer CI, and
+  security-alert reconciliation remain required evidence.
+- **Distribution target:** release and pin the shared preset so later policy
+  changes arrive as reviewable consumer updates with a stable rollback target.
 
 ## Owns
 
@@ -130,19 +129,19 @@ edit a major, so the line is drawn at **consumer impact**, not diff size.
 
 ## Target proof levels
 
-**Current proposed coverage:** offline CI checks repository-owned policy,
+**Current active coverage:** offline CI checks repository-owned policy,
 inventory, workflow, toolchain, and runtime structure. Required network-backed
 CI uses one canonical Renovate runtime to exercise the synthetic extraction
 fixture and strict-validate configs without depending on moving consumer
-branches. The owner-gated policy proposal has a separate proof. A manual-only
+branches. The accepted five-day policy has a separate exact-runtime proof. A manual-only
 compatibility watch
 extracts the latest actual checkouts and records each exact SHA and before/after
 identity. A live runner receipt proves authentication, execution, and bounded
 cleanup only. Controlled canary and green consumer-PR evidence remain separate
 field proof until their explicit acceptance rows are recorded.
 
-The proposed target contract below is what each lane is *for*. Owner approval
-accepts the contract; field evidence separately establishes system acceptance.
+The active target contract below is what each lane is *for*. Policy activation
+does not replace field evidence establishing system acceptance.
 Green does not mean the
 same thing in all three, so each says what it actually exercised.
 

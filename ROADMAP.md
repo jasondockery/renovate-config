@@ -6,22 +6,20 @@ verified, never aspirationally.
 
 ## Versioned distribution
 
-> **Freeze in effect until every consumer is pinned.** Until then all three
+> **Freeze remains in effect until every consumer is pinned.** Until then all three
 > consumers still resolve this repository's default branch, so a merge that
 > changes `default.json` behavior changes their dependency policy immediately
-> and silently. Do not change effective preset behavior during the bootstrap
-> sequence below. Charter,
-> roadmap, guardrail, timeout, and validation changes are safe to merge — they
-> do not alter the resolved preset.
+> and silently. The owner authorized one exact exception on 2026-08-04: activate
+> the reviewed strict five-day npm override and vulnerability-alert bypass.
+> The updated checksum binds that policy. No further effective preset change is
+> authorized during the bootstrap sequence below.
 >
-> An isolated executable fixture now demonstrates why an exception may be necessary:
+> The executable reviewed fixture demonstrates why the exception was necessary:
 > `config:best-practices` contributes a later three-day npm rule, so the frozen
-> preset does not establish its claimed effective five-day npm behavior.
-> The exception design in `specs/preset-freeze-exception.md` is **approved in
-> principle**, but activation is not approved implicitly. `default.json` and
-> the freeze checksum remain at the last accepted state; the proposal proof is
-> separate from required validation until the owner authorizes its isolated
-> policy commit.
+> preset did not establish its claimed effective five-day npm behavior. The
+> activated exception and rollback are recorded in
+> `specs/preset-freeze-exception.md`; `pnpm renovate:policy` proves the exact
+> accepted policy against the pinned runtime.
 
 Bootstrap sequence, in this order:
 

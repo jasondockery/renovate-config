@@ -1,13 +1,12 @@
 # Renovate system acceptance
 
-Contract status: proposed
+Contract status: active
 
 System acceptance: not achieved
 
-Policy activation: target only. The accepted frozen preset has a known
-effective npm age discrepancy and does not yet contain the proposal's explicit
-security schedule, age, and rate-limit bypass. Those fields are approved in
-principle only in the isolated proposal fixture until the owner activates them.
+Policy activation: active. The owner-approved preset exception supplies the
+later strict five-day npm rule and the explicit vulnerability-alert schedule,
+age, and routine rate-limit bypass. Field acceptance remains separate.
 
 Owner: `jasondockery/renovate-config`
 
@@ -63,8 +62,8 @@ independently of when the runner executes.
    contracts pass locally and in CI.
 2. **Pinned Renovate integration:** required network-backed CI acquires the
    exact runtime once, exercises synthetic extraction, and strict-validates
-   config without reading mutable consumer branches. The owner-gated policy
-   proposal has a separate exact-boundary proof. A manual-only latest-head
+   config without reading mutable consumer branches. The active policy has a
+   separate exact-boundary proof. A manual-only latest-head
    compatibility watch maps
    actual extraction for all three repositories, records each exact tested SHA,
    status, tracked fingerprint, and relevant ignored-output fingerprint, and
@@ -120,8 +119,8 @@ applicable, and scanner ownership for derived/manual conventions. The shared
 fixture covers `npm`, `dockerfile`, `docker-compose`, `github-actions`, `nodenv`,
 `mise`, `renovate-config`, the Renovate runtime regex, and Roost's OpenNext
 regex. Required integration proves the extraction fixture and accepted config.
-The separate proposal command proves the proposed policy contract without
-changing the frozen preset. The latest-head compatibility watch tests the three actual checkouts. Its
+The separate `pnpm renovate:policy` command proves the active policy contract
+against the pinned runtime. The latest-head compatibility watch tests the three actual checkouts. Its
 file-aware convention scan is a bounded heuristic guard, not a mathematical
 completeness proof. It structurally parses JSON/JSONC; TOML/YAML discovery is
 line-aware and their syntax remains owned by consumer repository validation.

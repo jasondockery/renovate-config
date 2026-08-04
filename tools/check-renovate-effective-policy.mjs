@@ -14,26 +14,13 @@ const DAY = 24 * 60 * 60 * 1000
 const MINUTE = 60 * 1000
 const JUST_UNDER_FIVE_DAYS = 5 * DAY - MINUTE
 const JUST_OVER_FIVE_DAYS = 5 * DAY + MINUTE
-const PROPOSAL_PATH = 'tools/fixtures/preset/default-five-day-policy.json'
-const PROPOSAL_RULE = Object.freeze({
-  description: "Raise normal npm version updates above config:best-practices' three-day npm floor; update types without Renovate release-age support remain governed by their repository inventory controls.",
-  matchDatasources: ['npm'],
-  matchUpdateTypes: ['major', 'minor', 'patch'],
-  minimumReleaseAge: '5 days',
-  internalChecksFilter: 'strict',
-})
-const PROPOSAL_SECURITY = Object.freeze({
-  enabled: true,
-  schedule: ['at any time'],
-  minimumReleaseAge: null,
-  prHourlyLimit: 0,
-  prConcurrentLimit: 0,
-})
+const ACCEPTED_POLICY_PATH = 'default.json'
+const REVIEWED_POLICY_PATH = 'tools/fixtures/preset/default-five-day-policy.json'
 
-export const proposalValidatorArguments = Object.freeze([
+export const policyValidatorArguments = Object.freeze([
   '--strict',
   '--no-global',
-  PROPOSAL_PATH,
+  ACCEPTED_POLICY_PATH,
 ])
 
 function renovateCleanEnvironment(environment) {
@@ -42,35 +29,26 @@ function renovateCleanEnvironment(environment) {
   )
 }
 
-export function assertReviewedProposalDelta(accepted, proposal) {
+export function assertReviewedPolicy(accepted, reviewed) {
   assert.ok(
-    Array.isArray(proposal.description) &&
-      proposal.description.length > 0 &&
-      proposal.description.every((line) => typeof line === 'string' && line.trim()),
-    'proposal description must contain reviewed non-empty strings'
+    Array.isArray(accepted.description) &&
+      accepted.description.length > 0 &&
+      accepted.description.every((line) => typeof line === 'string' && line.trim()),
+    'accepted policy description must contain reviewed non-empty strings'
   )
-  const expected = structuredClone(accepted)
-  expected.description = structuredClone(proposal.description)
-  expected.internalChecksFilter = 'strict'
-  expected.packageRules = [structuredClone(PROPOSAL_RULE)]
-  expected.vulnerabilityAlerts = {
-    ...structuredClone(accepted.vulnerabilityAlerts),
-    ...structuredClone(PROPOSAL_SECURITY),
-  }
   assert.deepEqual(
-    proposal,
-    expected,
-    'proposal may differ from accepted default.json only in reviewed descriptions, strict age policy, and explicit security bypass fields'
+    accepted,
+    reviewed,
+    'accepted default.json must match the exact owner-reviewed five-day policy fixture'
   )
 }
 
-function validateProposalFixture(repoRoot, configPath, environment, run) {
-  assert.equal(configPath, PROPOSAL_PATH, 'effective proposal proof accepts only the reviewed proposal fixture')
+function validateAcceptedPolicy(repoRoot, environment, run) {
   const accepted = JSON.parse(fs.readFileSync(path.join(repoRoot, 'default.json'), 'utf8'))
-  const proposal = JSON.parse(fs.readFileSync(path.join(repoRoot, configPath), 'utf8'))
-  assertReviewedProposalDelta(accepted, proposal)
+  const reviewed = JSON.parse(fs.readFileSync(path.join(repoRoot, REVIEWED_POLICY_PATH), 'utf8'))
+  assertReviewedPolicy(accepted, reviewed)
 
-  const validated = run('renovate-config-validator', proposalValidatorArguments, {
+  const validated = run('renovate-config-validator', policyValidatorArguments, {
     cwd: repoRoot,
     env: renovateCleanEnvironment(environment),
     encoding: 'utf8',
@@ -80,7 +58,7 @@ function validateProposalFixture(repoRoot, configPath, environment, run) {
   assert.equal(
     validated.status,
     0,
-    `strict proposal validation failed:\n${validated.stderr || validated.stdout || 'no output'}`
+    `strict accepted-policy validation failed:\n${validated.stderr || validated.stdout || 'no output'}`
   )
 }
 
@@ -111,7 +89,6 @@ async function policyResult(filterInternalChecks, versioning, config, millisecon
 
 export async function checkEffectivePolicy({
   repoRoot = repositoryRoot,
-  configPath = 'default.json',
   environment = process.env,
   run = spawnSync,
   output = console,
@@ -120,7 +97,7 @@ export async function checkEffectivePolicy({
   const runtimeRoot = findPinnedRenovateRoot(environment)
   const runtimeManifest = JSON.parse(fs.readFileSync(path.join(runtimeRoot, 'package.json'), 'utf8'))
   assert.equal(runtimeManifest.version, expectedVersion, 'PATH Renovate must match .renovate-version')
-  if (configPath !== 'default.json') validateProposalFixture(repoRoot, configPath, environment, run)
+  validateAcceptedPolicy(repoRoot, environment, run)
 
   const [{ resolveConfigPresets }, { applyPackageRules }, { filterInternalChecks }, { api: semver }] = await Promise.all([
     importRenovateModule(runtimeRoot, 'config/presets/index.js'),
@@ -128,7 +105,7 @@ export async function checkEffectivePolicy({
     importRenovateModule(runtimeRoot, 'workers/repository/process/lookup/filter-checks.js'),
     importRenovateModule(runtimeRoot, 'modules/versioning/semver/index.js'),
   ])
-  const source = JSON.parse(fs.readFileSync(path.resolve(repoRoot, configPath), 'utf8'))
+  const source = JSON.parse(fs.readFileSync(path.resolve(repoRoot, ACCEPTED_POLICY_PATH), 'utf8'))
   const { config: resolved } = await resolveConfigPresets(structuredClone(source), structuredClone(source))
 
   const effectiveNpm = await applyPackageRules(
@@ -191,11 +168,8 @@ export async function checkEffectivePolicy({
 }
 
 export function parseArguments(argv) {
-  if (argv.length === 0) return { configPath: 'default.json' }
-  if (argv.length === 2 && argv[0] === '--config' && argv[1] && !path.isAbsolute(argv[1])) {
-    return { configPath: argv[1] }
-  }
-  throw new Error('usage: node tools/check-renovate-effective-policy.mjs [--config <relative-path>]')
+  if (argv.length === 0) return {}
+  throw new Error('usage: node tools/check-renovate-effective-policy.mjs')
 }
 
 if (isMainModule(import.meta.url)) {

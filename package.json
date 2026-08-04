@@ -12,7 +12,7 @@
     "renovate:audit": "node tools/renovate-system-audit.mjs",
     "renovate:compatibility": "node tools/validate-renovate-compatibility.mjs",
     "renovate:integration": "node tools/validate-renovate-integration.mjs",
-    "renovate:policy-proposal": "node tools/validate-renovate-policy-proposal.mjs",
+    "renovate:policy": "node tools/validate-renovate-effective-policy.mjs",
     "test": "node --test tools/*.test.mjs",
     "validate": "node tools/validate.mjs",
     "verify": "node tools/verify.mjs",

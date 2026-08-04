@@ -55,17 +55,34 @@ export function collectRenovateSystemPolicyProblems(root = repositoryRoot) {
       problems.push('default.json must preserve config:best-practices plus the weekly routine update/branch schedule.')
     }
     if (preset.minimumReleaseAge !== '5 days') {
-      problems.push('default.json must preserve the accepted top-level five-day declaration while frozen.')
+      problems.push('default.json must preserve the accepted top-level five-day declaration.')
+    }
+    if (preset.internalChecksFilter !== 'strict') {
+      problems.push('default.json must keep strict internal checks for the active five-day policy.')
+    }
+    const fiveDayRules = (preset.packageRules ?? []).filter((rule) =>
+      JSON.stringify(rule.matchDatasources) === JSON.stringify(['npm']) &&
+      JSON.stringify(rule.matchUpdateTypes) === JSON.stringify(['major', 'minor', 'patch'])
+    )
+    if (
+      fiveDayRules.length !== 1 ||
+      fiveDayRules[0].minimumReleaseAge !== '5 days' ||
+      fiveDayRules[0].internalChecksFilter !== 'strict'
+    ) {
+      problems.push('default.json must retain the one reviewed npm rule that overrides the inherited three-day policy.')
     }
     if (Object.hasOwn(preset, 'enabledManagers')) {
       problems.push('default.json must not silently narrow built-in dependency manager coverage with enabledManagers.')
     }
     const security = preset.vulnerabilityAlerts
     if (
-      !security || security.prCreation !== 'immediate' ||
+      !security || security.enabled !== true ||
+      JSON.stringify(security.schedule) !== JSON.stringify(['at any time']) ||
+      security.minimumReleaseAge !== null || security.prHourlyLimit !== 0 ||
+      security.prConcurrentLimit !== 0 || security.prCreation !== 'immediate' ||
       security.automerge !== true || security.platformAutomerge !== true
     ) {
-      problems.push('the accepted frozen preset must preserve immediate vulnerability-alert automerge.')
+      problems.push('the active preset must preserve the reviewed vulnerability-alert schedule, age, rate-limit, and automerge bypass.')
     }
   }
 
@@ -95,21 +112,18 @@ export function collectRenovateSystemPolicyProblems(root = repositoryRoot) {
   if (packageManifest?.scripts?.['renovate:compatibility'] !== 'node tools/validate-renovate-compatibility.mjs') {
     problems.push('package.json must expose the canonical latest-head renovate:compatibility command.')
   }
-  const policyProposalPaths = [
+  const activePolicyPaths = [
     'specs/preset-freeze-exception.md',
     'tools/check-renovate-effective-policy.mjs',
     'tools/check-renovate-effective-policy.test.mjs',
     'tools/fixtures/preset/default-five-day-policy.json',
-    'tools/validate-renovate-policy-proposal.mjs',
+    'tools/validate-renovate-effective-policy.mjs',
   ]
-  const policyProposalPresence = policyProposalPaths.map((relative) => fs.existsSync(path.join(root, relative)))
-  const hasPolicyProposalScript = packageManifest?.scripts?.['renovate:policy-proposal'] ===
-    'node tools/validate-renovate-policy-proposal.mjs'
-  if (policyProposalPresence.some(Boolean) && !policyProposalPresence.every(Boolean)) {
-    problems.push('the owner-gated preset proposal must land as one complete isolated contract.')
-  }
-  if (policyProposalPresence.every(Boolean) !== hasPolicyProposalScript) {
-    problems.push('proposal files and the exact renovate:policy-proposal package script must exist or be absent together.')
+  const activePolicyPresence = activePolicyPaths.map((relative) => fs.existsSync(path.join(root, relative)))
+  const hasActivePolicyScript = packageManifest?.scripts?.['renovate:policy'] ===
+    'node tools/validate-renovate-effective-policy.mjs'
+  if (!activePolicyPresence.every(Boolean) || !hasActivePolicyScript) {
+    problems.push('the active five-day policy, reviewed fixture, proof, and exact renovate:policy command must remain complete.')
   }
 
   const compatibilityTargets = readJson(root, 'compatibility-targets.json', problems)
@@ -159,15 +173,15 @@ export function collectRenovateSystemPolicyProblems(root = repositoryRoot) {
     if (!coverage.includes('assertSharedPresetExtractionNeutral')) {
       problems.push('ignored shared preset must remain guarded as extraction-neutral.')
     }
-    if (policyProposalPresence.every(Boolean) && hasPolicyProposalScript) {
-      const proposalProof = read(root, 'tools/check-renovate-effective-policy.mjs')
+    if (activePolicyPresence.every(Boolean) && hasActivePolicyScript) {
+      const policyProof = read(root, 'tools/check-renovate-effective-policy.mjs')
       if (
-        !proposalProof.includes('renovate-config-validator') ||
-        !proposalProof.includes('assertReviewedProposalDelta') ||
-        !proposalProof.includes("'--strict'") ||
-        !proposalProof.includes("'--no-global'")
+        !policyProof.includes('renovate-config-validator') ||
+        !policyProof.includes('assertReviewedPolicy') ||
+        !policyProof.includes("'--strict'") ||
+        !policyProof.includes("'--no-global'")
       ) {
-        problems.push('owner-gated policy proposal must keep strict validation and the reviewed structural delta guard.')
+        problems.push('active policy proof must keep strict validation and exact reviewed-policy parity.')
       }
     }
     if (!audit.includes("'--state', 'all'")) {
@@ -176,8 +190,8 @@ export function collectRenovateSystemPolicyProblems(root = repositoryRoot) {
   } catch (error) {
     problems.push(`compatibility and audit policy tools must be readable: ${error instanceof Error ? error.message : String(error)}`)
   }
-  if (!acceptance.includes('Contract status: proposed') || !acceptance.includes('System acceptance: not achieved')) {
-    problems.push('system acceptance must remain proposed and not achieved until owner approval and field proof.')
+  if (!acceptance.includes('Contract status: active') || !acceptance.includes('System acceptance: not achieved')) {
+    problems.push('the policy contract must remain active while system acceptance stays unachieved until field proof.')
   }
 
   if (
@@ -216,6 +230,6 @@ if (isMainModule(import.meta.url)) {
     for (const problem of problems) console.error(`renovate-system-policy: ${problem}`)
     process.exitCode = 1
   } else {
-    console.log('ok: daily runner, frozen preset, compatibility activation, scope, and audit policies agree')
+    console.log('ok: daily runner, active five-day preset, compatibility activation, scope, and audit policies agree')
   }
 }

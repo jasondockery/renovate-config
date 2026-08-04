@@ -13,8 +13,8 @@ This repo has seven moving pieces:
   runner behavior, not dependency policy.
 - `.github/workflows/renovate.yml` runs self-hosted Renovate once daily plus
   manual dispatch. The accepted frozen preset limits routine update and branch
-  work to the early-Monday window, but its inherited npm rule means it does not
-  yet establish the target effective strict five-day floor.
+  work to the early-Monday window and applies the reviewed strict five-day
+  floor to normal npm major, minor, and patch updates.
 - `specs/renovate-system-acceptance.md` defines the observable end-to-end
   contract across the runner and all three consumers.
 - `dependency-coverage.json`, the pinned-runtime fixture, and the bounded
@@ -167,8 +167,9 @@ This repo follows Roost's portable project-local toolchain contract:
   network/cache-backed: it acquires exactly `.renovate-version` once, exercises
   the synthetic manager fixture, and strict-validates `default.json`,
   `renovate.json`, and `runner.json`. It does not read moving consumer heads.
-  `pnpm renovate:policy-proposal` separately proves the owner-gated five-day
-  proposal fixture without changing the accepted frozen preset.
+  `pnpm renovate:policy` separately proves that the active preset matches the
+  owner-reviewed five-day fixture and resolves the intended age, security, and
+  lockfile-maintenance boundaries with the pinned Renovate runtime.
   `.github/workflows/renovate-compatibility.yml` is the separate manual-only
   latest-head watch: it extracts all three actual checkouts, requires
   exactly one inventory owner for every tuple and bounded discovery hit, and
@@ -186,18 +187,16 @@ summary so scheduled runs are triageable at a glance.
 
 ## Policy status and target operating contract
 
-- **Current:** `default.json` remains byte-frozen. It declares a top-level
-  five-day age, but `config:best-practices` contributes a later three-day npm
-  rule, so the effective strict five-day npm target is not active. The accepted
-  security block guarantees immediate creation and automerge, not the proposal's
-  explicit schedule, age, and routine-rate bypasses.
-- **Approved in principle:** the isolated proposal fixture adds the reviewed
-  npm override, strict internal checks, and explicit security bypass fields.
-  Its proof is `pnpm renovate:policy-proposal`; it is not required CI and does
-  not change the accepted preset.
-- **Target after activation:** the following table becomes the production
-  contract only after the owner-approved preset commit, release, consumer pin,
-  and field evidence.
+- **Active policy:** `default.json` matches the owner-reviewed policy fixture.
+  A later npm package rule overrides `config:best-practices`' inherited
+  three-day npm floor with five days and strict internal checks. Vulnerability
+  alerts explicitly bypass the normal age, schedule, and routine rate limits.
+- **Proof boundary:** `pnpm renovate:policy` proves the resolved pinned-runtime
+  policy. End-to-end acceptance still requires a green live runner receipt and
+  correct consumer pull requests; a valid preset alone is not system proof.
+- **Production contract:** the following table is active for the shared runner.
+  Release and consumer-pin gates still govern how future preset versions are
+  distributed.
 
 The process and routine update clocks are intentionally separate:
 
@@ -255,14 +254,13 @@ preset's release version. The preset itself ships as immutable SemVer tags
 without a `v` prefix, and consumers pin an exact tag such as
 `github>jasondockery/renovate-config#1.0.0`.
 
-The initial pinning bootstrap is in progress. Until the owner tags `1.0.0`,
-proves that released reference resolves, and moves all three consumers to it,
-`.preset-bootstrap-freeze` keeps `default.json` unchanged. See `ROADMAP.md` for
-the ordered owner gates and `CONTRIBUTING.md` for the release procedure. The
-executable proposal is isolated in
+The initial pinning bootstrap is in progress. The owner-approved 2026-08-04
+exception activated the reviewed five-day policy before the first immutable
+preset release; `.preset-bootstrap-freeze` now protects that exact accepted
+state. See `ROADMAP.md` for the ordered owner gates and `CONTRIBUTING.md` for
+the release procedure. The reviewed policy remains captured in
 `tools/fixtures/preset/default-five-day-policy.json` and documented in
-`specs/preset-freeze-exception.md`; `default.json` and its checksum remain at
-the accepted frozen state so earlier implementation slices can stay green.
+`specs/preset-freeze-exception.md`.
 
 ## Policy Boundary
 

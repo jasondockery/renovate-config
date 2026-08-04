@@ -18,11 +18,16 @@ const required = [
   '.github/workflows/renovate-compatibility.yml',
   'specs/renovate-system-acceptance.md',
   'playbooks/x-renovate-system-acceptance.md',
+  'specs/preset-freeze-exception.md',
   'tools/fixtures/github/renovate-pr-author.json',
   'tools/fixtures/github/renovate-dashboard-problems.json',
   'tools/check-renovate-repository-coverage.mjs',
   'tools/render-renovate-compatibility.mjs',
   'tools/renovate-system-audit.mjs',
+  'tools/check-renovate-effective-policy.mjs',
+  'tools/check-renovate-effective-policy.test.mjs',
+  'tools/fixtures/preset/default-five-day-policy.json',
+  'tools/validate-renovate-effective-policy.mjs',
 ]
 
 function fixture(context) {
@@ -46,22 +51,10 @@ test('accepts the complete checked-in system policy', () => {
   assert.deepEqual(collectRenovateSystemPolicyProblems(repoRoot), [])
 })
 
-test('accepts the green pre-proposal landing state', (context) => {
+test('rejects an incomplete active-policy proof surface', (context) => {
   const root = fixture(context)
-  mutateJson(root, 'package.json', (manifest) => { delete manifest.scripts['renovate:policy-proposal'] })
-  assert.deepEqual(collectRenovateSystemPolicyProblems(root), [])
-})
-
-test('rejects a proposal package script without its complete files', (context) => {
-  const root = fixture(context)
-  for (const relative of [
-    'specs/preset-freeze-exception.md',
-    'tools/check-renovate-effective-policy.mjs',
-    'tools/check-renovate-effective-policy.test.mjs',
-    'tools/fixtures/preset/default-five-day-policy.json',
-    'tools/validate-renovate-policy-proposal.mjs',
-  ]) fs.rmSync(path.join(root, relative), { force: true })
-  assert.match(collectRenovateSystemPolicyProblems(root).join('\n'), /package script must exist or be absent together/)
+  fs.rmSync(path.join(root, 'tools/fixtures/preset/default-five-day-policy.json'))
+  assert.match(collectRenovateSystemPolicyProblems(root).join('\n'), /active five-day policy/)
 })
 
 test('rejects schedule, activation, scope, security, and manager-coverage drift', async (context) => {
@@ -101,22 +94,20 @@ test('rejects schedule, activation, scope, security, and manager-coverage drift'
   await context.test('truthful acceptance status', (subcontext) => {
     const root = fixture(subcontext)
     const file = path.join(root, 'specs/renovate-system-acceptance.md')
-    fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('Contract status: proposed', 'Contract status: accepted'))
-    assert.match(collectRenovateSystemPolicyProblems(root).join('\n'), /must remain proposed/)
+    fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('Contract status: active', 'Contract status: proposed'))
+    assert.match(collectRenovateSystemPolicyProblems(root).join('\n'), /must remain active/)
   })
 
-  await context.test('preset proposal commit completeness', (subcontext) => {
+  await context.test('active policy command completeness', (subcontext) => {
     const root = fixture(subcontext)
-    const relative = 'specs/preset-freeze-exception.md'
-    fs.mkdirSync(path.join(root, 'specs'), { recursive: true })
-    fs.copyFileSync(path.join(repoRoot, relative), path.join(root, relative))
-    assert.match(collectRenovateSystemPolicyProblems(root).join('\n'), /one complete isolated contract/)
+    mutateJson(root, 'package.json', (manifest) => { delete manifest.scripts['renovate:policy'] })
+    assert.match(collectRenovateSystemPolicyProblems(root).join('\n'), /exact renovate:policy command/)
   })
 
   await context.test('security timing', (subcontext) => {
     const root = fixture(subcontext)
     mutateJson(root, 'default.json', (preset) => { preset.vulnerabilityAlerts.prCreation = 'not-pending' })
-    assert.match(collectRenovateSystemPolicyProblems(root).join('\n'), /accepted frozen preset/)
+    assert.match(collectRenovateSystemPolicyProblems(root).join('\n'), /active preset/)
   })
 
   await context.test('built-in manager narrowing', (subcontext) => {

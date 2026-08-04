@@ -13,8 +13,6 @@ const completed = spawnSync(
     '--',
     'node',
     'tools/check-renovate-effective-policy.mjs',
-    '--config',
-    'tools/fixtures/preset/default-five-day-policy.json',
   ],
   {
     cwd: process.cwd(),
@@ -24,7 +22,7 @@ const completed = spawnSync(
   }
 )
 if (completed.error) {
-  console.error(`Renovate policy proposal could not acquire Renovate ${version}: ${completed.error.message}`)
+  console.error(`Effective Renovate policy could not acquire Renovate ${version}: ${completed.error.message}`)
   process.exitCode = 1
 } else {
   process.exitCode = Number.isInteger(completed.status) ? completed.status : 1

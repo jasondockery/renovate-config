@@ -175,8 +175,11 @@ jobs:
           OVERDUE_COUNT: ${{ steps.report.outputs.overdue_count }}
         run: |
           set -euo pipefail
+          # Every label pins its colour: gh picks a random one when --color is
+          # omitted, and --force reapplies it, so an unpinned label changes
+          # colour on every run.
           gh label create security-hygiene --repo "$GITHUB_REPOSITORY" \
-            --description 'Durable security hygiene report' --force
+            --description 'Durable security hygiene report' --color 0E8A16 --force
           gh label create security-overdue --repo "$GITHUB_REPOSITORY" \
             --description 'An open alert is past its SLA' --color B60205 --force
           gh label create security-monitor-broken --repo "$GITHUB_REPOSITORY" \

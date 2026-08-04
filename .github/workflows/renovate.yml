@@ -250,6 +250,13 @@ jobs:
           RENOVATE_LOG_FILE: ${{ steps.renovate-log.outputs.host-log }}
           RENOVATE_LOG_DIR_IDENTITY: ${{ steps.renovate-log.outputs.identity }}
         run: |
+          # Name the real failure. Without this, a failed checkout or setup
+          # step reaches the receipt producer with an empty log directory and
+          # the job's only error is "--log-directory is required".
+          if [ -z "$RENOVATE_LOG_DIR" ] || [ -z "$RENOVATE_LOG_DIR_IDENTITY" ]; then
+            echo "::error title=Renovate setup did not complete::The private log directory was never prepared, so no run receipt can be produced. Repair the failing checkout, Node, or runtime step above and rerun Renovate."
+            exit 1
+          fi
           phase_result() {
             case "$1" in
               success) printf passed ;;

@@ -32,11 +32,35 @@ function registerSupervisorCleanup(context, supervisor) {
   })
 }
 
+// These bounds exist to stop a hung test, not to assert a latency. Node runs
+// test files concurrently, so several process-group fixtures compete for the
+// scheduler at once; a 1-second bound made "the fixture has not started yet"
+// indistinguishable from "the supervisor failed to kill its group" on a loaded
+// machine. The assertions below still fail closed — only the patience changed.
+const PROCESS_FIXTURE_TIMEOUT_MS = 5000
+
+// Waiting on existsSync alone is a race: the shell redirect creates the marker
+// before the pid is written, so the reader could see an empty file and derive
+// process group 0. Require a complete numeric marker.
+async function waitForReadyMarker(ready, label) {
+  const deadline = Date.now() + PROCESS_FIXTURE_TIMEOUT_MS
+  while (Date.now() < deadline) {
+    try {
+      const raw = fs.readFileSync(ready, 'utf8').trim()
+      if (/^[0-9]+$/.test(raw)) return Number(raw)
+    } catch {
+      // The fixture has not created its marker yet.
+    }
+    await new Promise((resolve) => setTimeout(resolve, 5))
+  }
+  assert.fail(`${label} did not reach its ready marker`)
+}
+
 function waitForSupervisorExit(supervisor, label) {
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(
       () => reject(new Error(`timed out waiting for ${label} supervisor exit`)),
-      1000
+      PROCESS_FIXTURE_TIMEOUT_MS
     )
     supervisor.once('exit', (exitCode, signalCode) => {
       clearTimeout(timeout)
@@ -46,7 +70,8 @@ function waitForSupervisorExit(supervisor, label) {
 }
 
 async function waitForProcessGroupGone(processGroup, label) {
-  const deadline = Date.now() + 1000
+  assert.ok(processGroup > 0, `${label} reported an invalid process group`)
+  const deadline = Date.now() + PROCESS_FIXTURE_TIMEOUT_MS
   while (Date.now() < deadline) {
     const snapshot = spawnSync('ps', ['-eo', 'pgid=,stat='], {
       encoding: 'utf8',
@@ -525,12 +550,7 @@ wait
     stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
   })
   registerSupervisorCleanup(context, supervisor)
-  const launchDeadline = Date.now() + 1000
-  while (!fs.existsSync(ready) && Date.now() < launchDeadline) {
-    await new Promise((resolve) => setTimeout(resolve, 5))
-  }
-  assert.equal(fs.existsSync(ready), true, 'hostile process did not reach its ready marker')
-  const group = Number(fs.readFileSync(ready, 'utf8').trim())
+  const group = await waitForReadyMarker(ready, 'hostile process')
   const exited = waitForSupervisorExit(supervisor, 'running-command owner-loss')
   supervisor.disconnect()
   await exited
@@ -569,13 +589,8 @@ fs.writeFileSync(process.argv[2], \`\${process.env.RENOVATE_CONFIG_VERIFICATION_
       resolve(message)
     })
   })
-  const launchDeadline = Date.now() + 1000
-  while (!fs.existsSync(ready) && Date.now() < launchDeadline) {
-    await new Promise((resolve) => setTimeout(resolve, 5))
-  }
-  assert.equal(fs.existsSync(ready), true, 'orphan fixture did not reach its ready marker')
   assert.equal((await commandStatus).exitCode, 0, 'direct command did not exit successfully')
-  const group = Number(fs.readFileSync(ready, 'utf8').trim())
+  const group = await waitForReadyMarker(ready, 'orphan fixture')
   const exited = waitForSupervisorExit(supervisor, 'exited-command owner-loss')
   supervisor.disconnect()
   await exited

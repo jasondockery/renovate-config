@@ -99,8 +99,6 @@ jobs:
       result: ${{ steps.report.outputs.result }}
       seconds: ${{ steps.report.outputs.seconds }}
       read_only: ${{ steps.report.outputs.read_only }}
-      failed_configs: ${{ steps.validate.outputs.failed }}
-      renovate_version: ${{ steps.validate.outputs.version }}
       validation_timing: ${{ steps.report.outputs.validation_timing }}
       started_epoch: ${{ steps.job_start.outputs.epoch }}
     steps:
@@ -141,8 +139,6 @@ jobs:
           STARTED_EPOCH: ${{ steps.job_start.outputs.epoch || '0' }}
           VALIDATE_OUTCOME: ${{ steps.validate.outcome }}
           READ_ONLY_OUTCOME: ${{ steps.read_only.outcome }}
-          FAILED_CONFIGS: ${{ steps.validate.outputs.failed }}
-          RENOVATE_VERSION: ${{ steps.validate.outputs.version }}
         run: |
           set -euo pipefail
           case "$STARTED_EPOCH" in
@@ -174,8 +170,8 @@ jobs:
             echo '| `pnpm validate` | '"${VALIDATE_OUTCOME:-skipped}"' |'
             echo '| Dependency-free read-only proof | '"${READ_ONLY_OUTCOME:-skipped}"' |'
             echo
-            printf 'Renovate: `%s` · Failed configs: `%s`\n' \
-              "${RENOVATE_VERSION:-unresolved}" "${FAILED_CONFIGS:-none}"
+            echo 'Scope: repository-owned structure only. Renovate config validation and its'
+            echo 'resolved runtime version belong to the renovate-integration lane.'
             echo
             echo "Duration: **${seconds}s**"
           } >> "$GITHUB_STEP_SUMMARY"
@@ -196,6 +192,10 @@ jobs:
       result: ${{ steps.report.outputs.result }}
       seconds: ${{ steps.report.outputs.seconds }}
       read_only: ${{ steps.report.outputs.read_only }}
+      # This lane runs renovate-config-validator, so it is the only lane that
+      # can name the resolved Renovate version and the configs that failed.
+      failed_configs: ${{ steps.integration.outputs.failed }}
+      renovate_version: ${{ steps.integration.outputs.version }}
       started_epoch: ${{ steps.job_start.outputs.epoch }}
     steps:
       - name: Record runner start
@@ -233,6 +233,8 @@ jobs:
           STARTED_EPOCH: ${{ steps.job_start.outputs.epoch || '0' }}
           INTEGRATION_OUTCOME: ${{ steps.integration.outcome }}
           READ_ONLY_OUTCOME: ${{ steps.read_only.outcome }}
+          FAILED_CONFIGS: ${{ steps.integration.outputs.failed }}
+          RENOVATE_VERSION: ${{ steps.integration.outputs.version }}
         run: |
           set -euo pipefail
           case "$STARTED_EPOCH" in
@@ -255,6 +257,9 @@ jobs:
             echo '| --- | --- |'
             echo '| One pinned runtime, synthetic fixture extraction, and strict accepted-config validation | '"${INTEGRATION_OUTCOME:-skipped}"' |'
             echo '| Read-only proof | '"${READ_ONLY_OUTCOME:-skipped}"' |'
+            echo
+            printf 'Configs: `default.json, renovate.json, runner.json` · Renovate: `%s` · Failed configs: `%s`\n' \
+              "${RENOVATE_VERSION:-unresolved}" "${FAILED_CONFIGS:-none}"
             echo
             echo "Duration: **${seconds}s**"
           } >> "$GITHUB_STEP_SUMMARY"
@@ -381,8 +386,8 @@ jobs:
           VALIDATION_READ_ONLY: ${{ needs.validation.outputs.read_only || 'skipped' }}
           VALIDATION_STARTED_EPOCH: ${{ needs.validation.outputs.started_epoch || '0' }}
           VALIDATION_TIMING: ${{ needs.validation.outputs.validation_timing || 'unavailable' }}
-          FAILED_CONFIGS: ${{ needs.validation.outputs.failed_configs }}
-          RENOVATE_VERSION: ${{ needs.validation.outputs.renovate_version }}
+          FAILED_CONFIGS: ${{ needs.renovate_integration.outputs.failed_configs }}
+          RENOVATE_VERSION: ${{ needs.renovate_integration.outputs.renovate_version }}
           INTEGRATION_JOB_RESULT: ${{ needs.renovate_integration.result }}
           INTEGRATION_DECLARED_RESULT: ${{ needs.renovate_integration.outputs.result || 'missing' }}
           INTEGRATION_SECONDS: ${{ needs.renovate_integration.outputs.seconds || '0' }}
@@ -461,6 +466,21 @@ jobs:
           [ "$security_started" -gt 0 ] || security_result=failed
           [ "$integration_started" -gt 0 ] || integration_result=failed
 
+          # A passed integration lane must name the runtime it validated with.
+          # An empty value here means the evidence path is broken, not that the
+          # configs are fine -- the receipt would otherwise print "unresolved"
+          # on a green run and nobody would notice.
+          if [ "$integration_result" = passed ]; then
+            case "${RENOVATE_VERSION:-}" in
+              '') add_error 'renovate-integration passed without reporting the validated Renovate version'
+                  integration_result=failed ;;
+            esac
+            case "${FAILED_CONFIGS:-}" in
+              '') add_error 'renovate-integration passed without reporting its validated config set'
+                  integration_result=failed ;;
+            esac
+          fi
+
           started_epoch="$gate_started"
           for candidate in "$test_started" "$validation_started" "$integration_started" "$security_started"; do
             if [ "$candidate" -gt 0 ] && [ "$candidate" -lt "$started_epoch" ]; then
@@ -496,7 +516,7 @@ jobs:
           if [ "${#errors[@]}" -gt 0 ]; then
             evidence_errors="$(IFS='; '; echo "${errors[*]}")"
           fi
-          printf 'Configs\t%s\nRenovate version\t%s\nValidation phases\t%s\nWorkflow security\tSARIF %s; gate %s\nRead-only proof\ttests %s; validation %s; integration %s\nEvidence errors\t%s\nLocal equivalent\tpnpm verify covers offline tests and validation; pnpm renovate:integration is the explicit network-backed proof; workflow security is CI-only\nFailed configs\t%s\nObserved workflow span after first required lane started\t%ss\nAggregate compute time\t%ss\nBudget enforcement\tadvisory for the first five representative final-tree runs\nCache state\tunavailable\n' \
+          printf 'Configs validated by renovate-integration\t%s\nRenovate version\t%s\nValidation phases\t%s\nWorkflow security\tSARIF %s; gate %s\nRead-only proof\ttests %s; validation %s; integration %s\nEvidence errors\t%s\nLocal equivalent\tpnpm verify covers offline tests and validation; pnpm renovate:integration is the explicit network-backed proof; workflow security is CI-only\nFailed configs\t%s\nObserved workflow span after first required lane started\t%ss\nAggregate compute time\t%ss\nBudget enforcement\tadvisory for the first five representative final-tree runs\nCache state\tunavailable\n' \
             'default.json, renovate.json, runner.json' "${RENOVATE_VERSION:-unresolved}" \
             "$VALIDATION_TIMING" "$SECURITY_SARIF" "$SECURITY_GATE" "$TEST_READ_ONLY" "$VALIDATION_READ_ONLY" "$INTEGRATION_READ_ONLY" \
             "$evidence_errors" "${FAILED_CONFIGS:-none}" "$observed_span_seconds" "$aggregate_seconds" \

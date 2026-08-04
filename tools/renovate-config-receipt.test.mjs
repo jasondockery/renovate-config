@@ -268,6 +268,19 @@ test('every executable workflow keeps one sanitized receipt and explicit retenti
   assert.match(ci, /pnpm renovate:integration is the explicit network-backed proof; workflow security is CI-only/)
   assert.match(ci, /--reproduce-label 'Local tests\/validation equivalent'/)
   assert.doesNotMatch(ci, /if-no-files-found: ignore/)
+
+  // The Renovate version and failed-config list can only come from the lane
+  // that runs renovate-config-validator. Sourcing them from the offline
+  // validation lane produced a permanently empty value, so a green receipt
+  // reported "Renovate version: unresolved" and nobody noticed.
+  assert.match(ci, /failed_configs: \$\{\{ steps\.integration\.outputs\.failed \}\}/)
+  assert.match(ci, /renovate_version: \$\{\{ steps\.integration\.outputs\.version \}\}/)
+  assert.match(ci, /FAILED_CONFIGS: \$\{\{ needs\.renovate_integration\.outputs\.failed_configs \}\}/)
+  assert.match(ci, /RENOVATE_VERSION: \$\{\{ needs\.renovate_integration\.outputs\.renovate_version \}\}/)
+  assert.doesNotMatch(ci, /\$\{\{ steps\.validate\.outputs\./)
+  assert.doesNotMatch(ci, /needs\.validation\.outputs\.(?:failed_configs|renovate_version)/)
+  assert.match(ci, /renovate-integration passed without reporting the validated Renovate version/)
+  assert.match(ci, /renovate-integration passed without reporting its validated config set/)
   assert.match(ci, /authoritative CI receipt was written/)
   assert.match(ci, /retention-days: 30/)
 

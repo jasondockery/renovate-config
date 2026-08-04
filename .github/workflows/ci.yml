@@ -255,7 +255,7 @@ jobs:
             echo
             echo '| Contract | Result |'
             echo '| --- | --- |'
-            echo '| One pinned runtime, synthetic fixture extraction, and strict accepted-config validation | '"${INTEGRATION_OUTCOME:-skipped}"' |'
+            echo '| One pinned runtime: synthetic fixture extraction, strict accepted-config validation, and effective five-day/security policy resolution | '"${INTEGRATION_OUTCOME:-skipped}"' |'
             echo '| Read-only proof | '"${READ_ONLY_OUTCOME:-skipped}"' |'
             echo
             printf 'Configs: `default.json, renovate.json, runner.json` · Renovate: `%s` · Failed configs: `%s`\n' \
@@ -509,7 +509,7 @@ jobs:
           {
             phase_row 'tests and read-only proof' "$test_seconds" "$tests_result"
             phase_row 'strict configuration validation' "$validation_seconds" "$validation_result"
-            phase_row 'pinned Renovate configuration integration' "$integration_seconds" "$integration_result"
+            phase_row 'pinned Renovate extraction, config, and effective-policy integration' "$integration_seconds" "$integration_result"
             phase_row 'workflow security' "$security_seconds" "$security_result"
           } > "$RUNNER_TEMP/ci-phases.tsv"
           evidence_errors=none
@@ -528,9 +528,9 @@ jobs:
             --receipt-kind ci-gate \
             --title 'Renovate config CI' \
             --result "$result" \
-            --scope 'parallel tests, offline validation, pinned Renovate configuration integration, read-only proofs, and CI-only workflow security' \
+            --scope 'parallel tests, offline validation, pinned Renovate extraction/config/effective-policy integration, read-only proofs, and CI-only workflow security' \
             --platform ubuntu-24.04 \
-            --proof-type 'parallel offline validation plus explicit network-backed Renovate configuration integration' \
+            --proof-type 'parallel offline validation plus explicit network-backed pinned-runtime extraction, config validation, and effective-policy resolution' \
             --started-epoch "$started_epoch" \
             --finished-epoch "$finished_epoch" \
             --budget-seconds 300 \

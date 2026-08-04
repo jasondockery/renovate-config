@@ -305,3 +305,33 @@ test('rejects malformed versions, duplicate pins, and ambient global config', as
     assert.match(problems(repoRoot, ['config.js']), /ambient global Renovate configuration/)
   })
 })
+
+// The effective-policy phase is the only required check that resolves the
+// preset against the real runtime. Dropping it back to a manual command would
+// restore the exact blind spot that let an inherited three-day npm rule stand
+// while every green lane still claimed a five-day floor.
+test('requires all three integration phases inside the one provisioned runtime', (context) => {
+  const repoRoot = fixture(context)
+  assert.doesNotMatch(problems(repoRoot), /must run tools\//)
+
+  for (const phase of [
+    'tools/check-renovate-extraction.mjs',
+    'tools/validate-renovate.mjs',
+    'tools/check-renovate-effective-policy.mjs',
+  ]) {
+    const original = read(repoRoot, 'tools/run-renovate-integration.mjs')
+    write(repoRoot, 'tools/run-renovate-integration.mjs', original.replaceAll(phase, 'tools/removed.mjs'))
+    assert.match(
+      problems(repoRoot),
+      new RegExp(`must run ${phase.replaceAll('/', '\\/').replaceAll('.', '\\.')} inside the one provisioned runtime`)
+    )
+    write(repoRoot, 'tools/run-renovate-integration.mjs', original)
+  }
+})
+
+test('rejects a second runtime acquisition inside the integration phases', (context) => {
+  const repoRoot = fixture(context)
+  const original = read(repoRoot, 'tools/run-renovate-integration.mjs')
+  write(repoRoot, 'tools/run-renovate-integration.mjs', `${original}\n// npx --yes renovate\n`)
+  assert.match(problems(repoRoot), /must share the one provisioned runtime environment/)
+})

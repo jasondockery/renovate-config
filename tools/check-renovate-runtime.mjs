@@ -282,6 +282,19 @@ export function collectRenovateRuntimeProblems(
     if (!integrationSource.includes('tools/run-renovate-integration.mjs') || /\bnpx\b/u.test(innerSource)) {
       problems.push('Renovate integration phases must share the one provisioned runtime environment.')
     }
+    // Required integration proof is all three phases. Effective-policy
+    // resolution is the only one that can catch an inherited later rule
+    // silently lowering the five-day floor, so it must not drift back out of
+    // the required lane into a manual command.
+    for (const phase of [
+      'tools/check-renovate-extraction.mjs',
+      'tools/validate-renovate.mjs',
+      'tools/check-renovate-effective-policy.mjs',
+    ]) {
+      if (!innerSource.includes(phase)) {
+        problems.push(`Renovate integration must run ${phase} inside the one provisioned runtime.`)
+      }
+    }
   } catch {
     problems.push('single-acquisition Renovate integration tools must be readable.')
   }

@@ -179,19 +179,29 @@ policy to obtain green.
 
 ## Verification harness reliability
 
-- [ ] Make the process-group fixtures in `tools/verify.test.mjs` deterministic.
-      `supervisor owner loss kills a TERM-ignoring command and grandchild group`
-      fails intermittently under concurrent load, and it reproduces on commits
-      that predate the 2026-08-04 tranche, so it is a harness defect rather
-      than a supervisor regression. Raising the fixture bounds to 5 seconds and
-      requiring a complete numeric ready marker reduced it but did not remove
-      it. The durable repair isolates the fixtures from each other: independent
-      temporary paths and process groups per case, no reliance on the file
-      creating before its pid is written, serialized execution for the cases
-      that spawn real process groups, and proof that no inherited process or
-      watcher survives between cases. Retries are not the fix — a random green
+- [ ] Close out the `tools/verify.test.mjs` process-group flake. Repairs so far,
+      in order: 5-second fixture bounds, a ready marker that must be complete
+      and numeric before its pid is read (an `existsSync` race could otherwise
+      derive process group `0`), and a `ps` probe that retries a transient
+      snapshot failure instead of asserting on it. That last one was the
+      wrong-reason failure: the probe asserted `snapshot.error === undefined`,
+      so a slow `ps` under load reported "the supervisor leaked a process"
+      when the truth was "the machine was busy". The failure message now
+      distinguishes an observed surviving group from unproven cleanup.
+      Status: not reproduced since — 4 runs at load average 45, 6 concurrent
+      runs, and a clean 10-run batch — but it is not proven eliminated, and
+      absence of a reproduction is not a fix. Two open items remain: a
+      confirmed root cause, and the one production observation worth checking
+      first, that `runCommandLane`'s termination path polls a blocking
+      `spawnSync('ps')` on a 25 ms interval, which can back up and block the
+      event loop on a loaded machine. Retries are not the fix — a random green
       rerun is evidence about the commit, never evidence that the verification
       harness is deterministic.
+- [ ] Field-observed 2026-08-04: one `pnpm verify` run failed with the tests
+      lane timing out at 306s while the same tree passed at 3.7s minutes later,
+      identical fingerprint `sha256:e6dd083c…`, on a machine at load average 45
+      with concurrent agents. Bound the cause before treating the 300-second
+      hard deadline as correctly calibrated for a 4-second suite.
 
 ## Security and verification backlog
 

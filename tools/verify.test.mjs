@@ -69,17 +69,28 @@ function waitForSupervisorExit(supervisor, label) {
   })
 }
 
+// A slow or truncated `ps` says nothing about whether the supervisor cleaned
+// up its group, so a transient snapshot failure must be retried inside the
+// deadline rather than asserted on. Failing here on the probe's own timeout
+// reports "the supervisor leaked a process" when the truth is "the machine was
+// busy" — the wrong-reason failure this suite exists to rule out.
 async function waitForProcessGroupGone(processGroup, label) {
   assert.ok(processGroup > 0, `${label} reported an invalid process group`)
   const deadline = Date.now() + PROCESS_FIXTURE_TIMEOUT_MS
+  let observed = false
+  let lastProbeProblem = 'ps never produced a usable snapshot'
   while (Date.now() < deadline) {
     const snapshot = spawnSync('ps', ['-eo', 'pgid=,stat='], {
       encoding: 'utf8',
-      timeout: 1000,
-      maxBuffer: 1024 * 1024,
+      timeout: PROCESS_FIXTURE_TIMEOUT_MS,
+      maxBuffer: 8 * 1024 * 1024,
     })
-    assert.equal(snapshot.error, undefined, `${label} process snapshot failed`)
-    assert.equal(snapshot.status, 0, `${label} process snapshot returned ${snapshot.status}`)
+    if (snapshot.error || snapshot.status !== 0 || typeof snapshot.stdout !== 'string') {
+      lastProbeProblem = `ps probe failed: ${snapshot.error?.message ?? `status ${snapshot.status}`}`
+      await new Promise((resolve) => setTimeout(resolve, 25))
+      continue
+    }
+    observed = true
     const liveMember = snapshot.stdout.split('\n').some((line) => {
       const [groupText, state] = line.trim().split(/\s+/u)
       return Number(groupText) === processGroup && state && !state.startsWith('Z')
@@ -87,7 +98,11 @@ async function waitForProcessGroupGone(processGroup, label) {
     if (!liveMember) return
     await new Promise((resolve) => setTimeout(resolve, 5))
   }
-  assert.fail(`${label} process group survived owner-loss cleanup`)
+  assert.fail(
+    observed
+      ? `${label} process group survived owner-loss cleanup`
+      : `${label} cleanup is unproven: ${lastProbeProblem}`
+  )
 }
 
 function fixture(context) {

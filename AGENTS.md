@@ -14,10 +14,12 @@ self-hosted runner, one narrow hygiene monitor, and no product code.
 
 Complete an approved task through implementation, focused proof, commit, push,
 workflow dispatch, and direct repair of failures that task caused. A recorded
-approval stays valid through context compaction, session restart, and routine
-directly caused failures — do not request the same authority twice. The agent
-owns commit wording, coherent commit boundaries, dependency-aware ordering,
-focused-test selection, and push sequencing.
+approval stays valid through context compaction, tool reconnects, and routine
+directly caused failures within the same active task. A separate session
+continues only when the current prompt, a committed playbook, an issue, or
+another durable owner-authored task record carries that authorization. The
+agent owns commit wording, coherent commit boundaries, dependency-aware
+ordering, focused-test selection, and push sequencing.
 
 Pause only before merging or closing a pull request; creating a tag or release;
 changing secrets, GitHub App permissions, or branch protection; destroying
@@ -27,6 +29,11 @@ Commit scope must match staged scope: read `git diff --cached --name-only`
 immediately before committing and confirm the message covers every staged path.
 This matters here because preset, workflow, and runtime-pin changes are easy to
 combine accidentally, and they carry different blast radii.
+
+Parallel writers use isolated branches or worktrees. Lane writers push their
+assigned branches, never `main`. Exactly one owner-designated integration writer
+may update `main`; that writer reconciles lane commits and owns the final
+exact-SHA proof.
 
 ## Operating Rules
 

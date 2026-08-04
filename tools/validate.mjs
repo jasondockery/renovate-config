@@ -4,6 +4,7 @@ import path from 'node:path'
 import process from 'node:process'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
+import { writeAtomicFile } from './atomic-write.mjs'
 import { isMainModule } from './is-main.mjs'
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -11,6 +12,7 @@ const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url))
 export const VALIDATION_PHASES = Object.freeze([
   { name: 'Toolchain contract', script: 'tools/check-toolchain.mjs' },
   { name: 'Preset freeze', script: 'tools/check-preset-freeze.mjs' },
+  { name: 'Dependency coverage schema', script: 'tools/check-dependency-coverage-schema.mjs' },
   { name: 'Renovate system policy', script: 'tools/check-renovate-system-policy.mjs' },
   { name: 'Workflow action pins', script: 'tools/check-workflow-action-pins.mjs' },
   { name: 'Workflow timeout policy', script: 'tools/check-workflow-timeouts.mjs' },
@@ -91,13 +93,7 @@ function writeTimingReceipt(file, result) {
       durationMilliseconds,
     })),
   }
-  const temporary = `${output}.tmp-${process.pid}`
-  try {
-    fs.writeFileSync(temporary, `${JSON.stringify(receipt)}\n`, { flag: 'wx' })
-    fs.renameSync(temporary, output)
-  } finally {
-    if (fs.existsSync(temporary)) fs.unlinkSync(temporary)
-  }
+  writeAtomicFile(output, `${JSON.stringify(receipt)}\n`)
 }
 
 function usage() {

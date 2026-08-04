@@ -6,7 +6,10 @@ test('validation runner preserves phase order and reports internal timings', () 
   let clock = 0
   const commands = []
   let output = ''
-  const durations = [15, 25, 30, 35, 40, 45]
+  // Derived from the real phase list so adding a validation phase does not
+  // require editing arithmetic in this test.
+  const durations = VALIDATION_PHASES.map((_, index) => 15 + index * 5)
+  const expectedTotal = durations.reduce((total, value) => total + value, 0)
   const result = runValidation({
     now: () => clock,
     run(command, arguments_, options) {
@@ -23,11 +26,17 @@ test('validation runner preserves phase order and reports internal timings', () 
     VALIDATION_PHASES.map(({ script }) => script)
   )
   assert.equal(commands.every(({ options }) => options.stdio === 'inherit'), true)
-  assert.deepEqual(result.records.map(({ result: phaseResult }) => phaseResult), Array(6).fill('passed'))
-  assert.equal(result.totalMilliseconds, 190)
+  assert.deepEqual(
+    result.records.map(({ result: phaseResult }) => phaseResult),
+    Array(VALIDATION_PHASES.length).fill('passed')
+  )
+  assert.equal(result.totalMilliseconds, expectedTotal)
   assert.match(output, /Toolchain contract\s+passed\s+15ms/)
-  assert.match(output, /Renovate runtime contract\s+passed\s+45ms/)
-  assert.match(output, /Total\s+190ms/)
+  assert.match(
+    output,
+    new RegExp(`Renovate runtime contract\\s+passed\\s+${durations.at(-1)}ms`)
+  )
+  assert.match(output, new RegExp(`Total\\s+${expectedTotal}ms`))
 })
 
 test('validation runner fails fast and marks later phases skipped', () => {
@@ -49,7 +58,7 @@ test('validation runner fails fast and marks later phases skipped', () => {
   assert.equal(calls, 2)
   assert.deepEqual(
     result.records.map(({ result: phaseResult }) => phaseResult),
-    ['passed', 'failed', 'skipped', 'skipped', 'skipped', 'skipped']
+    ['passed', 'failed', ...Array(VALIDATION_PHASES.length - 2).fill('skipped')]
   )
   assert.match(output, /Preset freeze\s+failed\s+10ms/)
   assert.match(output, /Renovate system policy\s+skipped\s+-/)

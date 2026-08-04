@@ -177,6 +177,22 @@ policy to obtain green.
 - [ ] Add the daily `17 5 * * *` schedule to the private caller only after the
       two dispatch receipts are accepted.
 
+## Verification harness reliability
+
+- [ ] Make the process-group fixtures in `tools/verify.test.mjs` deterministic.
+      `supervisor owner loss kills a TERM-ignoring command and grandchild group`
+      fails intermittently under concurrent load, and it reproduces on commits
+      that predate the 2026-08-04 tranche, so it is a harness defect rather
+      than a supervisor regression. Raising the fixture bounds to 5 seconds and
+      requiring a complete numeric ready marker reduced it but did not remove
+      it. The durable repair isolates the fixtures from each other: independent
+      temporary paths and process groups per case, no reliance on the file
+      creating before its pid is written, serialized execution for the cases
+      that spawn real process groups, and proof that no inherited process or
+      watcher survives between cases. Retries are not the fix — a random green
+      rerun is evidence about the commit, never evidence that the verification
+      harness is deterministic.
+
 ## Security and verification backlog
 
 - [ ] Enable CodeQL default setup for this public JavaScript repository and

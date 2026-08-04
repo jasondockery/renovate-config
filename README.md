@@ -164,12 +164,14 @@ This repo follows Roost's portable project-local toolchain contract:
   repo's custom manager updates the file rather than synchronizing copies.
 - No installed dependencies: `pnpm validate` is the deterministic offline
   structure gate. Required `pnpm renovate:integration` is explicitly
-  network/cache-backed: it acquires exactly `.renovate-version` once, exercises
-  the synthetic manager fixture, and strict-validates `default.json`,
-  `renovate.json`, and `runner.json`. It does not read moving consumer heads.
-  `pnpm renovate:policy` separately proves that the active preset matches the
+  network/cache-backed: it acquires exactly `.renovate-version` once, then runs
+  three phases inside that single runtime — the synthetic manager fixture,
+  strict validation of `default.json`, `renovate.json`, and `runner.json`, and
+  effective-policy resolution proving the active preset matches the
   owner-reviewed five-day fixture and resolves the intended age, security, and
-  lockfile-maintenance boundaries with the pinned Renovate runtime.
+  lockfile-maintenance boundaries. Adding a phase there costs a process, not a
+  second acquisition. It does not read moving consumer heads.
+  `pnpm renovate:policy` runs that third phase alone for local iteration.
   `.github/workflows/renovate-compatibility.yml` is the separate manual-only
   latest-head watch: it extracts all three actual checkouts, requires
   exactly one inventory owner for every tuple and bounded discovery hit, and
@@ -194,14 +196,17 @@ summary so scheduled runs are triageable at a glance.
 - **Proof boundary:** `pnpm renovate:policy` proves the resolved pinned-runtime
   policy. End-to-end acceptance still requires a green live runner receipt and
   correct consumer pull requests; a valid preset alone is not system proof.
-  That command is deliberately **manual-only**: it needs the pinned Renovate
-  runtime from the network, so required CI does not run it. What CI does cover
-  offline is the static half — `pnpm test` compares `default.json` against
-  `tools/fixtures/preset/default-five-day-policy.json` byte for byte, and
-  `pnpm validate` re-checks the preset's shape and frozen checksum. Rerun
-  `pnpm renovate:policy` by hand whenever the preset or `.renovate-version`
-  changes, and record the result in the acceptance spec; a green CI run is not
-  evidence that the resolved five-day boundary still behaves as documented.
+  That resolution is **required CI evidence**: the `renovate-integration` lane
+  runs it as a third phase inside the one Renovate runtime it already acquires,
+  so every push proves the pinned runtime still resolves the preset to a
+  five-day floor with strict internal checks and an unblocked security lane.
+  `pnpm renovate:policy` remains the identical local command.
+  This matters because byte equality is not behavioural proof: `pnpm test`
+  compares `default.json` against `tools/fixtures/preset/default-five-day-policy.json`
+  and `pnpm validate` re-checks its shape and frozen checksum, but neither can
+  see an inherited later rule lowering the effective floor — which is exactly
+  the `config:best-practices` three-day npm defect that forced the exception.
+  A live three-repository runner receipt remains separate field evidence.
 - **Production contract:** the following table is active for the shared runner.
   Release and consumer-pin gates still govern how future preset versions are
   distributed.

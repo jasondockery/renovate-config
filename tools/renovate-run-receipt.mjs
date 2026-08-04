@@ -23,6 +23,71 @@ const DEFAULT_LOG_LINE_BYTE_LIMIT = 1024 * 1024
 const DEFAULT_LOG_PARSE_MILLISECONDS = 30_000
 const LOG_READ_CHUNK_BYTES = 64 * 1024
 const CONTAINER_LOG_PREFLIGHT_MESSAGE = 'Renovate log mount preflight passed'
+const MESSAGELESS_UPDATE_RECORD_KEYS = new Set([
+  'baseBranch',
+  'fixtureOrigin',
+  'fixtureRuntime',
+  'hostname',
+  'level',
+  'logContext',
+  'name',
+  'pid',
+  'repository',
+  'time',
+  'update',
+  'v',
+])
+const MESSAGELESS_UPDATE_KEYS = new Set([
+  'branchName',
+  'bucket',
+  'checksumUrl',
+  'commitMessageAction',
+  'downloadUrl',
+  'hasAttestation',
+  'isBreaking',
+  'isBump',
+  'isLockfileUpdate',
+  'isPin',
+  'isPinDigest',
+  'isRange',
+  'isReplacement',
+  'isRollback',
+  'isSingleVersion',
+  'isVulnerabilityAlert',
+  'libYears',
+  'mergeConfidenceLevel',
+  'newDigest',
+  'newMajor',
+  'newMinor',
+  'newName',
+  'newNameSanitized',
+  'newPatch',
+  'newValue',
+  'newVersion',
+  'newVersionAgeInDays',
+  'pendingChecks',
+  'pendingVersions',
+  'prBodyNotes',
+  'registryUrl',
+  'releaseTimestamp',
+  'semanticCommitType',
+  'updateType',
+  'updateTypes',
+  'userStrings',
+  'version',
+])
+const MESSAGELESS_UPDATE_TYPES = new Set([
+  'bump',
+  'digest',
+  'lockfileUpdate',
+  'major',
+  'minor',
+  'patch',
+  'pin',
+  'pinDigest',
+  'replacement',
+  'rollback',
+])
 
 const TOKEN_PERMISSION_REPAIR =
   'Approve the GitHub App installation permission update so the installation grants the canonical RENOVATE_APP_PERMISSIONS union, then rerun Renovate. Do not remove required workflow scopes to bypass HTTP 422.'
@@ -39,13 +104,33 @@ function logLevel(entry, index) {
   return level
 }
 
+function isPlainObject(value) {
+  return value !== null && !Array.isArray(value) && typeof value === 'object'
+}
+
+function hasOnlyKeys(value, allowed) {
+  return Object.keys(value).every((key) => allowed.has(key))
+}
+
+function isSourceConfirmedMessageLessUpdate(entry) {
+  const update = entry.update
+  return entry.repository !== undefined &&
+    entry.repo === undefined &&
+    (entry.level === 20 || entry.level === 'debug') &&
+    entry.msg === undefined &&
+    hasOnlyKeys(entry, MESSAGELESS_UPDATE_RECORD_KEYS) &&
+    isPlainObject(update) &&
+    hasOnlyKeys(update, MESSAGELESS_UPDATE_KEYS) &&
+    typeof update.bucket === 'string' && update.bucket.length > 0 &&
+    typeof update.newVersion === 'string' && update.newVersion.length > 0 &&
+    typeof update.newValue === 'string' && update.newValue.length > 0 &&
+    MESSAGELESS_UPDATE_TYPES.has(update.updateType)
+}
+
 function parseLine(line, index) {
   try {
     const entry = JSON.parse(line)
     if (!entry || Array.isArray(entry) || typeof entry !== 'object') throw new Error()
-    if (typeof entry.msg !== 'string' || entry.msg.length === 0) {
-      throw new Error(`structured Renovate log line ${index + 1} has no message`)
-    }
     if (entry.repository !== undefined && entry.repo !== undefined && entry.repository !== entry.repo) {
       throw new Error(`structured Renovate log line ${index + 1} has conflicting repository fields`)
     }
@@ -54,6 +139,12 @@ function parseLine(line, index) {
       typeof repository !== 'string' || !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/u.test(repository)
     )) {
       throw new Error(`structured Renovate log line ${index + 1} has an invalid repository shape`)
+    }
+    if (
+      (typeof entry.msg !== 'string' || entry.msg.trim().length === 0) &&
+      !isSourceConfirmedMessageLessUpdate(entry)
+    ) {
+      throw new Error(`structured Renovate log line ${index + 1} has no message`)
     }
     return entry
   } catch (error) {
@@ -91,6 +182,7 @@ function parseRenovateEntries(entries, expectedRepositories, {
   const parseStarted = performance.now()
   const evidence = {
     containerLogPreflight: false,
+    sourceConfirmedMessageLessUpdates: 0,
     globalWarnings: 0,
     globalErrors: 0,
     unexpectedRepositoryRecords: 0,
@@ -107,6 +199,14 @@ function parseRenovateEntries(entries, expectedRepositories, {
     const level = logLevel(entry, index)
     const repository = entry.repository ?? entry.repo
     const message = entry.msg
+    if (message === undefined) {
+      evidence.sourceConfirmedMessageLessUpdates += 1
+      if (!repositories.has(repository)) {
+        evidence.unexpectedRepositoryRecords += 1
+        evidence.unexpectedRepositoryInformational += 1
+      }
+      continue
+    }
     if (repository === undefined) {
       if (message === CONTAINER_LOG_PREFLIGHT_MESSAGE) {
         if (level !== 30) {
@@ -427,6 +527,7 @@ export function writeRenovateReceipt(options, {
   let repositories
   let evidence = {
     containerLogPreflight: false,
+    sourceConfirmedMessageLessUpdates: 0,
     globalWarnings: 0,
     globalErrors: 0,
     unexpectedRepositoryRecords: 0,
@@ -540,6 +641,7 @@ export function writeRenovateReceipt(options, {
       'Container log preflight': evidence.containerLogPreflight ? 'passed' : (
         actionResult === 'skipped' ? 'not run' : 'not observed'
       ),
+      'Source-confirmed message-less updates': String(evidence.sourceConfirmedMessageLessUpdates),
       'Structured evidence': evidenceError ?? (
         rawLogMissing
           ? 'not produced because Renovate did not run'

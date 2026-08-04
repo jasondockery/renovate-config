@@ -145,6 +145,7 @@ test('Renovate structured logs become bounded per-repository facts', () => {
     ],
     evidence: {
       containerLogPreflight: false,
+      sourceConfirmedMessageLessUpdates: 0,
       globalWarnings: 0,
       globalErrors: 0,
       unexpectedRepositoryRecords: 0,
@@ -172,6 +173,7 @@ test('the sanitized pinned-runtime fixture preserves real lifecycle and timing s
   )
   assert.equal(parsed.evidence.globalWarnings, 1)
   assert.equal(parsed.evidence.globalErrors, 1)
+  assert.equal(parsed.evidence.sourceConfirmedMessageLessUpdates, 1)
   const fixtureText = fs.readFileSync(capturedFixture, 'utf8')
   assert.doesNotMatch(fixtureText, /token|authorization|payload|stderr|branchName/i)
 })
@@ -207,6 +209,39 @@ test('structured log parsing bounds bytes, lines, line length, and unknown shape
     () => parseRenovateLog(JSON.stringify({ level: 30, repository: expected[0], payload: {} }), [expected[0]]),
     /has no message/
   )
+})
+
+test('only the source-confirmed logger.debug({ update }) record may omit a message', () => {
+  const approved = {
+    name: 'renovate',
+    level: 20,
+    repository: expected[0],
+    baseBranch: 'main',
+    update: {
+      bucket: 'non-major',
+      newVersion: '1.1.0',
+      newValue: '^1.1.0',
+      updateType: 'minor',
+    },
+  }
+  const parsed = parseRenovateLog(successfulLog([approved]), expected)
+  assert.equal(parsed.evidence.sourceConfirmedMessageLessUpdates, 1)
+
+  for (const mutate of [
+    (entry) => { entry.level = 30 },
+    (entry) => { entry.extra = true },
+    (entry) => { entry.update.extra = true },
+    (entry) => { delete entry.update.newValue },
+    (entry) => { entry.msg = '' },
+    (entry) => { entry.msg = '   ' },
+  ]) {
+    const hostile = structuredClone(approved)
+    mutate(hostile)
+    assert.throws(
+      () => parseRenovateLog(successfulLog([hostile]), expected),
+      /has no message/
+    )
+  }
 })
 
 test('successful parsing fails closed on missing, malformed, or duplicate timing facts', () => {
@@ -269,6 +304,7 @@ test('global severity and unexpected repositories become bounded fail-closed evi
   const parsed = parseRenovateLog(successfulLog(entries), expected)
   assert.deepEqual(parsed.evidence, {
     containerLogPreflight: true,
+    sourceConfirmedMessageLessUpdates: 0,
     globalWarnings: 1,
     globalErrors: 1,
     unexpectedRepositoryRecords: 2,

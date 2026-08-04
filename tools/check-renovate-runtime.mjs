@@ -150,6 +150,20 @@ function validateRuntimeFixtures(repoRoot, version, problems) {
   }
 }
 
+// Fixture rotation must be complete, not additive. `duplicateRuntimeFiles`
+// only rejects files carrying the CURRENT version, so a superseded fixture
+// pair is invisible to every other check and accumulates on each runtime bump.
+const RUNTIME_FIXTURE = /^tools\/fixtures\/renovate-(\d+\.\d+\.\d+)-structured-log\.(?:jsonl|md)$/u
+
+function supersededRuntimeFixtures(candidateFiles, version) {
+  return candidateFiles
+    .filter((file) => {
+      const match = RUNTIME_FIXTURE.exec(file)
+      return match !== null && match[1] !== version
+    })
+    .sort()
+}
+
 function duplicateRuntimeFiles(repoRoot, version, candidateFiles, acceptedRuntimeFiles) {
   const versionToken = new RegExp(`(?<!\\d)${escapeRegExp(version)}(?!\\d)`)
   const duplicates = []
@@ -185,6 +199,11 @@ export function collectRenovateRuntimeProblems(
       const acceptedRuntimeFiles = new Set(runtimeFixturePaths(version))
       for (const file of duplicateRuntimeFiles(repoRoot, version, files, acceptedRuntimeFiles)) {
         problems.push(`${file} duplicates the canonical Renovate runtime ${version}.`)
+      }
+      for (const file of supersededRuntimeFixtures(files, version)) {
+        problems.push(
+          `${file} is a superseded structured-log fixture; delete it in the commit that bumps .renovate-version to ${version}.`
+        )
       }
     } catch (error) {
       problems.push(`cannot enumerate repository files for runtime-pin checking: ${error.message}`)

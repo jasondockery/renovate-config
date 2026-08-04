@@ -206,10 +206,30 @@ export function collectRenovateSystemPolicyProblems(root = repositoryRoot) {
   if (!agentInstructions.includes('Read `AI_THESIS.md` before planning substantial work.')) {
     problems.push('AGENTS.md must route substantial work through AI_THESIS.md.')
   }
+  // Claude Code loads CLAUDE.md, not AGENTS.md. Without the import the adapter
+  // is a decorative file and the repository's agent policy silently stops
+  // reaching the session -- a routing failure no other check can observe.
+  let claudeAdapter = ''
+  try {
+    claudeAdapter = read(root, 'CLAUDE.md')
+  } catch (error) {
+    problems.push(`CLAUDE.md must exist as the Claude Code adapter: ${error instanceof Error ? error.message : String(error)}`)
+  }
+  if (claudeAdapter && !/^@AGENTS\.md$/mu.test(claudeAdapter)) {
+    problems.push('CLAUDE.md must import the canonical spine with a bare @AGENTS.md line.')
+  }
+  if (claudeAdapter.includes('Operating Rules') || claudeAdapter.includes('Execution authority')) {
+    problems.push('CLAUDE.md is a thin adapter; policy belongs in AGENTS.md only.')
+  }
+  if (!agentInstructions.includes('specs/verification.md')) {
+    problems.push('AGENTS.md must route verification mechanics to specs/verification.md.')
+  }
 
   for (const required of [
     'AI_THESIS.md',
     'AGENTS.md',
+    'CLAUDE.md',
+    'specs/verification.md',
     'specs/renovate-system-acceptance.md',
     'playbooks/x-renovate-system-acceptance.md',
     'dependency-coverage.json',

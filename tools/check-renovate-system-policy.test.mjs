@@ -10,6 +10,8 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 const required = [
   'AI_THESIS.md',
   'AGENTS.md',
+  'CLAUDE.md',
+  'specs/verification.md',
   'default.json',
   'package.json',
   'dependency-coverage.json',
@@ -115,4 +117,38 @@ test('rejects schedule, activation, scope, security, and manager-coverage drift'
     mutateJson(root, 'default.json', (preset) => { preset.enabledManagers = ['npm'] })
     assert.match(collectRenovateSystemPolicyProblems(root).join('\n'), /must not silently narrow/)
   })
+})
+
+// Claude Code loads CLAUDE.md, not AGENTS.md. If the adapter is deleted or its
+// import removed, the repository's agent policy silently stops reaching the
+// session and no other check observes it.
+test('requires a working Claude Code adapter and verification routing', (context) => {
+  const root = fixture(context)
+  assert.deepEqual(collectRenovateSystemPolicyProblems(root), [])
+
+  fs.writeFileSync(path.join(root, 'CLAUDE.md'), '# Claude\n\nSee [AGENTS.md](AGENTS.md).\n')
+  assert.match(
+    collectRenovateSystemPolicyProblems(root).join('\n'),
+    /must import the canonical spine with a bare @AGENTS\.md line/
+  )
+
+  fs.writeFileSync(path.join(root, 'CLAUDE.md'), '@AGENTS.md\n\n## Operating Rules\n\n- do a thing\n')
+  assert.match(collectRenovateSystemPolicyProblems(root).join('\n'), /thin adapter; policy belongs in AGENTS\.md/)
+
+  fs.rmSync(path.join(root, 'CLAUDE.md'))
+  assert.match(collectRenovateSystemPolicyProblems(root).join('\n'), /missing system contract: CLAUDE\.md/)
+})
+
+test('requires AGENTS.md to route verification mechanics out of the spine', (context) => {
+  const root = fixture(context)
+  const agents = fs.readFileSync(path.join(root, 'AGENTS.md'), 'utf8')
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), agents.replaceAll('specs/verification.md', 'specs/gone.md'))
+  assert.match(
+    collectRenovateSystemPolicyProblems(root).join('\n'),
+    /must route verification mechanics to specs\/verification\.md/
+  )
+
+  fs.writeFileSync(path.join(root, 'AGENTS.md'), agents)
+  fs.rmSync(path.join(root, 'specs/verification.md'))
+  assert.match(collectRenovateSystemPolicyProblems(root).join('\n'), /missing system contract: specs\/verification\.md/)
 })

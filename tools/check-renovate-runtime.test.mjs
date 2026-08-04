@@ -62,6 +62,33 @@ test('accepts the repository runtime and formatter contracts', () => {
   assert.deepEqual(collectRenovateRuntimeProblems(REPO_ROOT), [])
 })
 
+test('keeps production-shaped message-less fixture records free of fixture metadata', async (context) => {
+  await context.test('normal records retain explicit runtime provenance', (subcontext) => {
+    const repoRoot = fixture(subcontext)
+    const relative = RUNTIME_FIXTURES[0]
+    write(
+      repoRoot,
+      relative,
+      read(repoRoot, relative).replace(`,"fixtureRuntime":"${RENOVATE_VERSION}"`, '')
+    )
+    assert.match(problems(repoRoot), /must explicitly declare fixtureRuntime/)
+  })
+
+  await context.test('message-less records reject fixture-only top-level keys', (subcontext) => {
+    const repoRoot = fixture(subcontext)
+    const relative = RUNTIME_FIXTURES[0]
+    write(
+      repoRoot,
+      relative,
+      read(repoRoot, relative).replace(
+        '"updateType":"minor"}}',
+        `"updateType":"minor"},"fixtureRuntime":"${RENOVATE_VERSION}"}`
+      )
+    )
+    assert.match(problems(repoRoot), /message-less update fixture must match the exact source-confirmed shape/)
+  })
+})
+
 test('rejects commented-out CI and runner steps even when decoy text remains', (context) => {
   const repoRoot = fixture(context)
   write(

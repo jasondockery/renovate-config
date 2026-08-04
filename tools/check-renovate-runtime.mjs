@@ -65,6 +65,26 @@ function runtimeFixturePaths(version) {
   ]
 }
 
+function hasExactKeys(value, expected) {
+  return isDeepStrictEqual(Object.keys(value).sort(), [...expected].sort())
+}
+
+function isSourceConfirmedMessageLessUpdateFixture(record) {
+  return record !== null &&
+    !Array.isArray(record) &&
+    typeof record === 'object' &&
+    hasExactKeys(record, ['baseBranch', 'level', 'name', 'repository', 'update']) &&
+    record.level === 20 &&
+    record.name === 'renovate' &&
+    typeof record.repository === 'string' && record.repository.length > 0 &&
+    typeof record.baseBranch === 'string' && record.baseBranch.length > 0 &&
+    record.update !== null &&
+    !Array.isArray(record.update) &&
+    typeof record.update === 'object' &&
+    hasExactKeys(record.update, ['bucket', 'newVersion', 'newValue', 'updateType']) &&
+    Object.values(record.update).every((value) => typeof value === 'string' && value.length > 0)
+}
+
 function validateRuntimeFixtures(repoRoot, version, problems) {
   const [logPath, provenancePath] = runtimeFixturePaths(version)
   try {
@@ -80,6 +100,17 @@ function validateRuntimeFixtures(repoRoot, version, problems) {
         record = JSON.parse(line)
       } catch {
         problems.push(logPath + ' line ' + (index + 1) + ' must be valid JSON.')
+        continue
+      }
+      if (record && !Array.isArray(record) && typeof record === 'object' && !Object.hasOwn(record, 'msg')) {
+        if (!isSourceConfirmedMessageLessUpdateFixture(record)) {
+          problems.push(
+            logPath +
+              ' line ' +
+              (index + 1) +
+              ' message-less update fixture must match the exact source-confirmed shape; provenance belongs in the adjacent Markdown file.'
+          )
+        }
         continue
       }
       if (

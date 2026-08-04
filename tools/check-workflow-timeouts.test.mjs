@@ -9,13 +9,19 @@ const CHECKER = new URL('check-workflow-timeouts.mjs', import.meta.url).pathname
 const SHA = '1234567890abcdef1234567890abcdef12345678'
 
 /** Run the checker over a throwaway workflow directory. */
-function run(files) {
+function run(files, env = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'wf-timeout-'))
   try {
     mkdirSync(dir, { recursive: true })
     for (const [name, body] of Object.entries(files)) writeFileSync(join(dir, name), body)
     try {
-      return { code: 0, out: execFileSync('node', [CHECKER, dir], { encoding: 'utf8' }) }
+      return {
+        code: 0,
+        out: execFileSync('node', [CHECKER, dir], {
+          encoding: 'utf8',
+          env: { ...process.env, ...env },
+        }),
+      }
     } catch (error) {
       return { code: error.status, out: `${error.stdout ?? ''}${error.stderr ?? ''}` }
     }
@@ -60,4 +66,36 @@ test('exempts SHA-pinned reusable-workflow calls but requires the pin', () => {
 
 test('fails when the workflow directory has no workflows', () => {
   assert.equal(run({}).code, 1)
+})
+
+// Field failure class: a guard that reports ok while observing nothing.
+// `jobs:` carrying an inline comment is valid YAML, but the parser only
+// matched a bare `jobs:` line, so every job vanished and an unbounded job
+// passed the gate.
+test('an unbounded job is still caught when jobs: carries an inline comment', () => {
+  const result = run({
+    'a.yml': 'name: T\non: [push]\njobs: # inline comment\n  unbounded:\n    runs-on: ubuntu-latest\n',
+  })
+  assert.equal(result.code, 1)
+  assert.match(result.out, /job unbounded has no timeout-minutes/)
+})
+
+test('a workflow whose jobs cannot be parsed fails instead of passing', () => {
+  const result = run({ 'a.yml': 'name: T\non: [push]\n# no jobs mapping at all\n' })
+  assert.equal(result.code, 1)
+  assert.match(result.out, /no jobs were parsed/)
+})
+
+// Number('abc') is NaN and `value > NaN` is false, so an unparsable override
+// used to remove the ceiling for every job in the repository.
+test('an unparsable ceiling override fails instead of disabling the ceiling', () => {
+  const overCeiling = { 'a.yml': job('  j:\n    timeout-minutes: 999\n') }
+  const bad = run(overCeiling, { MAX_TIMEOUT_MINUTES: 'abc' })
+  assert.equal(bad.code, 1)
+  assert.match(bad.out, /MAX_TIMEOUT_MINUTES must be a positive integer/)
+
+  assert.equal(run(overCeiling, { MAX_TIMEOUT_MINUTES: '0' }).code, 1)
+  assert.equal(run(overCeiling, { MAX_TIMEOUT_MINUTES: '' }).code, 1)
+  assert.match(run(overCeiling).out, /exceeds the 60-minute/)
+  assert.equal(run(overCeiling, { MAX_TIMEOUT_MINUTES: '1000' }).code, 0)
 })

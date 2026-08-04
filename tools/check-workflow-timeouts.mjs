@@ -15,7 +15,16 @@ import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { workflowJobs } from './workflow-structure.mjs'
 
-const MAX_TIMEOUT_MINUTES = Number(process.env['MAX_TIMEOUT_MINUTES'] ?? 60)
+// The ceiling is overridable for fixtures, but an unparsable override must not
+// silently disable it: Number('abc') is NaN, and `value > NaN` is false for
+// every timeout, which turned this gate into a no-op.
+const DEFAULT_MAX_TIMEOUT_MINUTES = 60
+const rawCeiling = process.env['MAX_TIMEOUT_MINUTES']
+if (rawCeiling !== undefined && !/^[1-9][0-9]*$/.test(rawCeiling)) {
+  console.error(`MAX_TIMEOUT_MINUTES must be a positive integer, got "${rawCeiling}"`)
+  process.exit(1)
+}
+const MAX_TIMEOUT_MINUTES = rawCeiling === undefined ? DEFAULT_MAX_TIMEOUT_MINUTES : Number(rawCeiling)
 const directory = process.argv[2] ?? '.github/workflows'
 
 const problems = []
@@ -36,7 +45,17 @@ if (files.length === 0) {
 }
 
 for (const file of files) {
-  for (const job of workflowJobs(readFileSync(file, 'utf8'))) {
+  const source = readFileSync(file, 'utf8')
+  const jobs = workflowJobs(source)
+  // A workflow with no parsed job is either invalid GitHub Actions or a shape
+  // this parser does not understand. Both must fail: reporting "every job is
+  // bounded" after observing zero jobs is the failure mode this gate exists
+  // to prevent.
+  if (jobs.length === 0) {
+    problems.push(`${file}: no jobs were parsed; the workflow is empty or uses an unsupported shape`)
+    continue
+  }
+  for (const job of jobs) {
     if (job.uses !== undefined) {
       if (job.timeout !== undefined) {
         problems.push(`${file}: job ${job.name} calls a reusable workflow and must not declare timeout-minutes`)

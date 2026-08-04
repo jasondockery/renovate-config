@@ -1,6 +1,12 @@
 // Parse the small structural subset of GitHub Actions YAML needed by this
 // repository's workflow contracts. Comments and run-block contents are not
 // treated as executable step properties.
+//
+// Both entry points must recognise the same `jobs:` line. A parser that
+// silently returns zero jobs turns every contract built on it into a guard
+// that reports ok while observing nothing, so callers treat an empty result
+// from a non-empty workflow as a failure rather than a pass.
+const JOBS_KEY = /^jobs:\s*(?:#.*)?$/
 
 function scalar(raw) {
   const withoutComment = raw.replace(/\s+#.*$/, '').trim()
@@ -23,7 +29,7 @@ export function workflowJobs(text) {
   let inJobs = false
   let current
   for (const line of lines) {
-    if (/^jobs:\s*$/.test(line)) {
+    if (JOBS_KEY.test(line)) {
       inJobs = true
       continue
     }
@@ -49,7 +55,7 @@ export function workflowJobs(text) {
 
 export function workflowJobSteps(text, jobName) {
   const lines = text.split('\n')
-  const jobsStart = lines.findIndex((line) => /^jobs:\s*(?:#.*)?$/.test(line))
+  const jobsStart = lines.findIndex((line) => JOBS_KEY.test(line))
   if (jobsStart < 0) return []
 
   let jobStart = -1

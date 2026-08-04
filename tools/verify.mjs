@@ -6,6 +6,7 @@ import process from 'node:process'
 import { execFileSync, spawn, spawnSync } from 'node:child_process'
 import { performance } from 'node:perf_hooks'
 import { fileURLToPath } from 'node:url'
+import { writeAtomicJson } from './atomic-write.mjs'
 import { isMainModule } from './is-main.mjs'
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -679,16 +680,6 @@ function terminateChild(child, signal, writeError = (value) => process.stderr.wr
     if (error?.code !== 'ESRCH') {
       writeError(`verify: could not send ${signal} to process group ${child.pid}: ${error.message}\n`)
     }
-  }
-}
-
-function writeAtomicJson(file, value) {
-  const temporary = `${file}.tmp-${process.pid}`
-  try {
-    fs.writeFileSync(temporary, `${JSON.stringify(value, null, 2)}\n`, { flag: 'wx' })
-    fs.renameSync(temporary, file)
-  } finally {
-    if (fs.existsSync(temporary)) fs.unlinkSync(temporary)
   }
 }
 

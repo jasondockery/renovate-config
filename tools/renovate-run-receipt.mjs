@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { performance } from 'node:perf_hooks'
+import { writeAtomicFile } from './atomic-write.mjs'
 import { isMainModule } from './is-main.mjs'
 import {
   buildRenovateConfigReceipt,
@@ -378,16 +379,6 @@ export function renderRenovateSummary(receipt) {
   return lines.join('\n')
 }
 
-function writeAtomic(file, contents) {
-  const temporary = `${file}.tmp-${process.pid}`
-  try {
-    fs.writeFileSync(temporary, contents, { flag: 'wx' })
-    fs.renameSync(temporary, file)
-  } finally {
-    if (fs.existsSync(temporary)) fs.unlinkSync(temporary)
-  }
-}
-
 function usage() {
   return 'usage: node tools/renovate-run-receipt.mjs --log FILE --log-directory DIRECTORY --log-directory-identity DEVICE:INODE --repositories CSV --token-outcome OUTCOME --outcome OUTCOME --phase-file FILE --version VERSION --log-level LEVEL --started-epoch N --finished-epoch N --output FILE --summary FILE'
 }
@@ -723,7 +714,7 @@ export function writeRenovateReceipt(options, {
   const receipt = buildRenovateConfigReceipt(receiptInput(rawLogState, privateDirectoryState))
   receipt.repositories = repositories
   if (repairs.length > 0) receipt.repair = repairs.join(' ')
-  writeAtomic(values['--output'], `${JSON.stringify(receipt, null, 2)}\n`)
+  writeAtomicFile(values['--output'], `${JSON.stringify(receipt, null, 2)}\n`)
   writeAdvisorySummary(values['--summary'], renderRenovateSummary(receipt), { warn })
   return receipt
 }

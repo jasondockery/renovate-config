@@ -4,6 +4,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
+import { writeAtomicJson } from './atomic-write.mjs'
 import { isMainModule } from './is-main.mjs'
 import { readRenovateVersion } from './renovate-runtime.mjs'
 import {
@@ -22,7 +23,7 @@ function isInside(candidate, root) {
   return relative === '' || (!relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative))
 }
 
-export function validateReportPath(file, targetRoots) {
+export function validateCompatibilityReportPath(file, targetRoots) {
   const target = path.resolve(file)
   const parent = fs.realpathSync(path.dirname(target))
   const resolvedTarget = path.join(parent, path.basename(target))
@@ -38,16 +39,6 @@ export function validateReportPath(file, targetRoots) {
   return resolvedTarget
 }
 
-function writeAtomic(file, value) {
-  const temporary = `${file}.tmp-${process.pid}`
-  try {
-    fs.writeFileSync(temporary, `${JSON.stringify(value, null, 2)}\n`, { flag: 'wx' })
-    fs.renameSync(temporary, file)
-  } finally {
-    if (fs.existsSync(temporary)) fs.unlinkSync(temporary)
-  }
-}
-
 function boundedFailureDetail(value) {
   const text = String(value ?? '').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/gu, '?')
   const bytes = Buffer.from(text)
@@ -56,7 +47,7 @@ function boundedFailureDetail(value) {
     : bytes.subarray(bytes.length - MAX_FAILURE_DETAIL_BYTES).toString('utf8')
 }
 
-function parseCoverageEvidence(stdout, repositories) {
+export function parseCoverageEvidence(stdout, repositories) {
   const records = String(stdout ?? '').split(/\r?\n/u).filter((line) => line.startsWith(COVERAGE_PREFIX))
   if (records.length !== 1) throw new Error('integration output must contain exactly one coverage evidence record')
   const evidence = JSON.parse(records[0].slice(COVERAGE_PREFIX.length))
@@ -75,7 +66,7 @@ function parseCoverageEvidence(stdout, repositories) {
   })
 }
 
-function loadTargets(root) {
+export function loadTargets(root) {
   const manifest = JSON.parse(fs.readFileSync(path.join(root, 'compatibility-targets.json'), 'utf8'))
   if (
     manifest.schemaVersion !== 1 ||
@@ -100,7 +91,7 @@ export function runCompatibility({
   const targets = loadTargets(root)
   const targetRoots = targets.map(({ root: targetRoot }) => targetRoot)
   const reportPath = environment.RENOVATE_COMPATIBILITY_REPORT
-    ? validateReportPath(environment.RENOVATE_COMPATIBILITY_REPORT, targetRoots)
+    ? validateCompatibilityReportPath(environment.RENOVATE_COMPATIBILITY_REPORT, targetRoots)
     : null
   const before = Object.fromEntries(targets.map((target) => [
     target.repository,
@@ -185,7 +176,7 @@ export function runCompatibility({
         JSON.stringify(after[target.repository].relevantIgnored),
     })),
   }
-  if (reportPath) writeAtomic(reportPath, report)
+  if (reportPath) writeAtomicJson(reportPath, report)
   for (const repository of report.repositories) {
     output.log(`identity: ${repository.repository} ${repository.startingSha} ${repository.startingTrackedFingerprint}`)
   }

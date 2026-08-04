@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import fs from 'node:fs'
 import process from 'node:process'
+import { writeAtomicFile } from './atomic-write.mjs'
 import { isMainModule } from './is-main.mjs'
 
 // Internal evidence format for this repository's three workflows. This is not
@@ -83,7 +84,9 @@ export function buildRenovateConfigReceipt({
   event = process.env.GITHUB_EVENT_NAME || null,
   ref = process.env.GITHUB_REF || null,
   testedSha = process.env.GITHUB_SHA || 'local',
-  headSha = process.env.GITHUB_HEAD_SHA || null,
+  // GitHub exposes no GITHUB_HEAD_SHA; the PR head comes from the workflow
+  // context, so callers pass --head-sha explicitly rather than relying on env.
+  headSha = null,
   implementationSha = null,
   callerRepository = null,
   callerSha = null,
@@ -242,21 +245,11 @@ export function renderRenovateConfigSummary(receipt) {
   return lines.join('\n')
 }
 
-function writeAtomic(file, contents) {
-  const temporary = `${file}.tmp-${process.pid}`
-  try {
-    fs.writeFileSync(temporary, contents, { flag: 'wx' })
-    fs.renameSync(temporary, file)
-  } finally {
-    if (fs.existsSync(temporary)) fs.unlinkSync(temporary)
-  }
-}
-
 export function writeAdvisorySummary(file, contents, {
   warn = (message) => console.error(message),
 } = {}) {
   try {
-    writeAtomic(file, contents)
+    writeAtomicFile(file, contents)
     return true
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
@@ -269,7 +262,7 @@ export function writeRenovateConfigReceipt({ output, summary, warn, ...input }) 
   if (!output) throw new Error('output path is required')
   const receipt = buildRenovateConfigReceipt(input)
   const rendered = summary ? renderRenovateConfigSummary(receipt) : undefined
-  writeAtomic(output, `${JSON.stringify(receipt, null, 2)}\n`)
+  writeAtomicFile(output, `${JSON.stringify(receipt, null, 2)}\n`)
   if (summary) writeAdvisorySummary(summary, rendered, { warn })
   return receipt
 }

@@ -34,7 +34,7 @@ consumer pull requests. A green runner alone is an intermediate result.
 - [x] Keep offline static validation and required pinned-Renovate fixture and
       config validation separate from the active policy proof and
       manual-only latest-head actual-repository compatibility watch.
-- [ ] Add the read-only `pnpm renovate:audit --run <run-id>` command and hostile
+- [x] Add the read-only `pnpm renovate:audit --run <run-id>` command and hostile
       fixture coverage for malformed receipts, stale dashboards, schedule
       misses, orphan branches, and failed PR checks.
 - [ ] Add machine-checked dependency inventories to all three repositories.

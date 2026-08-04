@@ -45,7 +45,7 @@ independently of when the runner executes.
 | --- | --- |
 | App authentication works | Successful token mint with the exact reviewed permissions |
 | All target repositories are processed | One passed structured-receipt row for each configured repository |
-| Five-day age works | Pinned-runtime behavior keeps supported npm and timestamped GitHub-release updates pending at 4 days 23 hours 59 minutes and allows them at 5 days 1 minute |
+| Five-day age works | Pinned-runtime behavior keeps supported npm and timestamped GitHub-release updates pending at 4 days 23 hours 59 minutes and allows them at 5 days 1 minute. Produced by `pnpm renovate:policy`, which is manual-only because it needs the pinned runtime from the network; required CI proves only the static preset/fixture parity and shape. Rerun it whenever `default.json` or `.renovate-version` changes and record the run here |
 | Weekly routine window works | An eligible normal update stays `Awaiting Schedule` outside the window and advances during it |
 | npm PR creation works | Actual npm canary branch and pull request; this does not prove other manager families |
 | Formatter commands work | Expected canonical lock and generated artifacts appear in the pull request |

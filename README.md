@@ -194,6 +194,14 @@ summary so scheduled runs are triageable at a glance.
 - **Proof boundary:** `pnpm renovate:policy` proves the resolved pinned-runtime
   policy. End-to-end acceptance still requires a green live runner receipt and
   correct consumer pull requests; a valid preset alone is not system proof.
+  That command is deliberately **manual-only**: it needs the pinned Renovate
+  runtime from the network, so required CI does not run it. What CI does cover
+  offline is the static half — `pnpm test` compares `default.json` against
+  `tools/fixtures/preset/default-five-day-policy.json` byte for byte, and
+  `pnpm validate` re-checks the preset's shape and frozen checksum. Rerun
+  `pnpm renovate:policy` by hand whenever the preset or `.renovate-version`
+  changes, and record the result in the acceptance spec; a green CI run is not
+  evidence that the resolved five-day boundary still behaves as documented.
 - **Production contract:** the following table is active for the shared runner.
   Release and consumer-pin gates still govern how future preset versions are
   distributed.

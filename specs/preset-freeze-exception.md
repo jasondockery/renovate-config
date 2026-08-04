@@ -5,15 +5,18 @@ Design status: **approved**
 Activation status: **active in the owner-approved 2026-08-04 policy commit**
 
 Scope: `default.json` effective release-age and vulnerability-alert policy only
-Exit condition: the isolated policy commit passes its exact-boundary proof and
-the owner authorizes changing the preset freeze checksum
+Activation condition: **achieved**; the isolated policy commit and freeze
+checksum change were owner-authorized and passed the exact-boundary proof
+Remaining exit condition: every consumer uses an immutable released preset
+reference, after which the bootstrap freeze can be retired as defined in the
+roadmap
 
 ## Why the exception was required
 
-The frozen preset says normal releases wait five days, but the resolved
+The previous frozen preset said normal releases wait five days, but the resolved
 `config:best-practices` chain also contributes an npm-specific three-day package
-rule. Renovate applies matching package rules after root configuration, so the
-current file does not establish the claimed five-day npm behavior.
+rule. Renovate applies matching package rules after root configuration, so that
+previous preset did not establish the claimed five-day npm behavior.
 
 The reviewed fixture in
 `tools/fixtures/preset/default-five-day-policy.json` adds one later rule for normal npm major,

@@ -25,8 +25,6 @@ const LOG_READ_CHUNK_BYTES = 64 * 1024
 const CONTAINER_LOG_PREFLIGHT_MESSAGE = 'Renovate log mount preflight passed'
 const MESSAGELESS_UPDATE_RECORD_KEYS = new Set([
   'baseBranch',
-  'fixtureOrigin',
-  'fixtureRuntime',
   'hostname',
   'level',
   'logContext',

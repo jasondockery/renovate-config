@@ -1,6 +1,6 @@
 {"name":"renovate","level":30,"msg":"Renovate started","fixtureOrigin":"captured lifecycle shape","fixtureRuntime":"43.288.0"}
 {"name":"renovate","level":30,"repository":"jasondockery/renovate-config","msg":"Repository started","fixtureOrigin":"captured lifecycle shape","fixtureRuntime":"43.288.0"}
-{"name":"renovate","level":20,"repository":"jasondockery/renovate-config","baseBranch":"main","update":{"bucket":"non-major","newVersion":"1.1.0","newValue":"^1.1.0","updateType":"minor"},"fixtureOrigin":"live-observed parser rejection and source-confirmed logger.debug({ update }) shape","fixtureRuntime":"43.288.0"}
+{"name":"renovate","level":20,"repository":"jasondockery/renovate-config","baseBranch":"main","update":{"bucket":"non-major","newVersion":"1.1.0","newValue":"^1.1.0","updateType":"minor"}}
 {"name":"renovate","level":30,"repository":"jasondockery/renovate-config","msg":"Repository timing splits (milliseconds)","splits":{"init":100,"onboarding":0,"extract":200,"lookup":300,"update":400},"total":1000,"fixtureOrigin":"pinned source timing shape","fixtureRuntime":"43.288.0"}
 {"name":"renovate","level":40,"msg":"sanitized global warning","fixtureOrigin":"hostile scenario","fixtureRuntime":"43.288.0"}
 {"name":"renovate","level":30,"repository":"jasondockery/roost","msg":"Repository started","fixtureOrigin":"captured lifecycle shape","fixtureRuntime":"43.288.0"}

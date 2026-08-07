@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Focused pre-push gate. Budget: 2 minutes (specs/verification.md → Hooks).
+# This is not the final gate: `pnpm verify` owns that, and duplicating it here
+# would only make every push pay for it twice.
+#
+# Enable with: git config core.hooksPath .githooks
+set -euo pipefail
+
+cd "$(git rev-parse --show-toplevel)"
+
+node tools/check-toolchain.mjs
+node --test tools/*.test.mjs

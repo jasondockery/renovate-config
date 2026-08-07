@@ -106,12 +106,17 @@ Final proof picks exactly one path: an ordinary scoped change runs its affected
 checks once; receipt code, workflow routing, runtime policy, release, or
 another cross-cutting change runs only `pnpm verify` once. Never both.
 
-This repository installs no Git hooks, so `pnpm verify` is the only gate and
-nothing re-runs it for you. Order the work as index, commit, proof, push: run
-the gate once, on the commit you intend to push. Running it against the working
-tree and again against the commit is duplicated proof, not stronger proof —
-the commit changes no bytes. When the task is already "commit and push", go
-straight to the commit and prove after it.
+Hooks are opt-in and are not installed by cloning: enable them once with
+`git config core.hooksPath .githooks`. `.githooks/pre-commit` runs the
+toolchain contract; `.githooks/pre-push` adds the test suite. Neither runs
+`pnpm verify` — the final gate stays an explicit command, and a hook that ran
+it would make every push pay for proof the release path runs again anyway.
+
+Order the work as index, commit, proof, push: run the gate once, on the commit
+you intend to push. Running it against the working tree and again against the
+commit is duplicated proof, not stronger proof — the commit changes no bytes.
+When the task is already "commit and push", go straight to the commit and prove
+after it, and do not hand-run what a hook is about to run.
 
 `specs/verification.md` owns what those commands bind, proof reuse, handoff
 reporting, hook budgets, and cross-repository receipt mapping.

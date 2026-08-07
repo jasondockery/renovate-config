@@ -106,5 +106,12 @@ Final proof picks exactly one path: an ordinary scoped change runs its affected
 checks once; receipt code, workflow routing, runtime policy, release, or
 another cross-cutting change runs only `pnpm verify` once. Never both.
 
+This repository installs no Git hooks, so `pnpm verify` is the only gate and
+nothing re-runs it for you. Order the work as index, commit, proof, push: run
+the gate once, on the commit you intend to push. Running it against the working
+tree and again against the commit is duplicated proof, not stronger proof —
+the commit changes no bytes. When the task is already "commit and push", go
+straight to the commit and prove after it.
+
 `specs/verification.md` owns what those commands bind, proof reuse, handoff
 reporting, hook budgets, and cross-repository receipt mapping.

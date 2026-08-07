@@ -30,20 +30,17 @@
       "note": "The npm manager owns packageManager and engine pins; check-toolchain proves the mirrors agree."
     },
     {
-      "id": "mise-runtime-mirror",
-      "classification": "built-in",
-      "manager": "mise",
+      "id": "mise-node-adapter",
+      "classification": "derived",
+      "manager": "toolchain-sync",
       "paths": ["mise.toml"],
-      "canonical": ".node-version and package.json#packageManager",
-      "agePolicy": "renovate-minimum-release-age",
-      "compensatingControl": "check-toolchain rejects a proposal that updates a mirror without the canonical pins.",
-      "extractionMatchers": [
-        { "manager": "mise", "packageFilePattern": "^mise.toml$", "depNamePattern": "^(?:node|pnpm)$" }
-      ],
+      "canonical": ".node-version",
+      "agePolicy": "not-applicable",
+      "compensatingControl": "toolchain:sync derives the Node-only adapter and check:toolchain rejects pnpm ownership there.",
       "scanMatchers": [
         { "pathPattern": "^mise\\.toml$", "pattern": "version-assignment" }
       ],
-      "note": "Renovate extracts mise pins, while the repository guard requires exact parity with the canonical Node and pnpm declarations."
+      "note": "mise owns Node only. Corepack selects pnpm from packageManager."
     },
     {
       "id": "github-actions-and-runners",
@@ -97,9 +94,6 @@
       "canonical": ".node-version and package.json#packageManager",
       "agePolicy": "not-applicable",
       "compensatingControl": "check-toolchain rejects drift between canonical pins and derived adapters.",
-      "extractionMatchers": [
-        { "manager": "nvm", "packageFilePattern": "^\\.nvmrc$", "depNamePattern": "^node$" }
-      ],
       "note": "These adapters and assertions are not independent dependency owners."
     },
     {

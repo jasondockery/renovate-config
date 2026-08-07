@@ -134,10 +134,14 @@ field-hit failure mode; see its description).
 
 This repo follows Roost's portable project-local toolchain contract:
 
-- Node `24.18.0` from canonical `.node-version` (Renovate 43.x requires Node
-  ^24.11.0). `.nvmrc`, `mise.toml`, `package.json`, and CI are synchronized
-  adapters for nvm, fnm, mise, Volta/manual installs, and GitHub Actions.
-- pnpm `11.9.0` from `packageManager`, mirrored in `engines` and `mise.toml`.
+- Node comes from canonical `.node-version` (Renovate 43.x requires Node
+  ^24.11.0). `.nvmrc`, `mise.toml#tools.node`, package-manager engines, and CI
+  are synchronized adapters for nvm, fnm, mise, Volta/manual installs, and
+  GitHub Actions.
+- pnpm comes from canonical `package.json#packageManager`, is mirrored only in
+  `engines`, and is selected by Corepack rather than installed by mise.
+- `pnpm toolchain:sync` deterministically regenerates those adapters after an
+  authority changes; `pnpm check:toolchain` proves the transformation is a no-op.
 - `pnpm-workspace.yaml` disables pnpm 11's implicit install-before-run behavior
   and module-directory writes; this dependency-free repository's `pnpm test`
   and `pnpm validate` commands must not create a lockfile, `node_modules`, or

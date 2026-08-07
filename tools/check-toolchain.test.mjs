@@ -7,24 +7,34 @@ import test from 'node:test'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import {
   collectRuntimeParityProblems,
+  collectPnpmOwnerProblems,
   collectToolchainProblems,
+  collectUnclassifiedToolchainLiterals,
   PROBE_TIMEOUT_MS,
   probeInvocation,
 } from './check-toolchain.mjs'
 
 const SCRIPT = fileURLToPath(new URL('./check-toolchain.mjs', import.meta.url))
+const FIXTURE_NODE_VERSION = '20.11.1'
+const FIXTURE_PNPM_VERSION = '9.15.5'
+
+test('rejects a former production version in an unregistered live surface', (context) => {
+  const repoRoot = fixture({ 'README.md': 'Requires Node 20.10.0.\n' })
+  context.after(() => fs.rmSync(repoRoot, { recursive: true, force: true }))
+  assert.match(collectUnclassifiedToolchainLiterals(repoRoot, 'README.md\0').join('\n'), /README\.md:1/)
+})
 
 function fixture(files = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'renovate-toolchain-'))
   const defaults = {
-    '.node-version': '24.18.0\n',
-    '.nvmrc': '24.18.0\n',
-    'mise.toml': '[tools]\nnode = "24.18.0"\npnpm = "11.9.0"\n',
+    '.node-version': `${FIXTURE_NODE_VERSION}\n`,
+    '.nvmrc': `${FIXTURE_NODE_VERSION}\n`,
+    'mise.toml': `[tools]\nnode = "${FIXTURE_NODE_VERSION}"\n`,
     'pnpm-workspace.yaml': 'verifyDepsBeforeRun: false\nenableModulesDir: false\n',
-    'package.json': JSON.stringify({
-      packageManager: 'pnpm@11.9.0',
-      engines: { node: '24.18.0', pnpm: '11.9.0' },
-    }),
+    'package.json': `${JSON.stringify({
+      packageManager: `pnpm@${FIXTURE_PNPM_VERSION}`,
+      engines: { node: FIXTURE_NODE_VERSION, pnpm: FIXTURE_PNPM_VERSION },
+    }, null, 2)}\n`,
     '.github/workflows/ci.yml':
       'uses: actions/setup-node@0000000000000000000000000000000000000000\nwith:\n  node-version-file: .node-version\n',
     ...files,
@@ -37,14 +47,50 @@ function fixture(files = {}) {
   return root
 }
 
+test('reports an unplannable mirror instead of discarding every diagnostic', (context) => {
+  const repoRoot = fixture()
+  context.after(() => fs.rmSync(repoRoot, { recursive: true, force: true }))
+  fs.rmSync(path.join(repoRoot, 'mise.toml'))
+  const problems = collectToolchainProblems({
+    repoRoot,
+    nodeVersion: `v${FIXTURE_NODE_VERSION}`,
+    userAgent: `pnpm/${FIXTURE_PNPM_VERSION}`,
+  }).join('\n')
+  assert.match(problems, /mise\.toml node \(missing\)/)
+  assert.match(problems, /toolchain mirrors could not be planned/)
+})
+
+test('reads a [tools] header with a trailing comment exactly as the writer does', (context) => {
+  const repoRoot = fixture({
+    'mise.toml': `[tools] # pinned by policy\nnode = "${FIXTURE_NODE_VERSION}"\n`,
+  })
+  context.after(() => fs.rmSync(repoRoot, { recursive: true, force: true }))
+  // A stricter reader here would report a missing node key for a file the
+  // writer already considers synchronized: a failure sync can never clear.
+  assert.deepEqual(
+    collectToolchainProblems({
+      repoRoot,
+      nodeVersion: `v${FIXTURE_NODE_VERSION}`,
+      userAgent: `pnpm/${FIXTURE_PNPM_VERSION}`,
+    }),
+    []
+  )
+})
+
+test('classifies literals from the filesystem when Git metadata is absent', (context) => {
+  const repoRoot = fixture({ 'docs/install.md': 'Requires Node 20.10.0.\n' })
+  context.after(() => fs.rmSync(repoRoot, { recursive: true, force: true }))
+  assert.match(collectUnclassifiedToolchainLiterals(repoRoot).join('\n'), /docs\/install\.md:1/)
+})
+
 test('accepts synchronized declarations and exact running versions', (context) => {
   const repoRoot = fixture()
   context.after(() => fs.rmSync(repoRoot, { recursive: true, force: true }))
   assert.deepEqual(
     collectToolchainProblems({
       repoRoot,
-      nodeVersion: 'v24.18.0',
-      userAgent: 'pnpm/11.9.0 npm/? node/v24.18.0 darwin arm64',
+      nodeVersion: `v${FIXTURE_NODE_VERSION}`,
+      userAgent: `pnpm/${FIXTURE_PNPM_VERSION} npm/? node/v${FIXTURE_NODE_VERSION} darwin arm64`,
     }),
     []
   )
@@ -64,7 +110,7 @@ test('reports declaration, runtime, package-manager, and CI drift together', (co
     userAgent: 'pnpm/11.8.0 npm/? node/v26.5.0 darwin arm64',
   }).join('\n')
   assert.match(problems, /\.nvmrc \(24\.17\.0\)/)
-  assert.match(problems, /mise\.toml pnpm \(11\.8\.0\)/)
+  assert.match(problems, /mise\.toml must not declare pnpm/)
   assert.match(problems, /running Node 26\.5\.0/)
   assert.match(problems, /running pnpm 11\.8\.0/)
   assert.match(problems, /actions\/setup-node from the repository \.node-version/)
@@ -79,8 +125,8 @@ test('accepts a repository node pin below an explicit checkout path', (context) 
   assert.deepEqual(
     collectToolchainProblems({
       repoRoot,
-      nodeVersion: 'v24.18.0',
-      userAgent: 'pnpm/11.9.0 npm/? node/v24.18.0 darwin arm64',
+      nodeVersion: 'v20.11.1',
+      userAgent: 'pnpm/9.15.5 npm/? node/v20.11.1 darwin arm64',
     }),
     []
   )
@@ -94,8 +140,8 @@ test('rejects pnpm script execution that can perform an implicit install', (cont
   assert.match(
     collectToolchainProblems({
       repoRoot,
-      nodeVersion: 'v24.18.0',
-      userAgent: 'pnpm/11.9.0 npm/? node/v24.18.0 darwin arm64',
+      nodeVersion: 'v20.11.1',
+      userAgent: 'pnpm/9.15.5 npm/? node/v20.11.1 darwin arm64',
     }).join('\n'),
     /must disable verifyDepsBeforeRun/
   )
@@ -109,8 +155,8 @@ test('rejects dependency-free pnpm scripts that can write node_modules metadata'
   assert.match(
     collectToolchainProblems({
       repoRoot,
-      nodeVersion: 'v24.18.0',
-      userAgent: 'pnpm/11.9.0 npm/? node/v24.18.0 darwin arm64',
+      nodeVersion: 'v20.11.1',
+      userAgent: 'pnpm/9.15.5 npm/? node/v20.11.1 darwin arm64',
     }).join('\n'),
     /must disable enableModulesDir/
   )
@@ -129,23 +175,29 @@ test('nested parity accepts child processes resolving the pinned node and pnpm',
   assert.deepEqual(
     collectRuntimeParityProblems({
       repoRoot,
-      runProbe: probeReturning({ node: 'v24.18.0', pnpm: '11.9.0' }),
+      runProbe: probeReturning({ node: 'v20.11.1', pnpm: '9.15.5' }),
     }),
     []
   )
 })
 
+test('pnpm ownership accepts Corepack and rejects a standalone manager', () => {
+  assert.deepEqual(collectPnpmOwnerProblems({ resolvePnpm: () => '/node/lib/node_modules/corepack/dist/pnpm.js' }), [])
+  assert.match(collectPnpmOwnerProblems({ resolvePnpm: () => '/opt/homebrew/bin/pnpm' }).join('\n'), /known standalone manager/)
+  assert.deepEqual(collectPnpmOwnerProblems({ resolvePnpm: () => '/custom/shim/pnpm' }), [])
+})
+
 test('nested parity strips the corepack integrity suffix before comparing', () => {
   const repoRoot = fixture({
     'package.json': JSON.stringify({
-      packageManager: 'pnpm@11.9.0+sha512.abc123',
-      engines: { node: '24.18.0', pnpm: '11.9.0' },
+      packageManager: 'pnpm@9.15.5+sha512.abc123',
+      engines: { node: '20.11.1', pnpm: '9.15.5' },
     }),
   })
   assert.deepEqual(
     collectRuntimeParityProblems({
       repoRoot,
-      runProbe: probeReturning({ node: 'v24.18.0', pnpm: '11.9.0' }),
+      runProbe: probeReturning({ node: 'v20.11.1', pnpm: '9.15.5' }),
     }),
     []
   )
@@ -155,7 +207,7 @@ test('nested parity reports a drifted child pnpm while the invoker looks correct
   const repoRoot = fixture()
   const problems = collectRuntimeParityProblems({
     repoRoot,
-    runProbe: probeReturning({ node: 'v24.18.0', pnpm: '9.12.0' }),
+    runProbe: probeReturning({ node: 'v20.11.1', pnpm: '9.12.0' }),
   })
   assert.match(problems.join('\n'), /bare `pnpm` resolves 9\.12\.0 for child processes/)
 })
@@ -164,7 +216,7 @@ test('nested parity reports a drifted child node', () => {
   const repoRoot = fixture()
   const problems = collectRuntimeParityProblems({
     repoRoot,
-    runProbe: probeReturning({ node: 'v22.4.0', pnpm: '11.9.0' }),
+    runProbe: probeReturning({ node: 'v22.4.0', pnpm: '9.15.5' }),
   })
   assert.match(problems.join('\n'), /bare `node` resolves 22\.4\.0 for child processes/)
 })
@@ -173,7 +225,7 @@ test('nested parity reports a pnpm child processes cannot resolve', () => {
   const repoRoot = fixture()
   const problems = collectRuntimeParityProblems({
     repoRoot,
-    runProbe: probeReturning({ node: 'v24.18.0' }),
+    runProbe: probeReturning({ node: 'v20.11.1' }),
   })
   assert.match(problems.join('\n'), /bare `pnpm` probe exited with status 1/)
 })
@@ -185,7 +237,7 @@ test('nested parity distinguishes missing, offline Corepack, and timed-out pnpm 
       repoRoot,
       runProbe: (command) =>
         command === 'node'
-          ? { status: 0, stdout: 'v24.18.0', stderr: '' }
+          ? { status: 0, stdout: 'v20.11.1', stderr: '' }
           : pnpmResult,
     }).join('\n')
   assert.match(
@@ -215,7 +267,7 @@ test('node and pnpm probes share missing, timeout, signal, nonzero, and mismatch
         if (candidate === command) return commandResult
         return {
           status: 0,
-          stdout: candidate === 'node' ? 'v24.18.0' : '11.9.0',
+          stdout: candidate === 'node' ? 'v20.11.1' : '9.15.5',
           stderr: '',
         }
       },
@@ -268,7 +320,7 @@ test('nested parity probes run at repoRoot with Corepack networking disabled', (
     repoRoot,
     runProbe: (command, args, options) => {
       optionsSeen.push(options)
-      return { status: 0, stdout: command === 'node' ? 'v24.18.0' : '11.9.0', stderr: '' }
+      return { status: 0, stdout: command === 'node' ? 'v20.11.1' : '9.15.5', stderr: '' }
     },
   })
   assert.deepEqual(
@@ -314,7 +366,7 @@ test('the CLI entrypoint is realpath-aware and importing it stays silent', (t) =
     encoding: 'utf8',
   })
   assert.equal(invoked.status, 1)
-  assert.match(invoked.stderr, /\.node-version must contain one exact Node version/)
+  assert.match(invoked.stderr, /\.node-version must contain one exact semantic version in x\.y\.z form/)
 
   const imported = spawnSync(
     process.execPath,

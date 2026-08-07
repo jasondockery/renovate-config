@@ -82,7 +82,7 @@ test('the inventory covers every active extraction-manager family and truthful p
   assert.equal(sharedPreset.classification, 'intentional-manual')
   assert.equal(sharedPreset.manager, 'versioned-distribution-owner-gate')
   const config = JSON.parse(fs.readFileSync(path.join(repoRoot, 'renovate.json'), 'utf8'))
-  assert.deepEqual(config.ignorePaths, ['tools/fixtures/**'])
+  assert.deepEqual(config.ignorePaths, ['.nvmrc', 'mise.toml', 'tools/fixtures/**'])
   assert.deepEqual(config.customManagers[0].managerFilePatterns, ['/^\\.renovate-version$/'])
   assert.equal(config.customManagers[0].datasourceTemplate, 'npm')
 })

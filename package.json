@@ -8,7 +8,9 @@
     "pnpm": "11.9.0"
   },
   "scripts": {
+    "toolchain:sync": "node tools/sync-toolchain.mjs",
     "check:toolchain": "node tools/check-toolchain.mjs",
+    "check:outdated": "node tools/show-outdated.mjs",
     "renovate:audit": "node tools/renovate-system-audit.mjs",
     "renovate:compatibility": "node tools/validate-renovate-compatibility.mjs",
     "renovate:integration": "node tools/validate-renovate-integration.mjs",

@@ -10,6 +10,7 @@ import {
   assertSharedPresetExtractionNeutral,
   collectDeclaredDependencies,
   collectCoverageProblems,
+  collectToolchainConsumerProblems,
   extractRepository,
   findSharedPresetReferences,
   scanVersionConventions,
@@ -18,6 +19,25 @@ import {
 
 const tuple = { manager: 'npm', packageFile: 'packages/app/package.json', depName: 'react', currentValue: '19.1.0' }
 const matcher = { manager: 'npm', packageFilePattern: '^packages/.+/package\\.json$', depNamePattern: '^react$' }
+
+test('consumer toolchain contract reports missing behavior modules and forbidden pnpm ownership without aborting', async (context) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'renovate-toolchain-consumer-'))
+  context.after(() => fs.rmSync(root, { recursive: true, force: true }))
+  const files = {
+    '.node-version': '20.11.1\n',
+    '.nvmrc': '20.11.1\n',
+    'mise.toml': '[tools]\nnode = "20.11.1"\npnpm = "9.15.5"\n',
+    'package.json': JSON.stringify({ packageManager: 'pnpm@9.15.5', engines: { node: '20.11.1', pnpm: '9.15.5' }, scripts: { 'toolchain:sync': 'node tools/sync-toolchain.mjs', 'check:toolchain': 'node tools/check-toolchain.mjs', 'check:outdated': 'node tools/show-outdated.mjs' } }),
+    'renovate.json': JSON.stringify({ postUpgradeTasks: { commands: ['node tools/sync-toolchain.mjs'] } }),
+  }
+  for (const [relative, contents] of Object.entries(files)) {
+    const absolute = path.join(root, relative); fs.mkdirSync(path.dirname(absolute), { recursive: true }); fs.writeFileSync(absolute, contents)
+  }
+  const problems = (await collectToolchainConsumerProblems(root)).join('\n')
+  assert.match(problems, /forbidden pnpm ownership/)
+  assert.match(problems, /tools\/show-outdated\.mjs is missing or unreadable/)
+  assert.match(problems, /tools\/sync-toolchain\.mjs is missing or unreadable/)
+})
 
 test('extraction ownership binds manager, package file, and dependency name', () => {
   assert.equal(tupleMatches(tuple, matcher), true)

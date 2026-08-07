@@ -14,6 +14,7 @@ const EXPECTED_TEST = 'node --test tools/*.test.mjs'
 const EXPECTED_VALIDATE = 'node tools/validate.mjs'
 const EXPECTED_VERIFY = 'node tools/verify.mjs'
 const EXPECTED_FORMATTER_COMMAND = '^node tools/renovate-format-artifacts\\.mjs$'
+const EXPECTED_TOOLCHAIN_SYNC_COMMAND = '^node tools/sync-toolchain\\.mjs$'
 const EXPECTED_RUNTIME_MANAGER = {
   customType: 'regex',
   description:
@@ -422,10 +423,13 @@ export function collectRenovateRuntimeProblems(
 
   const runner = json(repoRoot, 'runner.json', problems)
   if (
-    JSON.stringify(runner?.allowedCommands) !== JSON.stringify([EXPECTED_FORMATTER_COMMAND])
+    JSON.stringify(runner?.allowedCommands) !== JSON.stringify([
+      EXPECTED_FORMATTER_COMMAND,
+      EXPECTED_TOOLCHAIN_SYNC_COMMAND,
+    ])
   ) {
     problems.push(
-      `runner.json allowedCommands must contain only ${EXPECTED_FORMATTER_COMMAND}.`
+      `runner.json allowedCommands must be exactly ["${EXPECTED_FORMATTER_COMMAND}", "${EXPECTED_TOOLCHAIN_SYNC_COMMAND}"], in that order.`
     )
   }
   if (runner?.allowShellExecutorForPostUpgradeCommands !== false) {

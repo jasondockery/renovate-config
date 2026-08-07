@@ -229,14 +229,20 @@ test('rejects every formatter-permission broadening', async (context) => {
     mutateJson(repoRoot, 'runner.json', (runner) => {
       runner.allowedCommands.push('^node other\\.mjs$')
     })
-    assert.match(problems(repoRoot), /allowedCommands must contain only/)
+    assert.match(problems(repoRoot), /allowedCommands must be exactly \["\^node tools\/renovate-format-artifacts/)
+    // The failure names both expected commands, so a reader can repair
+    // runner.json without opening the checker.
+    assert.match(problems(repoRoot), /\^node tools\/sync-toolchain/)
   })
   await context.test('a broader regex', (subcontext) => {
     const repoRoot = fixture(subcontext)
     mutateJson(repoRoot, 'runner.json', (runner) => {
       runner.allowedCommands = ['^node tools/.*$']
     })
-    assert.match(problems(repoRoot), /allowedCommands must contain only/)
+    assert.match(problems(repoRoot), /allowedCommands must be exactly \["\^node tools\/renovate-format-artifacts/)
+    // The failure names both expected commands, so a reader can repair
+    // runner.json without opening the checker.
+    assert.match(problems(repoRoot), /\^node tools\/sync-toolchain/)
   })
 })
 

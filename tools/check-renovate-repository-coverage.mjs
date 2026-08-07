@@ -667,6 +667,25 @@ export function assertSharedPresetExtractionNeutral(root = repositoryRoot) {
   assertExtractionNeutralPreset(preset)
 }
 
+// Auditing a consumer repository means importing and running its own modules,
+// which executes that repository's code. It runs in a child process so a single
+// audited repository cannot patch globals or hang the whole sweep: one bounded
+// verdict per repository, and a timeout the caller can actually enforce.
+export const CONSUMER_AUDIT_TIMEOUT_MS = 120_000
+
+export function collectToolchainConsumerProblems(root, run = spawnSync) {
+  const auditor = fileURLToPath(new URL('./toolchain-consumer-audit.mjs', import.meta.url))
+  const result = run(process.execPath, [auditor, root], { encoding: 'utf8', timeout: CONSUMER_AUDIT_TIMEOUT_MS, stdio: ['ignore', 'pipe', 'pipe'] })
+  if (result.error) return [`toolchain consumer audit could not run (${result.error.message})`]
+  if (result.signal) return [`toolchain consumer audit was terminated by ${result.signal} after ${CONSUMER_AUDIT_TIMEOUT_MS / 1000}s`]
+  if (result.status !== 0) return [`toolchain consumer audit exited ${String(result.status)}: ${String(result.stderr ?? '').trim() || 'no diagnostic'}`]
+  let parsed
+  try { parsed = JSON.parse(String(result.stdout ?? '')) }
+  catch { return ['toolchain consumer audit returned malformed JSON evidence'] }
+  if (!Array.isArray(parsed?.problems)) return ['toolchain consumer audit returned no problem list']
+  return parsed.problems
+}
+
 export function extractRepository(root, resolvedSharedPreset, environment, run) {
   const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'renovate-repository-coverage-'))
   fs.chmodSync(temporary, 0o700)
@@ -725,6 +744,7 @@ export async function checkRepositoryCoverage({
     const declarations = collectDeclaredDependencies(root, inventory)
     const scanHits = scanVersionConventions(root, inventory)
     const problems = collectCoverageProblems(inventory, tuples, scanHits, declarations)
+    problems.push(...collectToolchainConsumerProblems(root))
     for (const problem of problems) allProblems.push(`${repository}: ${problem}`)
     evidence.push({ repository, tuples: tuples.length, declarations: declarations.length, scanHits: scanHits.length })
   }

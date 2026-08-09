@@ -656,6 +656,7 @@ setInterval(() => {}, 1000)
     cwd: directory,
     cancelGraceMilliseconds: 25,
     supervisor: hostileSupervisor,
+    processGroupMembers: () => new Set(),
     write: () => {},
     writeError: () => {},
   })

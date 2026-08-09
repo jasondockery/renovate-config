@@ -2,10 +2,10 @@
   "name": "renovate-config",
   "private": true,
   "version": "0.0.0",
-  "packageManager": "pnpm@11.9.0",
+  "packageManager": "pnpm@11.20.0",
   "engines": {
-    "node": "24.18.0",
-    "pnpm": "11.9.0"
+    "node": "24.19.0",
+    "pnpm": "11.20.0"
   },
   "scripts": {
     "toolchain:sync": "node tools/sync-toolchain.mjs",

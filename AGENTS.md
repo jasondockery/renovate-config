@@ -7,6 +7,10 @@ it is reported.
 
 **Toolchain versions are write-once, derive-everywhere.** Node changes only in `.node-version`; pnpm changes only in `package.json#packageManager`. Load `skills/toolchain-authority/SKILL.md`, run `pnpm toolchain:sync`, then `pnpm check:toolchain`. A new version consumer requires an explicit classification and regression test.
 
+Load `skills/live-renovate-acceptance/SKILL.md` before assessing a live runner,
+explaining missing Renovate PRs, reconciling `pnpm outdated`, or claiming
+consumer-level dependency automation proof.
+
 This repository owns dependency-update automation for the owner's repos plus
 the public, reusable implementation of one read-only security-hygiene inbox.
 Keep it small, observable, and boring: one shared Renovate preset, one

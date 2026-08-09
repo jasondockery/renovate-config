@@ -10,12 +10,15 @@
 # to remember a roadmap paragraph. CI fails if default.json no longer hashes to
 # the digest below.
 #
-# The owner-approved strict five-day exception was activated on 2026-08-04 and
-# this digest now binds that exact reviewed policy. Further effective changes
-# remain frozen until consumers use a released preset reference.
+# The owner-approved strict five-day exception was activated on 2026-08-04.
+# The owner-approved daily routine-creation exception followed on 2026-08-09,
+# removing the redundant weekly calendar delay while retaining bounded PR
+# limits and weekly lockfile maintenance. This digest binds that exact reviewed
+# policy. Further effective changes remain frozen until consumers use a
+# released preset reference.
 #
 # Lift the freeze by deleting this file and its CI step in the SAME commit that
 # records all consumers pinned (ROADMAP.md, "Versioned distribution", step 8).
 #
 # sha256(default.json)
-acd8cace9105ed47498a1fa3be1b29c0f9453f61ed7038d339b2083530575b23
+a55ffa445cbf28d3e325608a4018b6cf7fae5e331a384dc50901dcd3e0ee7cb9

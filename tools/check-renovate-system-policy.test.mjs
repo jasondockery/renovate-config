@@ -30,6 +30,8 @@ const required = [
   'tools/check-renovate-effective-policy.test.mjs',
   'tools/fixtures/preset/default-five-day-policy.json',
   'tools/validate-renovate-effective-policy.mjs',
+  'skills/live-renovate-acceptance/SKILL.md',
+  'skills/live-renovate-acceptance/agents/openai.yaml',
 ]
 
 function fixture(context) {
@@ -71,6 +73,12 @@ test('rejects schedule, activation, scope, security, and manager-coverage drift'
     const file = path.join(root, '.github/workflows/renovate.yml')
     fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace("cron: '17 1 * * *'", "cron: '17 1 * * 1'"))
     assert.match(collectRenovateSystemPolicyProblems(root).join('\n'), /run once daily/)
+  })
+
+  await context.test('daily routine branch creation', (subcontext) => {
+    const root = fixture(subcontext)
+    mutateJson(root, 'default.json', (preset) => { preset.extends.push('schedule:weekly') })
+    assert.match(collectRenovateSystemPolicyProblems(root).join('\n'), /daily routine branch creation/)
   })
 
   await context.test('consumer scope', (subcontext) => {

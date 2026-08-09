@@ -5,8 +5,9 @@ Contract status: active
 System acceptance: not achieved
 
 Policy activation: active. The owner-approved preset exception supplies the
-later strict five-day npm rule and the explicit vulnerability-alert schedule,
-age, and routine rate-limit bypass. Field acceptance remains separate.
+daily routine-creation policy, later strict five-day npm rule, and explicit
+vulnerability-alert schedule, age, and routine rate-limit bypass. Field
+acceptance remains separate.
 
 Owner: `jasondockery/renovate-config`
 
@@ -17,8 +18,9 @@ Consumers: `jasondockery/renovate-config`, `jasondockery/roost`, and
 
 A scheduled or manually dispatched Renovate run authenticates with the GitHub
 App, processes every configured repository, applies the five-day dependency-age
-policy where the datasource and update type support it, respects the weekly
-routine update/branch window, and creates or updates eligible pull requests.
+policy where the datasource and update type support it, evaluates routine
+branch and PR creation on every daily run, and creates or updates eligible pull
+requests.
 Those pull requests contain every required canonical and generated artifact and
 pass the consumer repository's CI. When no pull request should exist, the
 Dependency Dashboard, sanitized receipt, and post-run audit explain why.
@@ -30,7 +32,7 @@ These clocks solve different problems and must remain independent:
 | Clock | Contract |
 | --- | --- |
 | Renovate process | Once daily at `01:17 UTC`, plus manual dispatch |
-| Normal routine updates and branches | Weekly early-Monday window from `schedule:weekly` |
+| Normal routine updates and branches | Every daily run after applicable maturity and approval gates |
 | Normal release age | Five days with `internalChecksFilter: strict` where timestamps and update types support it; inventories name exceptions |
 | Vulnerability-alert PRs | Bypass normal age and PR schedules; observed on the next daily run |
 | Lockfile maintenance | Weekly; Renovate release-age checks do not apply directly, while consumer package-manager policy still governs generated resolution where configured |
@@ -46,14 +48,14 @@ independently of when the runner executes.
 | App authentication works | Successful token mint with the exact reviewed permissions |
 | All target repositories are processed | One passed structured-receipt row for each configured repository |
 | Five-day age works | Pinned-runtime behavior keeps supported npm and timestamped GitHub-release updates pending at 4 days 23 hours 59 minutes and allows them at 5 days 1 minute. Required exact-SHA CI evidence: the `renovate-integration` lane resolves the preset against the pinned runtime on every push (`pnpm renovate:policy` is the identical local command). Static preset/fixture parity is necessary but never sufficient — it cannot observe an inherited later rule lowering the effective floor |
-| Weekly routine window works | An eligible normal update stays `Awaiting Schedule` outside the window and advances during it |
+| Daily routine creation works | A mature normal update advances on the next daily run; routine updates do not remain `Awaiting Schedule` |
 | npm PR creation works | Actual npm canary branch and pull request; this does not prove other manager families |
 | Formatter commands work | Expected canonical lock and generated artifacts appear in the pull request |
 | Each consumer is compatible | Required CI is green on an eligible Renovate PR in each consumer |
 | Existing PRs update correctly | A later eligible version refreshes the same Renovate branch and PR |
 | Stale PRs recover | A deliberately closed stale canary PR is recreated from current `main` while still eligible |
 | Security updates are timely | Fixture policy plus a controlled field case prove that normal age and schedule do not block the security lane |
-| No-update runs are explainable | Dashboard and `pnpm renovate:audit --run <run-id>` identify no update, minimum age, weekly schedule, approval, branch, PR, or failure state |
+| No-update runs are explainable | Dashboard, recursive pnpm evidence, and `pnpm renovate:audit --run <run-id>` identify no update, minimum age, approval, disabled policy, weekly lockfile maintenance, branch, PR, limit, or failure state |
 | Cleanup is safe | Sanitized receipt says the raw log and original private directory were removed before publication; neither is uploaded |
 
 ## Proof levels
@@ -86,11 +88,11 @@ states:
 
 - no update exists;
 - every supported timestamped target is still inside the five-day age floor;
-- an eligible normal update is outside the weekly routine update/branch window;
 - an update awaits explicit dashboard approval;
 - a current Renovate branch or pull request already represents it;
 - a configured PR limit is reached;
-- repository policy intentionally disables or ignores it.
+- repository policy intentionally disables or ignores it;
+- the separately scheduled weekly lockfile-maintenance lane is not due yet.
 
 Missing configuration, extraction failure, branch creation failure, artifact
 failure, a branch without its expected PR, or red consumer CI is an integration
@@ -133,7 +135,7 @@ outdated npm dependency whose target release is older than five days, and
 commits a lockfile so the PR proves both manifest and artifact mutation. Its CI
 performs a frozen install and a minimal behavior assertion.
 
-That canary proves only the npm path: effective age, weekly scheduling, branch
+That canary proves only the npm path: effective age, daily branch creation, branch
 and PR mutation, lockfile generation, closure, and recreation. Dockerfile,
 GitHub Actions, runtime pins, custom managers, digests, and checksum-coupled
 manual surfaces require their extraction rows and real consumer PR evidence.
@@ -155,7 +157,8 @@ sanitized artifact to the exact workflow run, then reports per consumer:
   selected run interval plus the explicit two-minute GitHub timestamp allowance;
   an older unchanged dashboard is pending rather than failed and cannot prove a
   current no-update result;
-- counts pending internal checks, weekly update window, rate limiting, or approval; a publication-
+- named dashboard dispositions for pending internal checks, the retained weekly
+  lockfile-maintenance lane, rate limiting, or approval; a publication-
   age comparison is required before calling a pending check "too young";
 - open Renovate branches plus open, merged, and closed pull requests bound to
   bot author, base, head SHA, state, and selected-run timing; only an open PR
@@ -164,6 +167,21 @@ sanitized artifact to the exact workflow run, then reports per consumer:
 - the selected no-PR explanation or unexpected integration state. Unknown
   actionable sections fail; other unknown sections and a Detected Dependencies
   heading without structured no-update evidence remain pending.
+
+The audit reads `default.json` from the selected run SHA before interpreting
+`Awaiting Schedule`, so a historical weekly-policy run remains auditable after
+the daily policy lands. Under daily routine creation, any refreshed non-lockfile
+update left in `Awaiting Schedule` is a finding. The exact
+`self-hosted-renovate/lock-file-maintenance` identity remains the explicit
+weekly maintenance exception.
+
+`pnpm outdated` remains supplemental registry evidence, not Renovate
+eligibility. Run `tools/show-outdated.mjs` from each exact consumer checkout;
+it uses recursive workspace discovery and reports current, compatible, mature,
+registry-newest, publication, and five-day-boundary facts. Reconcile every
+package with a named dashboard, policy, branch, or PR disposition, then account
+for GitHub Actions, Docker, regex/custom managers, runtime pins, digests, and
+manual inventory rows separately.
 
 The command may create and remove a private local temporary directory only to
 download the sanitized receipt. It never downloads the raw Renovate log and

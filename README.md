@@ -12,9 +12,9 @@ This repo has seven moving pieces:
 - `runner.json` is the self-hosted Renovate runner config. It contains only
   runner behavior, not dependency policy.
 - `.github/workflows/renovate.yml` runs self-hosted Renovate once daily plus
-  manual dispatch. The accepted frozen preset limits routine update and branch
-  work to the early-Monday window and applies the reviewed strict five-day
-  floor to normal npm major, minor, and patch updates.
+  manual dispatch. The accepted frozen preset evaluates routine branch and PR
+  creation on every daily run after the reviewed strict five-day floor for
+  normal npm major, minor, and patch updates.
 - `specs/renovate-system-acceptance.md` defines the observable end-to-end
   contract across the runner and all three consumers.
 - `dependency-coverage.json`, the pinned-runtime fixture, and the bounded
@@ -236,11 +236,11 @@ The process and routine update clocks are intentionally separate:
 | Concern | Contract |
 | --- | --- |
 | Renovate inspection | Daily at `01:17 UTC`, plus manual dispatch |
-| Routine updates and branches | Weekly early-Monday window |
+| Routine updates and branches | Every daily run after applicable maturity and approval gates |
 | Normal release age | Five days with strict internal checks where the datasource supplies timestamps and the update type supports age enforcement |
 | Pins, digests, replacements, and lockfile maintenance | No universal Renovate age guarantee; consumer inventories name their package-manager, integrity, CI, and review controls |
 | Vulnerability-alert PRs | Next daily run; explicit configuration bypasses normal age, schedule, and routine rate limits |
-| Lockfile maintenance | Weekly |
+| Lockfile maintenance | Weekly through the retained best-practices maintenance lane |
 
 A green runner receipt proves execution and cleanup, not that dependency
 automation works end to end. The durable acceptance contract is
@@ -255,6 +255,11 @@ pnpm renovate:audit --run <run-id>
 The current receipt does not yet encode an authoritative no-eligible-update
 result. The audit therefore reports a dashboard-only negative conclusion as
 pending instead of converting `Detected Dependencies` into proof of a no-op.
+It renders named dashboard dispositions and binds PRs through the captured App
+identity, Renovate branch, exact head SHA, base, state, and selected-run time;
+never substitute a guessed author search. Use `tools/show-outdated.mjs` from an
+exact consumer checkout for recursive pnpm registry evidence, then account for
+Actions, Docker, regex/custom managers, runtime pins, and digests separately.
 
 Every consumer also owns a machine-checked `dependency-coverage.json`. A
 dependency is acceptable only when a tested built-in manager detects it, a
@@ -338,9 +343,9 @@ artifacts, and one durable issue ("Security hygiene report", label
 visibility and fails closed before checkout or token mint unless it is private.
 Ownership split:
 GitHub detects and tracks findings; Renovate proposes dependency-update PRs.
-The accepted frozen security block requests immediate creation and automerge;
-the isolated proposal, not current production policy, adds explicit cooldown,
-weekly-window, and routine-rate bypass fields for the next daily run. Workflow and token
+The accepted frozen security block requests immediate creation and automerge
+and explicitly bypasses normal age, schedule, and routine-rate fields for the
+next daily run. Workflow and token
 findings are repository code, fixed in the repository that owns them. The
 report only keeps everything visible — it never dismisses or remediates.
 

@@ -8,6 +8,7 @@ import { readAuthorities } from './sync-toolchain.mjs'
 
 const EXACT = /^\d+\.\d+\.\d+$/
 const COMMAND_TIMEOUT_MS = 30_000
+const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1000
 export const EVIDENCE_DEADLINE_MS = 180_000
 
 // Every observation already has a per-command timeout, but this report runs one
@@ -85,7 +86,19 @@ function classify(from, to) {
   return b[0] !== a[0] ? 'major' : b[1] !== a[1] ? 'minor' : b[2] !== a[2] ? 'patch' : 'current'
 }
 
-export function formatOutdated(entries, compatibleEntries, metadata = {}, specifications = {}) {
+function fiveDayMaturity(packageMetadata, version, now) {
+  const publishedAt = packageMetadata?.time?.[version]
+  const published = new Date(publishedAt).getTime()
+  if (!Number.isFinite(published)) return { publishedAt: 'unknown', eligibleAfter: 'unknown', status: 'unknown' }
+  const eligible = published + FIVE_DAYS_MS
+  return {
+    publishedAt: new Date(published).toISOString(),
+    eligibleAfter: new Date(eligible).toISOString(),
+    status: now >= eligible ? 'mature' : 'pending',
+  }
+}
+
+export function formatOutdated(entries, compatibleEntries, metadata = {}, specifications = {}, now = Date.now()) {
   if (Object.keys(entries).length === 0 && Object.keys(compatibleEntries).length === 0) return ['Package dependencies: pnpm reported no outdated packages in either the mature or compatible view.']
   const names = [...new Set([...Object.keys(entries), ...Object.keys(compatibleEntries)])].sort()
   return names.flatMap((name) => {
@@ -96,6 +109,7 @@ export function formatOutdated(entries, compatibleEntries, metadata = {}, specif
     const compatibleLatest = Object.hasOwn(compatibleEntries, name) ? (compatible.latest ?? 'unknown') : current
     const matureLatest = mature.latest ?? 'unknown'
     const registryNewest = metadata[name]?.['dist-tags']?.latest ?? 'unknown'
+    const maturity = fiveDayMaturity(metadata[name], registryNewest, now)
     return [
       `Package: ${name}`,
       `  Current: ${current}`,
@@ -103,6 +117,9 @@ export function formatOutdated(entries, compatibleEntries, metadata = {}, specif
       `  Compatible Latest: ${compatibleLatest}`,
       `  pnpm-mature Latest: ${matureLatest}`,
       `  Registry Newest: ${registryNewest}`,
+      `  Registry Published At: ${maturity.publishedAt}`,
+      `  Five-day Eligible After: ${maturity.eligibleAfter}`,
+      `  Five-day Maturity: ${maturity.status}`,
       `  Declared Specification: ${specifications[name] ?? 'unknown'}`,
       `  Compatible update available: ${compatibleLatest === 'unknown' ? 'unknown' : compatibleLatest === current ? 'no' : 'yes'}`,
       `  Update classification: ${classify(current, registryNewest)}`,
@@ -127,8 +144,8 @@ export function formatToolchain(authority, newest) {
 }
 
 export function collectOutdatedEvidence(root = process.cwd(), runner = spawnSync, budget = evidenceBudget()) {
-  const entries = runJsonCommand('pnpm', ['outdated', '--format', 'json'], { cwd: root, acceptedStatuses: [0, 1], runner, timeout: budget.slice() })
-  const compatible = runJsonCommand('pnpm', ['outdated', '--compatible', '--format', 'json'], { cwd: root, acceptedStatuses: [0, 1], runner, timeout: budget.slice() })
+  const entries = runJsonCommand('pnpm', ['outdated', '--recursive', '--format', 'json'], { cwd: root, acceptedStatuses: [0, 1], runner, timeout: budget.slice() })
+  const compatible = runJsonCommand('pnpm', ['outdated', '--recursive', '--compatible', '--format', 'json'], { cwd: root, acceptedStatuses: [0, 1], runner, timeout: budget.slice() })
   const metadata = {}
   for (const name of new Set([...Object.keys(entries), ...Object.keys(compatible)])) metadata[name] = runJsonCommand('pnpm', ['view', name, 'time', 'dist-tags', '--json'], { cwd: root, runner, timeout: budget.slice() })
   const authority = readAuthorities(root)

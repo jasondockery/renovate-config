@@ -107,6 +107,9 @@ export async function checkEffectivePolicy({
   ])
   const source = JSON.parse(fs.readFileSync(path.resolve(repoRoot, ACCEPTED_POLICY_PATH), 'utf8'))
   const { config: resolved } = await resolveConfigPresets(structuredClone(source), structuredClone(source))
+  assert.deepEqual(source.extends, ['config:best-practices'], 'the active preset must not add a routine calendar gate')
+  assert.equal(Object.hasOwn(source, 'schedule'), false, 'routine updates must be eligible on every daily run')
+  assert.equal(resolved.schedule, undefined, 'the resolved root policy must not inherit a routine calendar gate')
 
   const effectiveNpm = await applyPackageRules(
     dependency(resolved, { updateType: 'minor' }),
@@ -114,6 +117,7 @@ export async function checkEffectivePolicy({
   )
   assert.equal(effectiveNpm.minimumReleaseAge, '5 days', 'the later npm rule must override inherited age policy')
   assert.equal(effectiveNpm.internalChecksFilter, 'strict', 'the effective npm rule must fail closed while releases age')
+  assert.equal(effectiveNpm.schedule, undefined, 'mature npm updates must advance on the next daily run')
   const npmJustUnder = await policyResult(filterInternalChecks, semver, effectiveNpm, JUST_UNDER_FIVE_DAYS)
   assert.equal(npmJustUnder.pendingChecks, true, 'an npm release one minute under five days must remain pending')
   const npmJustOver = await policyResult(filterInternalChecks, semver, effectiveNpm, JUST_OVER_FIVE_DAYS)
@@ -163,7 +167,7 @@ export async function checkEffectivePolicy({
   }), 'lockfile-proof')
   assert.equal(lockfile.minimumReleaseAge, null, 'Renovate lockfile maintenance must not claim release-age enforcement')
 
-  output.log(`ok: Renovate ${expectedVersion} resolved five-day normal updates, security bypass, and lockfile exception`)
+  output.log(`ok: Renovate ${expectedVersion} resolved daily mature updates, five-day normal age, security bypass, and weekly lockfile maintenance`)
   return { ok: true, version: expectedVersion }
 }
 

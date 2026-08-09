@@ -63,8 +63,8 @@ Bootstrap sequence, in this order:
 
 - [ ] Complete the active cross-repository acceptance playbook in
       `playbooks/x-renovate-system-acceptance.md`: accept the daily runner,
-      effective five-day floor on supported surfaces, weekly routine
-      update/branch window, offline structural checks, network-backed pinned-
+      daily routine PR creation after the effective five-day floor on supported
+      surfaces, offline structural checks, network-backed pinned-
       Renovate extraction,
       owner-gated private canary, and one green eligible PR in each consumer.
       The canonical matrix is `specs/renovate-system-acceptance.md`; a green

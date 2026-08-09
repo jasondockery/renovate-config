@@ -38,6 +38,7 @@ const GITHUB_TIMESTAMP_ALLOWANCE_MILLISECONDS = 2 * 60 * 1000
 const MAX_GITHUB_OUTPUT_BYTES = 8 * 1024 * 1024
 const MAX_RECEIPT_BYTES = 1024 * 1024
 const GH_TIMEOUT_MILLISECONDS = 30_000
+const AUDIT_DEADLINE_MILLISECONDS = 3 * 60 * 1000
 
 const DASHBOARD_SECTIONS = Object.freeze({
   'Pending Status Checks': 'pendingStatusChecks',
@@ -62,6 +63,17 @@ const DASHBOARD_SUBSTANTIVE_SECTIONS = new Set([
   'configMigration',
   'ignoredOrBlocked',
 ])
+const DASHBOARD_BRANCH_MARKER = /<!--\s+(?:unschedule-branch|approve-branch|approvePr-branch|rebase-branch)=([^\s]+)\s+-->/u
+const WEEKLY_MAINTENANCE_BRANCH = `${BRANCH_PREFIX}lock-file-maintenance`
+
+function dashboardUpdate(line, section) {
+  const branch = DASHBOARD_BRANCH_MARKER.exec(line)?.[1] ?? null
+  const text = line
+    .replace(/^\s*[-*+]\s+\[[ xX]\]\s+/u, '')
+    .replace(/<!--.*?-->/gu, '')
+    .trim()
+  return { section, branch, text }
+}
 
 function parseJson(text, label) {
   try {
@@ -88,6 +100,7 @@ export function parseDashboard(body) {
     recognizedSections: [],
     headings: [],
     unknownSections: [],
+    updates: [],
   }
   let section
   for (const line of body.split('\n')) {
@@ -103,6 +116,7 @@ export function parseDashboard(body) {
     const substantive = /^\s*(?:[-*+]\s+(?!\[[ xX]\])|\d+\.\s+|\|\s*\S)/u.test(line)
     if (section && (checkbox || (DASHBOARD_SUBSTANTIVE_SECTIONS.has(section) && substantive))) {
       parsed[section] += 1
+      if (checkbox) parsed.updates.push(dashboardUpdate(line, section))
     }
   }
   parsed.recognizedSections.sort()
@@ -126,6 +140,13 @@ export function isRoutineUpdateWindow(value) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) throw new Error('workflow start time is invalid')
   return date.getUTCDay() === 1 && date.getUTCHours() >= 0 && date.getUTCHours() <= 3
+}
+
+export function routineCreationCadence(policy) {
+  if (!policy || !Array.isArray(policy.extends)) throw new Error('run policy must contain an extends array')
+  if (policy.extends.includes('schedule:weekly')) return 'weekly'
+  if (Object.hasOwn(policy, 'schedule')) return 'custom'
+  return 'daily'
 }
 
 function validateReceipt(run, receipt) {
@@ -205,10 +226,16 @@ function invalidIdentityIsRelevant(pr, branchByName, started, finished) {
   )
 }
 
-function dashboardExplanation(counts) {
+function dashboardExplanation(counts, cadence) {
   const reasons = []
   if (counts.pendingStatusChecks > 0) reasons.push(`${counts.pendingStatusChecks} pending internal checks; publication age is not established`)
-  if (counts.awaitingSchedule > 0) reasons.push(`${counts.awaitingSchedule} awaiting weekly routine update window`)
+  const awaitingSchedule = counts.updates.filter(({ section }) => section === 'awaitingSchedule')
+  const weeklyMaintenance = awaitingSchedule.filter(({ branch }) => branch === WEEKLY_MAINTENANCE_BRANCH)
+  const otherSchedule = awaitingSchedule.filter(({ branch }) => branch !== WEEKLY_MAINTENANCE_BRANCH)
+  if (weeklyMaintenance.length > 0) reasons.push(`${weeklyMaintenance.length} awaiting weekly lockfile maintenance`)
+  if (otherSchedule.length > 0) {
+    reasons.push(`${otherSchedule.length} awaiting ${cadence === 'weekly' ? 'weekly routine update window' : 'an unexpected calendar gate'}`)
+  }
   if (counts.awaitingApproval > 0) reasons.push(`${counts.awaitingApproval} awaiting owner approval`)
   if (counts.rateLimited > 0) reasons.push(`${counts.rateLimited} rate limited`)
   if (counts.open > 0) reasons.push(`${counts.open} dashboard-open updates without current-run PR attribution`)
@@ -217,7 +244,7 @@ function dashboardExplanation(counts) {
   return reasons.join('; ')
 }
 
-export function auditSystem({ run, receipt, repositories }) {
+export function auditSystem({ run, receipt, repositories, policy }) {
   const globalProblems = []
   if (!run || String(run.databaseId ?? '') === '') throw new Error('workflow run evidence is required')
   if (run.status !== 'completed' || run.conclusion !== 'success') {
@@ -229,7 +256,11 @@ export function auditSystem({ run, receipt, repositories }) {
     globalProblems.push('workflow run timing is missing or invalid')
   }
   globalProblems.push(...validateReceipt(run, receipt))
-  const insideRoutineWindow = isRoutineUpdateWindow(run.startedAt)
+  const routineCadence = routineCreationCadence(policy)
+  if (!['daily', 'weekly'].includes(routineCadence)) {
+    globalProblems.push('selected run uses an unsupported custom routine schedule')
+  }
+  const insideRoutineWindow = routineCadence === 'weekly' && isRoutineUpdateWindow(run.startedAt)
   const results = []
 
   for (const repository of TARGET_REPOSITORIES) {
@@ -246,6 +277,9 @@ export function auditSystem({ run, receipt, repositories }) {
 
     const dashboard = source.dashboard
     const counts = dashboard ? parseDashboard(dashboard.body) : parseDashboard('')
+    const awaitingSchedule = counts.updates.filter(({ section }) => section === 'awaitingSchedule')
+    const weeklyMaintenance = awaitingSchedule.filter(({ branch }) => branch === WEEKLY_MAINTENANCE_BRANCH)
+    const unexpectedDailySchedule = awaitingSchedule.filter(({ branch }) => branch !== WEEKLY_MAINTENANCE_BRANCH)
     if (!dashboard) problems.push('Dependency Dashboard was not found')
     const dashboardUpdatedAt = dashboard ? new Date(dashboard.updatedAt).getTime() : Number.NaN
     if (dashboard && !Number.isFinite(dashboardUpdatedAt)) problems.push('Dependency Dashboard update time is invalid')
@@ -314,19 +348,38 @@ export function auditSystem({ run, receipt, repositories }) {
     if (counts.awaitingApproval > 0) pending.push('updates await owner approval')
     if (counts.open > 0 && attributable.length === 0) pending.push('dashboard-open updates lack a PR attributable to this run')
 
-    if (dashboardRefreshed && counts.awaitingSchedule > 0 && insideRoutineWindow && attributable.length === 0) {
+    if (
+      dashboardRefreshed && routineCadence === 'daily' &&
+      unexpectedDailySchedule.length > 0
+    ) {
+      problems.push(
+        `${unexpectedDailySchedule.length} routine update(s) remained Awaiting Schedule even though daily creation has no calendar gate`
+      )
+    }
+    if (dashboardRefreshed && routineCadence === 'weekly' && counts.awaitingSchedule > 0 && insideRoutineWindow && attributable.length === 0) {
       problems.push('eligible scheduled updates did not advance during the weekly routine update window')
     }
-    if (dashboardRefreshed && counts.awaitingSchedule > 0 && run.event === 'schedule' && started.getUTCDay() === 1 && !insideRoutineWindow) {
+    if (
+      dashboardRefreshed && routineCadence === 'weekly' && counts.awaitingSchedule > 0 &&
+      run.event === 'schedule' && started.getUTCDay() === 1 && !insideRoutineWindow
+    ) {
       problems.push('the daily scheduled runner began after the weekly routine update window and missed eligible updates')
     }
 
     let explanation
     if (attributable.length > 0) explanation = `${attributable.length} Renovate PR(s) attributable to the selected run`
     else if (pending.length > 0) {
-      explanation = dashboardExplanation(counts) || 'current-run dashboard state is not attributable'
+      explanation = dashboardExplanation(counts, routineCadence) || 'current-run dashboard state is not attributable'
     }
-    else if (dashboardRefreshed && counts.awaitingSchedule > 0 && !insideRoutineWindow) explanation = `${counts.awaitingSchedule} update(s) outside the weekly routine update window`
+    else if (dashboardRefreshed && routineCadence === 'weekly' && counts.awaitingSchedule > 0 && !insideRoutineWindow) {
+      explanation = `${counts.awaitingSchedule} update(s) outside the weekly routine update window`
+    }
+    else if (
+      dashboardRefreshed && routineCadence === 'daily' &&
+      awaitingSchedule.length > 0 && unexpectedDailySchedule.length === 0
+    ) {
+      explanation = `${weeklyMaintenance.length} lockfile maintenance update(s) awaiting the retained weekly maintenance schedule`
+    }
     else if (dashboardRefreshed && counts.recognizedSections.includes('detectedDependencies')) {
       pending.push('structured no-eligible-update evidence is absent; Detected Dependencies alone is not proof')
       explanation = 'fresh dashboard observed, but no eligible-update conclusion is not proven'
@@ -353,6 +406,7 @@ export function auditSystem({ run, receipt, repositories }) {
   return {
     result: failed ? 'failed' : hasPending ? 'pending' : 'passed',
     run,
+    routineCadence,
     insideRoutineWindow,
     globalProblems,
     repositories: results,
@@ -366,7 +420,10 @@ export function renderAudit(audit) {
     `Run: ${audit.run.url}`,
     `SHA: ${audit.run.headSha}`,
     `Started: ${audit.run.startedAt}`,
-    `Routine update window: ${audit.insideRoutineWindow ? 'open' : 'closed'}`,
+    `Routine branch creation: ${audit.routineCadence}`,
+    ...(audit.routineCadence === 'weekly'
+      ? [`Routine update window: ${audit.insideRoutineWindow ? 'open' : 'closed'}`]
+      : []),
     `Result: ${audit.result}`,
   ]
   if (audit.globalProblems.length > 0) {
@@ -384,13 +441,16 @@ export function renderAudit(audit) {
       `  Dashboard observed: ${repository.dashboard ? 'yes' : 'no'}`,
       `  Dashboard refreshed after run: ${repository.dashboard?.refreshed ? 'yes' : 'not proven'}`,
       `  Pending internal status checks: ${repository.counts.pendingStatusChecks}`,
-      `  Awaiting weekly update window: ${repository.counts.awaitingSchedule}`,
+      `  Awaiting schedule: ${repository.counts.awaitingSchedule}`,
       `  Awaiting owner approval: ${repository.counts.awaitingApproval}`,
       `  Rate limited: ${repository.counts.rateLimited}`,
       `  Open Renovate branches: ${repository.branches.length}`,
       `  Observed Renovate PRs (all states): ${repository.observedPullRequests}`,
       `  Current-run attributable PRs: ${repository.pullRequests.length}`,
     )
+    for (const update of repository.counts.updates) {
+      lines.push(`  Dashboard disposition: ${update.section} · ${update.branch ?? 'unbound'} · ${update.text}`)
+    }
     for (const pr of repository.pullRequests) lines.push(`  PR #${pr.number}: ${pr.state.toLowerCase()} · ${pr.checks} · ${pr.url}`)
     lines.push(`  Classification: ${repository.explanation}`)
     for (const problem of repository.problems) lines.push(`  Finding: ${problem}`)
@@ -410,11 +470,11 @@ export function parseArguments(argv) {
   return { runId }
 }
 
-function defaultGh(args) {
+function defaultGh(args, timeout = GH_TIMEOUT_MILLISECONDS) {
   const result = spawnSync('gh', args, {
     encoding: 'utf8',
     maxBuffer: MAX_GITHUB_OUTPUT_BYTES,
-    timeout: GH_TIMEOUT_MILLISECONDS,
+    timeout,
     env: process.env,
   })
   if (result.error) throw new Error(`gh ${args[0]} could not start: ${result.error.message}`)
@@ -423,6 +483,20 @@ function defaultGh(args) {
     throw new Error(`gh ${args[0]} failed: ${detail}`)
   }
   return result.stdout
+}
+
+export function auditBudget(totalMilliseconds = AUDIT_DEADLINE_MILLISECONDS, now = () => Date.now()) {
+  if (!Number.isFinite(totalMilliseconds) || totalMilliseconds <= 0) {
+    throw new Error('audit deadline must be a positive number of milliseconds')
+  }
+  const deadline = now() + totalMilliseconds
+  return {
+    slice() {
+      const remaining = deadline - now()
+      if (remaining <= 0) throw new Error('live Renovate audit exceeded its cumulative deadline')
+      return Math.min(GH_TIMEOUT_MILLISECONDS, remaining)
+    },
+  }
 }
 
 function readDownloadedReceipt(run, gh) {
@@ -471,14 +545,19 @@ function collectRepository(repository, gh) {
   }
 }
 
-export function collectLiveAudit(runId, { gh = defaultGh } = {}) {
-  const run = parseJson(gh([
+export function collectLiveAudit(runId, { gh, budget = auditBudget() } = {}) {
+  const invokeGh = gh ?? ((args) => defaultGh(args, budget.slice()))
+  const run = parseJson(invokeGh([
     'run', 'view', String(runId), '--repo', RUNNER_REPOSITORY,
     '--json', 'attempt,conclusion,databaseId,event,headSha,startedAt,status,updatedAt,url',
   ]), 'workflow run')
-  const receipt = readDownloadedReceipt(run, gh)
-  const repositories = TARGET_REPOSITORIES.map((repository) => collectRepository(repository, gh))
-  return auditSystem({ run, receipt, repositories })
+  const policy = parseJson(invokeGh([
+    'api', '-H', 'Accept: application/vnd.github.raw+json',
+    `repos/${RUNNER_REPOSITORY}/contents/default.json?ref=${run.headSha}`,
+  ]), 'run policy')
+  const receipt = readDownloadedReceipt(run, invokeGh)
+  const repositories = TARGET_REPOSITORIES.map((repository) => collectRepository(repository, invokeGh))
+  return auditSystem({ run, receipt, repositories, policy })
 }
 
 if (isMainModule(import.meta.url)) {

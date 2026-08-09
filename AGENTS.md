@@ -40,9 +40,21 @@ exact-SHA proof.
 ## Operating Rules
 
 - Never commit secrets, tokens, or local machine state. Renovate's GitHub App
-  secrets live in this repo's `renovate` environment. Security-hygiene
+  Client ID variable and private-key secret live in this repo's `renovate`
+  environment. Security-hygiene
   credentials, execution, summaries, artifacts, and durable issue live only
   in its private caller repository.
+- `tools/github-external-config.json` is the authority for externally supplied
+  Actions configuration. Every direct `secrets.*` or `vars.*` reference and
+  every caller-delivered App setting must resolve to one structured delivery
+  with its capability, consumer, sensitivity, and scope; required deliveries
+  must remain used. Managed Renovate consumers such as Groundwork and Roost
+  never duplicate the runner's App credentials; the dedicated private security
+  caller is the explicit second delivery boundary. `secrets: inherit` is
+  forbidden because every caller delivery must stay explicit.
+- YAML anchors and aliases are forbidden in repository workflows. The external
+  configuration authority requires source-local references that its
+  dependency-free analyzer can inspect without alias resolution.
 - Never add `workflow_dispatch` or `schedule` to the public hygiene workflow.
   It is reusable implementation only, and its first step must fail closed
   unless the caller repository is private.

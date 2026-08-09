@@ -50,6 +50,8 @@ observable contract and evidence matrix are in
 - Baseline security-update behavior
 - The canonical Renovate runtime pin and the runner config (`runner.json`)
 - The self-hosted runner workflow and its validation gate
+- The Renovate App identity contract, its delivery to the central runner, and
+  the public reusable workflow's caller-supplied identity/input contract
 - The cross-repository acceptance contract, read-only post-run audit, and
   controlled canary design
 - The read-only security-hygiene source policy, report implementation, and
@@ -66,8 +68,21 @@ observable contract and evidence matrix are in
 - Security-hygiene secrets, execution history, summaries, artifacts, and the
   durable report issue; those belong to a private caller repository
 
-Those belong in the consuming repository. This repo is not the home for
-arbitrary shared tooling merely because several repos already point at it.
+Repository-specific policy and remediation belong in the consuming repository.
+This repo is not the home for arbitrary shared tooling merely because several
+repos already point at it.
+
+## Credential boundary
+
+Managed Renovate consumers do not store copies of the central runner's GitHub
+App identity. The central runner reads its Client ID variable and private-key
+secret from this repository's `renovate` environment. The dedicated private
+security caller is the one explicit secondary delivery boundary: it owns its
+repository- or organization-scoped values and passes them by named input and
+secret to the public reusable workflow.
+
+This repository proves the called-workflow side of that contract. The private
+caller independently proves its source scope and explicit named delivery.
 
 ## Consumers
 

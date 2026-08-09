@@ -1,0 +1,72 @@
+{
+  "capabilities": {
+    "renovate-github-app": {
+      "description": "GitHub App identity used to mint short-lived installation tokens for Renovate and security hygiene.",
+      "owner": "automation"
+    }
+  },
+  "credentials": {
+    "RENOVATE_APP_CLIENT_ID": {
+      "capability": "renovate-github-app",
+      "owner": "automation",
+      "purpose": "Selects the GitHub App identity used to mint installation tokens.",
+      "deliveries": [
+        {
+          "consumer": "central-runner",
+          "delivery": "direct",
+          "environment": "renovate",
+          "kind": "variable",
+          "reference": "vars.RENOVATE_APP_CLIENT_ID",
+          "required": true,
+          "scope": "environment",
+          "sensitive": false,
+          "workflows": [
+            ".github/workflows/renovate.yml",
+            ".github/workflows/renovate-compatibility.yml"
+          ]
+        },
+        {
+          "consumer": "security-hygiene-caller",
+          "delivery": "workflow_call_input",
+          "input": "RENOVATE_APP_CLIENT_ID",
+          "kind": "variable",
+          "required": true,
+          "sensitive": false,
+          "sourceScopes": ["repository", "organization"],
+          "workflows": [".github/workflows/security-hygiene.yml"]
+        }
+      ]
+    },
+    "RENOVATE_APP_PRIVATE_KEY": {
+      "capability": "renovate-github-app",
+      "owner": "automation",
+      "purpose": "Signs GitHub App authentication requests used to mint short-lived installation tokens.",
+      "deliveries": [
+        {
+          "consumer": "central-runner",
+          "delivery": "direct",
+          "environment": "renovate",
+          "kind": "secret",
+          "reference": "secrets.RENOVATE_APP_PRIVATE_KEY",
+          "required": true,
+          "scope": "environment",
+          "sensitive": true,
+          "workflows": [
+            ".github/workflows/renovate.yml",
+            ".github/workflows/renovate-compatibility.yml"
+          ]
+        },
+        {
+          "consumer": "security-hygiene-caller",
+          "delivery": "workflow_call_secret",
+          "input": "RENOVATE_APP_PRIVATE_KEY",
+          "kind": "secret",
+          "required": true,
+          "sensitive": true,
+          "sourceScopes": ["repository", "organization"],
+          "workflows": [".github/workflows/security-hygiene.yml"]
+        }
+      ]
+    }
+  }
+}

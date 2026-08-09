@@ -16,6 +16,7 @@ export const VALIDATION_PHASES = Object.freeze([
   { name: 'Renovate system policy', script: 'tools/check-renovate-system-policy.mjs' },
   { name: 'Workflow action pins', script: 'tools/check-workflow-action-pins.mjs' },
   { name: 'Workflow timeout policy', script: 'tools/check-workflow-timeouts.mjs' },
+  { name: 'GitHub external configuration', script: 'tools/github-external-config.mjs' },
   { name: 'Renovate runtime contract', script: 'tools/check-renovate-runtime.mjs' },
 ])
 

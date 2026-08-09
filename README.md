@@ -95,24 +95,40 @@ App setup (owner, one-time):
    - Save with **Install** or **Save**. If a new owner repo should be
      managed later, add it here and update `RENOVATE_REPOSITORIES` in the
      workflow in the same change.
-5. In this repo's `renovate` environment, add secrets:
-   - `RENOVATE_APP_CLIENT_ID`: the Client ID from the app's settings/About
+5. In this repo's `renovate` environment, add one variable and one secret:
+   - Variable `RENOVATE_APP_CLIENT_ID`: the Client ID from the app's settings/About
      page. This is not the numeric installation ID in a URL such as
      `/settings/installations/<installation-id>`; that URL identifies one
      installation, not the app identity used by the token action.
-   - `RENOVATE_APP_PRIVATE_KEY`: the full `.pem` contents.
+   - Secret `RENOVATE_APP_PRIVATE_KEY`: the full `.pem` contents.
 
    `actions/create-github-app-token` still accepts its legacy `app-id`
    input, but its current docs recommend `client-id`, so this repo uses
-   the client ID secret directly.
+   the non-sensitive client ID variable directly.
 
-Those two App secrets are required: the workflow no longer has a PAT
+   `tools/github-external-config.json` is the machine-checked authority for
+   these externally supplied settings. It records two delivery contexts for
+   the same logical App identity: this repository's own jobs read the
+   `renovate` environment, while the reusable security-hygiene workflow
+   receives the Client ID as a caller input sourced from a repository or
+   organization variable and the private key as a caller secret. Groundwork
+   and Roost never duplicate these credentials.
+
+Both App settings are required: the workflow no longer has a PAT
 fallback. The retired PAT secret and obsolete `RENOVATE_APP_ID` secret
 should stay deleted. Note the identity switch
 changes Renovate's git author to `<app-slug>[bot]` — existing open
 Renovate branches authored by the PAT identity will read as "edited by
 someone else" and block; tick their rebase checkbox once (or close them
 and let Renovate recreate).
+
+For an existing installation, migrate without an authentication gap: create
+the `RENOVATE_APP_CLIENT_ID` variable in the `renovate` environment while
+temporarily retaining the old Client-ID secret; land and prove the Renovate and
+compatibility workflows; migrate the private security-hygiene caller to its
+repository or organization variable and repin it to the exact proven SHA; then
+delete the obsolete Client-ID secrets. The variable must exist before source
+using `vars.RENOVATE_APP_CLIENT_ID` is merged.
 
 ## Bootstrap (completed 2026-07-08 — kept as the recipe)
 
@@ -315,7 +331,7 @@ The `security-hygiene` workflow is the public reusable implementation of the
 cross-repository security inbox. It reads Dependabot, code-scanning, and
 secret-scanning alerts for the three targeted repositories. Because this repo
 is public and a consumer is private, it cannot dispatch or schedule that work:
-a private security-operations caller owns the App secrets, runs, summaries,
+a private security-operations caller owns the App variable and secret, runs, summaries,
 artifacts, and one durable issue ("Security hygiene report", label
 `security-hygiene`). The implementation's first step queries the caller's
 visibility and fails closed before checkout or token mint unless it is private.

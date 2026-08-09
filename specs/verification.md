@@ -40,6 +40,17 @@ lanes concurrently with separate output and statuses, rejects dependency
 artifacts, checks the final fingerprint, and prints one wall-time and
 critical-path receipt.
 
+Canonical validation includes the external-configuration registry and every
+workflow delivery it governs. Registry parity is required proof: missing,
+unclassified, ambiguous, shadowable, or unused required deliveries fail the
+validation lane.
+
+For caller-delivered settings, this validation proves the called-workflow
+interface and use of each named input or secret. Registry `sourceScopes` declare
+the permitted caller-side scope; they are not an observation of the private
+caller. That repository must independently prove its source scope, explicit
+named delivery, and prohibition on `secrets: inherit`.
+
 The implementation tree need not be clean; it must be unchanged by proof.
 Arbitrary ignored caches, worktrees, and `.env*` files are outside this
 identity contract and are never read.

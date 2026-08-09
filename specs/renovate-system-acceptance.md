@@ -158,7 +158,8 @@ sanitized artifact to the exact workflow run, then reports per consumer:
   an older unchanged dashboard is pending rather than failed and cannot prove a
   current no-update result;
 - named dashboard dispositions for pending internal checks, the retained weekly
-  lockfile-maintenance lane, rate limiting, or approval; a publication-
+  lockfile-maintenance lane, rate limiting, approval, and abandoned-dependency
+  inventory; dashboard command checkboxes are not updates; a publication-
   age comparison is required before calling a pending check "too young";
 - open Renovate branches plus open, merged, and closed pull requests bound to
   bot author, base, head SHA, state, and selected-run timing; only an open PR

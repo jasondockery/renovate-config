@@ -54,6 +54,9 @@ test('rejects a weakened effective age, filter, or security bypass', () => {
     'security updates losing their rate-limit bypass': (value) => {
       value.vulnerabilityAlerts.prConcurrentLimit = 5
     },
+    'routine updates regaining a weekly calendar gate': (value) => {
+      value.extends.push('schedule:weekly')
+    },
     'an added later rule disabling npm updates': (value) => {
       value.packageRules.push({ matchDatasources: ['npm'], minimumReleaseAge: '0 days' })
     },

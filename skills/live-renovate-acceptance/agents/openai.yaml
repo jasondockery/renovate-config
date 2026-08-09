@@ -1,0 +1,4 @@
+interface:
+  display_name: "Live Renovate Acceptance"
+  short_description: "Verify live Renovate outcomes and no-PR reasons"
+  default_prompt: "Use $live-renovate-acceptance to verify a live Renovate run and classify every consumer outcome."

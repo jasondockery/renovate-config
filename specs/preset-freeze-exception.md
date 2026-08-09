@@ -1,10 +1,12 @@
-# Activated preset freeze exception
+# Activated preset freeze exceptions
 
 Design status: **approved**
 
-Activation status: **active in the owner-approved 2026-08-04 policy commit**
+Activation status: **active through the owner-approved 2026-08-04 age-policy
+change and 2026-08-09 daily-creation change**
 
-Scope: `default.json` effective release-age and vulnerability-alert policy only
+Scope: `default.json` effective release-age, routine creation cadence, and
+vulnerability-alert policy only
 Activation condition: **achieved**; the isolated policy commit and freeze
 checksum change were owner-authorized and passed the exact-boundary proof
 Remaining exit condition: every consumer uses an immutable released preset
@@ -26,6 +28,14 @@ do not inherit a minimum release age. Pins, digests, replacements, and lockfile
 maintenance are deliberately outside the npm rule because Renovate cannot
 enforce release age for those update types.
 
+The daily runner combined with `schedule:weekly` stacked a second calendar
+delay on top of the five-day maturity floor. A mature routine update could miss
+the early-Monday window and wait almost another week before a branch appeared.
+The owner-approved 2026-08-09 exception removes `schedule:weekly`; mature
+routine updates now advance on the next daily run while `prConcurrentLimit`
+and `prHourlyLimit` remain bounded. The lockfile-maintenance rule inherited
+from `config:best-practices` remains weekly.
+
 ## Activation, risk, and rollback
 
 Consumers still follow this repository's default branch. Accepting the
@@ -34,12 +44,12 @@ reference. The benefit is that the effective behavior matches the documented
 supply-chain floor; the risk is the same unversioned propagation the freeze was
 created to prevent.
 
-The owner explicitly authorized copying the reviewed fixture to `default.json`
-and updating `.preset-bootstrap-freeze` in one bounded policy commit. The
-marker remains: its new checksum prevents any additional effective change while
-consumers still follow the default branch. `pnpm renovate:policy` strict-validates
-the active preset and proves its resolved five-day and security boundaries with
-the pinned runtime.
+The owner explicitly authorized each reviewed fixture change to `default.json`
+and the corresponding `.preset-bootstrap-freeze` update. The marker remains:
+its new checksum prevents any unreviewed effective change while consumers still
+follow the default branch. `pnpm renovate:policy` strict-validates the active
+preset and proves its resolved daily-creation, five-day, and security
+boundaries with the pinned runtime.
 
 The durable rollback is the previous `default.json`. The long-term fix remains
 versioned preset distribution so every consumer change is reviewable and has a

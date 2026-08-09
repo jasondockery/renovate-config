@@ -581,7 +581,7 @@ const VULNERABILITY_KEYS = new Set([
   'automerge',
   'platformAutomerge',
 ])
-const REVIEWED_EXTENDS = new Set(['config:best-practices', 'schedule:weekly'])
+const REVIEWED_EXTENDS = new Set(['config:best-practices'])
 
 function failPresetShape(pathParts, detail) {
   const location = pathParts.length > 0 ? pathParts.join('.') : '<root>'

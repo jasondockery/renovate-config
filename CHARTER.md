@@ -25,18 +25,19 @@ current and whose consumer repository CI passes.
 
 When no pull request is created, retained evidence must explain whether the
 update is absent, younger than the five-day release-age floor on a supported
-timestamped update surface, outside the weekly routine update/branch window,
-awaiting owner approval, blocked by another branch or PR, or failed during
+timestamped update surface, awaiting owner approval, deliberately disabled,
+already represented by another branch or PR, rate limited, or failed during
 branch, artifact, or pull-request creation. The canonical
 observable contract and evidence matrix are in
 [`specs/renovate-system-acceptance.md`](specs/renovate-system-acceptance.md).
 
 ## Policy status
 
-- **Current policy:** the owner-approved exception activates the reviewed
-  strict five-day npm override and the explicit vulnerability-alert schedule,
-  age, and rate-limit bypass. The freeze checksum binds that exact policy while
-  consumers still follow the default branch.
+- **Current policy:** the owner-approved exceptions activate daily routine PR
+  creation after the reviewed strict five-day npm floor and preserve the
+  explicit vulnerability-alert age, schedule, and rate-limit bypass. The
+  freeze checksum binds that exact policy while consumers still follow the
+  default branch.
 - **Current evidence:** policy activation is not end-to-end acceptance. The
   live runner receipt, replacement/current pull requests, consumer CI, and
   security-alert reconciliation remain required evidence.
@@ -180,8 +181,8 @@ same thing in all three, so each says what it actually exercised.
    sanitize the structured receipt, and remove the raw log and private
    directory. This does not prove that a branch or pull request was usable.
 4. **Renovate behavior** — a controlled npm canary proves that an eligible,
-   older-than-five-days npm update becomes a branch and pull request in the
-   intended window and can be recreated after closure. Other managers retain
+   older-than-five-days npm update becomes a branch and pull request on the
+   next daily run and can be recreated after closure. Other managers retain
    separate extraction and real-consumer acceptance rows.
 5. **Consumer compatibility** — generated changes update every canonical
    manifest, catalog, lockfile, generated artifact, and pin, and each consumer's

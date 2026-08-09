@@ -51,8 +51,11 @@ export function collectRenovateSystemPolicyProblems(root = repositoryRoot) {
 
   if (preset) {
     const extensions = Array.isArray(preset.extends) ? preset.extends : []
-    if (!extensions.includes('config:best-practices') || !extensions.includes('schedule:weekly')) {
-      problems.push('default.json must preserve config:best-practices plus the weekly routine update/branch schedule.')
+    if (
+      JSON.stringify(extensions) !== JSON.stringify(['config:best-practices']) ||
+      Object.hasOwn(preset, 'schedule')
+    ) {
+      problems.push('default.json must preserve daily routine branch creation through config:best-practices without a calendar schedule.')
     }
     if (preset.minimumReleaseAge !== '5 days') {
       problems.push('default.json must preserve the accepted top-level five-day declaration.')
@@ -164,6 +167,7 @@ export function collectRenovateSystemPolicyProblems(root = repositoryRoot) {
     const renderer = read(root, 'tools/render-renovate-compatibility.mjs')
     const coverage = read(root, 'tools/check-renovate-repository-coverage.mjs')
     const audit = read(root, 'tools/renovate-system-audit.mjs')
+    const acceptanceSkill = read(root, 'skills/live-renovate-acceptance/SKILL.md')
     if (!renderer.includes('passed compatibility report contains changed source identity')) {
       problems.push('compatibility renderer must reject changed identity in passed receipts.')
     }
@@ -186,6 +190,13 @@ export function collectRenovateSystemPolicyProblems(root = repositoryRoot) {
     }
     if (!audit.includes("'--state', 'all'")) {
       problems.push('post-run audit must retain Renovate PR evidence across all PR states.')
+    }
+    if (
+      !acceptanceSkill.includes('pnpm renovate:audit --run <run-id>') ||
+      !acceptanceSkill.includes('Never guess a bot login') ||
+      !acceptanceSkill.includes('GitHub Actions, Docker images, regex/custom managers')
+    ) {
+      problems.push('live Renovate acceptance skill must require the canonical audit, bound PR identity, and non-pnpm manager coverage.')
     }
   } catch (error) {
     problems.push(`compatibility and audit policy tools must be readable: ${error instanceof Error ? error.message : String(error)}`)
@@ -237,6 +248,8 @@ export function collectRenovateSystemPolicyProblems(root = repositoryRoot) {
     '.github/workflows/renovate-compatibility.yml',
     'tools/fixtures/github/renovate-pr-author.json',
     'tools/fixtures/github/renovate-dashboard-problems.json',
+    'skills/live-renovate-acceptance/SKILL.md',
+    'skills/live-renovate-acceptance/agents/openai.yaml',
   ]) {
     if (!fs.existsSync(path.join(root, required))) problems.push(`missing system contract: ${required}`)
   }
@@ -250,6 +263,6 @@ if (isMainModule(import.meta.url)) {
     for (const problem of problems) console.error(`renovate-system-policy: ${problem}`)
     process.exitCode = 1
   } else {
-    console.log('ok: daily runner, active five-day preset, compatibility activation, scope, and audit policies agree')
+    console.log('ok: daily runner and branch creation, active five-day preset, compatibility activation, scope, and audit policies agree')
   }
 }

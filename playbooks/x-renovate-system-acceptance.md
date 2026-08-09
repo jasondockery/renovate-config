@@ -26,8 +26,8 @@ consumer pull requests. A green runner alone is an intermediate result.
 
 ## Local implementation
 
-- [x] Guard the once-daily runner schedule, weekly routine update/branch window,
-      and strict five-day age for supported normal update surfaces.
+- [x] Guard the once-daily runner and routine branch-creation cadence plus the
+      strict five-day age for supported normal update surfaces.
 - [x] Record and implement the explicit owner approval in
       `specs/preset-freeze-exception.md`; keep the new checksum frozen until
       consumers use a released preset reference.
@@ -48,7 +48,7 @@ consumer pull requests. A green runner alone is an intermediate result.
       its schedule only after both inventories exist on their default branches.
 - [ ] Record the current Roost PR #35/#36 evidence: both closed unmerged after
       the shared base lint defect, both branches still present without open
-      PRs, and the next weekly run must recreate current PRs after the lint fix.
+      PRs, and the next daily run must recreate current PRs after the lint fix.
 
 ## Green landing plan
 
@@ -102,8 +102,8 @@ baseline until versioned distribution.
       artifact formatter, and required CI green.
 - [ ] For Groundwork, accept one eligible PR with every changed pin/comment or
       image digest and required CI green.
-- [ ] Prove one controlled security update bypasses the normal age and weekly
-      schedule without bypassing consumer CI.
+- [ ] Prove one controlled security update bypasses the normal age and any
+      consumer-specific schedule without bypassing consumer CI.
 - [ ] Record raw-log deletion, private-directory removal, and sanitized-only
       artifact publication.
 

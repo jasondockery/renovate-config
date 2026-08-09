@@ -6,10 +6,12 @@ import { fileURLToPath } from 'node:url'
 import {
   RENOVATE_BOT_LOGIN,
   TARGET_REPOSITORIES,
-  auditSystem,
+  auditBudget,
+  auditSystem as auditSystemImplementation,
   parseArguments,
   parseDashboard,
   renderAudit,
+  routineCreationCadence,
   summarizeChecks,
 } from './renovate-system-audit.mjs'
 
@@ -40,6 +42,13 @@ const receipt = {
     'Private log directory': 'removed before receipt publication',
   },
   repositories: TARGET_REPOSITORIES.map((repository) => ({ repository, result: 'passed' })),
+}
+
+const weeklyPolicy = { extends: ['config:best-practices', 'schedule:weekly'] }
+const dailyPolicy = { extends: ['config:best-practices'] }
+
+function auditSystem(input) {
+  return auditSystemImplementation({ policy: weeklyPolicy, ...input })
 }
 
 function dashboard(sections, updatedAt = '2026-08-04T01:18:00Z') {
@@ -127,7 +136,22 @@ text
       'Unrecognized',
     ],
     unknownSections: ['Unrecognized'],
+    updates: [
+      { section: 'pendingStatusChecks', branch: null, text: 'one' },
+      { section: 'pendingStatusChecks', branch: null, text: 'two' },
+      { section: 'awaitingSchedule', branch: null, text: 'three' },
+      { section: 'awaitingApproval', branch: null, text: 'four' },
+      { section: 'rateLimited', branch: null, text: 'five' },
+      { section: 'open', branch: null, text: 'six' },
+    ],
   })
+})
+
+test('derives the routine creation cadence from the run policy', () => {
+  assert.equal(routineCreationCadence(weeklyPolicy), 'weekly')
+  assert.equal(routineCreationCadence(dailyPolicy), 'daily')
+  assert.equal(routineCreationCadence({ extends: ['config:best-practices'], schedule: ['before 3am'] }), 'custom')
+  assert.throws(() => routineCreationCadence({}), /extends array/)
 })
 
 test('summarizes GitHub check states without treating an empty check set as green', () => {
@@ -141,7 +165,28 @@ test('accepts a fresh out-of-window dashboard explanation', () => {
   const audit = auditSystem({ run, receipt, repositories: repositories() })
   assert.equal(audit.result, 'passed')
   assert.equal(audit.repositories.every(({ explanation }) => /outside the weekly routine update window/.test(explanation)), true)
-  assert.match(renderAudit(audit), /Awaiting weekly update window: 1/)
+  assert.match(renderAudit(audit), /Awaiting schedule: 1/)
+})
+
+test('daily creation rejects routine calendar deferral but retains weekly lockfile maintenance', () => {
+  const deferred = repositories()
+  const failed = auditSystemImplementation({ run, receipt, repositories: deferred, policy: dailyPolicy })
+  assert.equal(failed.result, 'failed')
+  assert.match(renderAudit(failed), /daily creation has no calendar gate/)
+
+  const maintenance = repositories()
+  for (const entry of maintenance) {
+    entry.dashboard = {
+      ...dashboard({}),
+      body: [
+        '## Awaiting Schedule',
+        '- [ ] <!-- unschedule-branch=self-hosted-renovate/lock-file-maintenance -->chore(deps): lock file maintenance',
+      ].join('\n'),
+    }
+  }
+  const passed = auditSystemImplementation({ run, receipt, repositories: maintenance, policy: dailyPolicy })
+  assert.equal(passed.result, 'passed')
+  assert.match(renderAudit(passed), /retained weekly maintenance schedule/)
 })
 
 test('keeps stale dashboard evidence pending and fails absent or unrecognized evidence', () => {
@@ -407,4 +452,14 @@ test('CLI arguments are exact and help has no side effects', () => {
   assert.throws(() => parseArguments([]), /usage:/)
   assert.throws(() => parseArguments(['--run', '../bad']), /usage:/)
   assert.throws(() => parseArguments(['--run', '1', '--json']), /usage:/)
+})
+
+test('the live audit has one cumulative deadline across GitHub calls', () => {
+  let observed = 1_000
+  const budget = auditBudget(100, () => observed)
+  assert.equal(budget.slice(), 100)
+  observed = 1_099
+  assert.equal(budget.slice(), 1)
+  observed = 1_100
+  assert.throws(() => budget.slice(), /cumulative deadline/)
 })

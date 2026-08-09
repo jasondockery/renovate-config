@@ -100,8 +100,14 @@ test('parses recognized dashboard evidence without treating unknown sections as 
 - [ ] four
 ## Rate Limited
 - [ ] five
+## Rate-Limited
+- [ ] <!-- unlimit-branch=self-hosted-renovate/chalk-6.x -->seven
+- [ ] <!-- create-all-rate-limited-prs -->create all rate-limited
+## Abandoned Dependencies
+<summary>View abandoned dependencies (1)</summary>
 ## Open
 - [ ] six
+- [ ] <!-- rebase-all-open-prs -->rebase all
 ## Detected Dependencies
 text
 ## Unrecognized
@@ -110,7 +116,8 @@ text
     pendingStatusChecks: 2,
     awaitingSchedule: 1,
     awaitingApproval: 1,
-    rateLimited: 1,
+    rateLimited: 2,
+    abandonedDependencies: 1,
     open: 1,
     detectedDependencies: 0,
     repositoryProblems: 0,
@@ -119,6 +126,7 @@ text
     configMigration: 0,
     ignoredOrBlocked: 0,
     recognizedSections: [
+      'abandonedDependencies',
       'awaitingApproval',
       'awaitingSchedule',
       'detectedDependencies',
@@ -131,6 +139,8 @@ text
       'Awaiting Schedule',
       'Pending Approval',
       'Rate Limited',
+      'Rate-Limited',
+      'Abandoned Dependencies',
       'Open',
       'Detected Dependencies',
       'Unrecognized',
@@ -142,6 +152,7 @@ text
       { section: 'awaitingSchedule', branch: null, text: 'three' },
       { section: 'awaitingApproval', branch: null, text: 'four' },
       { section: 'rateLimited', branch: null, text: 'five' },
+      { section: 'rateLimited', branch: 'self-hosted-renovate/chalk-6.x', text: 'seven' },
       { section: 'open', branch: null, text: 'six' },
     ],
   })

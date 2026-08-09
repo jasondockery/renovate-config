@@ -45,6 +45,8 @@ const DASHBOARD_SECTIONS = Object.freeze({
   'Awaiting Schedule': 'awaitingSchedule',
   'Pending Approval': 'awaitingApproval',
   'Rate Limited': 'rateLimited',
+  'Rate-Limited': 'rateLimited',
+  'Abandoned Dependencies': 'abandonedDependencies',
   Open: 'open',
   'Detected dependencies': 'detectedDependencies',
   'Detected Dependencies': 'detectedDependencies',
@@ -63,7 +65,8 @@ const DASHBOARD_SUBSTANTIVE_SECTIONS = new Set([
   'configMigration',
   'ignoredOrBlocked',
 ])
-const DASHBOARD_BRANCH_MARKER = /<!--\s+(?:unschedule-branch|approve-branch|approvePr-branch|rebase-branch)=([^\s]+)\s+-->/u
+const DASHBOARD_BRANCH_MARKER = /<!--\s+(?:unschedule-branch|approve-branch|approvePr-branch|rebase-branch|unlimit-branch)=([^\s]+)\s+-->/u
+const DASHBOARD_COMMAND = /<!--\s+(?:create-all-[^\s]+|rebase-all-open-prs)\s+-->/u
 const WEEKLY_MAINTENANCE_BRANCH = `${BRANCH_PREFIX}lock-file-maintenance`
 
 function dashboardUpdate(line, section) {
@@ -90,6 +93,7 @@ export function parseDashboard(body) {
     awaitingSchedule: 0,
     awaitingApproval: 0,
     rateLimited: 0,
+    abandonedDependencies: 0,
     open: 0,
     detectedDependencies: 0,
     repositoryProblems: 0,
@@ -112,7 +116,14 @@ export function parseDashboard(body) {
       if (!section && !parsed.unknownSections.includes(heading[1])) parsed.unknownSections.push(heading[1])
       continue
     }
-    const checkbox = /^\s*[-*+]\s+\[[ xX]\]\s+/u.test(line) && !/<!--\s+create-all-/u.test(line)
+    const abandoned = section === 'abandonedDependencies'
+      ? /<summary>View abandoned dependencies \(([0-9]+)\)<\/summary>/u.exec(line)
+      : null
+    if (abandoned) {
+      parsed.abandonedDependencies += Number(abandoned[1])
+      continue
+    }
+    const checkbox = /^\s*[-*+]\s+\[[ xX]\]\s+/u.test(line) && !DASHBOARD_COMMAND.test(line)
     const substantive = /^\s*(?:[-*+]\s+(?!\[[ xX]\])|\d+\.\s+|\|\s*\S)/u.test(line)
     if (section && (checkbox || (DASHBOARD_SUBSTANTIVE_SECTIONS.has(section) && substantive))) {
       parsed[section] += 1
@@ -444,6 +455,7 @@ export function renderAudit(audit) {
       `  Awaiting schedule: ${repository.counts.awaitingSchedule}`,
       `  Awaiting owner approval: ${repository.counts.awaitingApproval}`,
       `  Rate limited: ${repository.counts.rateLimited}`,
+      `  Abandoned dependencies: ${repository.counts.abandonedDependencies}`,
       `  Open Renovate branches: ${repository.branches.length}`,
       `  Observed Renovate PRs (all states): ${repository.observedPullRequests}`,
       `  Current-run attributable PRs: ${repository.pullRequests.length}`,

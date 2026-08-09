@@ -303,6 +303,7 @@ export function runCommandLane({
   signal,
   cancelGraceMilliseconds = CANCEL_GRACE_MILLISECONDS,
   supervisor = processSupervisor,
+  processGroupMembers = otherProcessGroupMembers,
 }) {
   return new Promise((resolve) => {
     const started = now()
@@ -408,11 +409,11 @@ export function runCommandLane({
       terminateChild(child, 'SIGTERM', writeError)
       memberPoll ??= setInterval(() => {
         if (!commandStatus || releaseRequested || settled) return
-        const members = otherProcessGroupMembers(child.pid, child.pid)
+        const members = processGroupMembers(child.pid, child.pid)
         if (members?.size === 0) requestRelease()
       }, 25)
       escalation ??= setTimeout(() => {
-        const members = otherProcessGroupMembers(child.pid, child.pid)
+        const members = processGroupMembers(child.pid, child.pid)
         if (!releaseFailed && commandStatus && members?.size === 0) requestRelease()
         else terminateChild(child, 'SIGKILL', writeError)
       }, cancelGraceMilliseconds)
@@ -428,10 +429,17 @@ export function runCommandLane({
               : (releaseFailed || leakDetected) && commandStatus?.exitCode === 0
                 ? 70
                 : commandStatus?.exitCode ?? 1
+        const error = !closureConfirmed
+          ? 'process-group closure could not be confirmed'
+          : leakDetected
+            ? 'lane left a surviving process-group member'
+            : releaseFailed
+              ? `lane supervisor release failed with status ${child.exitCode ?? child.signalCode ?? 'unknown'}`
+              : undefined
         finish(
           exitCode,
           cancellationReason?.signal ?? null,
-          closureConfirmed ? undefined : 'process-group closure could not be confirmed',
+          error,
           closureConfirmed
         )
       }, cancelGraceMilliseconds * 3)
@@ -448,7 +456,7 @@ export function runCommandLane({
     child.on('message', (message) => {
       if (settled || message?.type !== 'command-status' || commandStatus) return
       commandStatus = message
-      const members = otherProcessGroupMembers(child.pid, child.pid)
+      const members = processGroupMembers(child.pid, child.pid)
       if (members === null) {
         beginTermination()
       } else if (members.size > 0) {
@@ -460,6 +468,7 @@ export function runCommandLane({
     })
     child.once('close', async (supervisorExitCode, supervisorSignal) => {
       const releasedCleanly = releaseRequested && !releaseFailed && supervisorExitCode === 0
+      const releaseExitFailed = releaseRequested && !releasedCleanly
       const closureConfirmed = releasedCleanly
         ? true
         : await waitForProcessGroupExit(child.pid, cancelGraceMilliseconds)
@@ -467,14 +476,14 @@ export function runCommandLane({
         ? 124
         : cancellationReason?.type === 'signal'
           ? 1
-          : (releaseFailed || leakDetected) && commandStatus?.exitCode === 0
+          : (releaseFailed || releaseExitFailed || leakDetected) && commandStatus?.exitCode === 0
             ? 70
             : commandStatus?.exitCode ?? 1
       let error
       if (!closureConfirmed) error = 'process-group closure could not be confirmed'
       else if (leakDetected) error = 'lane left a surviving process-group member'
       else if (!commandStatus) error = 'lane supervisor exited before reporting command status'
-      else if (releaseFailed || (releaseRequested && supervisorExitCode !== 0)) {
+      else if (releaseFailed || releaseExitFailed) {
         error = `lane supervisor release failed with status ${supervisorExitCode ?? supervisorSignal ?? 'unknown'}`
       }
       finish(

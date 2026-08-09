@@ -47,7 +47,7 @@ Bootstrap sequence, in this order:
       resolves → Renovate validates the resolved preset → a consumer config
       extending it passes. This catches tag naming, file naming, permissions,
       and repository-resolution problems before three consumers change. Run
-      `pnpm release:verify -- --version 1.0.0 --expected-sha <40-char-sha>`.
+      `pnpm release:verify --version 1.0.0 --expected-sha <40-char-sha>`.
 - [ ] 5. Have the owner open the initial pin PR for this repository, then let a
       validation/discovery run confirm it.
 - [ ] 6. Have the owner open Groundwork's initial pin PR.

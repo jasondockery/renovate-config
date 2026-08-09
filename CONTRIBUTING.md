@@ -68,14 +68,14 @@ impact with the patch/minor/major contract in `CHARTER.md`, then:
 2. Run `pnpm release:controls:check`. It is read-only and must report both
    immutable releases and the checked-in tag ruleset as active. If it reports
    drift, the owner reviews `tools/release-controls.json` and explicitly runs
-   `pnpm run release:controls:apply -- --confirm-owner-admin`, then reruns the
+   `pnpm release:controls:apply --confirm-owner-admin`, then reruns the
    check. Applying repository settings is an owner action.
 3. Create a draft GitHub Release for the bare version (for example, `1.0.0`),
    but do not publish it yet. Add all release notes and assets while it is a
    draft; immutable releases cannot be edited after publication.
 4. After the intended release commit reaches `main` and exact-SHA `ci-gate` is
    green, run
-   `pnpm release:preflight -- --version <version> --expected-sha <40-char-sha>`.
+   `pnpm release:preflight --version <version> --expected-sha <40-char-sha>`.
    This read-only command proves the clean intended commit, absent local and
    remote tag, active release controls, correct freeze state, authoritative
    exact-SHA CI receipt, and one canonical `pnpm verify`. Do not run a separate
@@ -84,7 +84,7 @@ impact with the patch/minor/major contract in `CHARTER.md`, then:
    the GitHub Release, tag, and assets immutable. Never move, delete, or
    recreate a released tag; corrections use a new patch release.
 6. Run
-   `pnpm release:verify -- --version <version> --expected-sha <40-char-sha>`.
+   `pnpm release:verify --version <version> --expected-sha <40-char-sha>`.
    It must prove tag-to-SHA identity, the published immutable release, tagged
    `default.json` equality with the expected commit, and end-to-end Renovate
    resolution of `github>jasondockery/renovate-config#<version>`.

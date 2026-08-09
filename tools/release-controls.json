@@ -1,0 +1,31 @@
+{
+  "schema": "renovate-config.release-controls",
+  "schemaVersion": 1,
+  "repository": "jasondockery/renovate-config",
+  "apiVersion": "2026-03-10",
+  "immutableReleases": {
+    "enabled": true
+  },
+  "tagRuleset": {
+    "name": "immutable-release-tags",
+    "target": "tag",
+    "enforcement": "active",
+    "bypassActors": [],
+    "conditions": {
+      "refName": {
+        "include": [
+          "refs/tags/[0-9]*.[0-9]*.[0-9]*"
+        ],
+        "exclude": []
+      }
+    },
+    "rules": [
+      {
+        "type": "update"
+      },
+      {
+        "type": "deletion"
+      }
+    ]
+  }
+}

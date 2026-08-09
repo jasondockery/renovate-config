@@ -283,15 +283,16 @@ fails validation until the matching fixture is deliberately accepted.
 ## Versioning
 
 `package.json` stays private at `0.0.0`; it is tooling metadata, not the shared
-preset's release version. The preset itself ships as immutable SemVer tags
-without a `v` prefix, and consumers pin an exact tag such as
+preset's release version. The preset itself ships as immutable GitHub Releases
+with SemVer tags that carry no `v` prefix, and consumers pin an exact tag such as
 `github>jasondockery/renovate-config#1.0.0`.
 
 The initial pinning bootstrap is in progress. The owner-approved 2026-08-04
 exception activated the reviewed five-day policy before the first immutable
 preset release; `.preset-bootstrap-freeze` now protects that exact accepted
 state. See `ROADMAP.md` for the ordered owner gates and `CONTRIBUTING.md` for
-the release procedure. The reviewed policy remains captured in
+the executable `release:controls:check`, `release:preflight`, and
+`release:verify` procedure. The reviewed policy remains captured in
 `tools/fixtures/preset/default-five-day-policy.json` and documented in
 `specs/preset-freeze-exception.md`.
 

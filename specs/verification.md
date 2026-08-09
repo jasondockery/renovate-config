@@ -31,6 +31,15 @@ Before asking to resume, present the exact proposed commands, estimated
 durations, overlap or duplication, whether each is diagnostic or final proof,
 and the tree identity it will prove.
 
+Release publication has two additional read-only gates. `release:preflight`
+binds the clean intended SHA, absent tag, active GitHub release controls,
+bootstrap-freeze state, authoritative exact-SHA CI receipt, and exactly one
+canonical `pnpm verify`; it must not be paired with a separate final verify.
+After the owner publishes the immutable GitHub Release, `release:verify` binds
+the remote tag to that SHA, checks immutable release state, compares tagged
+`default.json` with the expected commit rather than the moving default branch,
+and resolves the version-pinned preset through the pinned Renovate runtime.
+
 ## What `pnpm verify` binds
 
 `pnpm verify` fingerprints the exact Git HEAD, index, and Git-visible working

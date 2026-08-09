@@ -115,7 +115,12 @@ Consumers pin a released version:
 { "extends": ["github>jasondockery/renovate-config#1.0.0"] }
 ```
 
-**A released tag is immutable.** It is never moved, deleted, or recreated —
+Every preset version is published as an **immutable GitHub Release**. The owner
+prepares the draft and any assets first; publishing creates the bare SemVer tag
+and makes the release, tag, and assets immutable, with GitHub's release
+attestation recording that published identity. A repository tag ruleset also
+blocks release-tag updates and deletions as defense in depth while allowing the
+initial tag creation. A released tag is never moved, deleted, or recreated —
 otherwise a pinned consumer reference can still change invisibly. Corrections
 ship as a new patch release.
 

@@ -22,9 +22,11 @@ on:
         description: Exact 40-character renovate-config commit SHA used by the caller's uses reference
         required: true
         type: string
-    secrets:
       RENOVATE_APP_CLIENT_ID:
+        description: Non-sensitive GitHub App Client ID supplied from the caller's repository or organization variable
         required: true
+        type: string
+    secrets:
       RENOVATE_APP_PRIVATE_KEY:
         required: true
 
@@ -87,7 +89,7 @@ jobs:
         continue-on-error: true
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
-          client-id: ${{ secrets.RENOVATE_APP_CLIENT_ID }}
+          client-id: ${{ inputs.RENOVATE_APP_CLIENT_ID }}
           private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
           owner: jasondockery
           repositories: renovate-config,roost,groundwork
@@ -103,7 +105,7 @@ jobs:
         continue-on-error: true
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
-          client-id: ${{ secrets.RENOVATE_APP_CLIENT_ID }}
+          client-id: ${{ inputs.RENOVATE_APP_CLIENT_ID }}
           private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
           owner: jasondockery
           repositories: renovate-config,roost,groundwork
@@ -115,7 +117,7 @@ jobs:
         continue-on-error: true
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
-          client-id: ${{ secrets.RENOVATE_APP_CLIENT_ID }}
+          client-id: ${{ inputs.RENOVATE_APP_CLIENT_ID }}
           private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
           owner: jasondockery
           repositories: renovate-config,roost,groundwork

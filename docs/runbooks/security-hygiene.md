@@ -14,11 +14,28 @@ add the daily cron merely because local tests are green.
 
 ## Private caller
 
-Create a private security-operations repository and store
-`RENOVATE_APP_CLIENT_ID` and `RENOVATE_APP_PRIVATE_KEY` there as repository or
-organization secrets. Reusable workflows cannot receive environment secrets
-from the called workflow, so do not depend on this public repo's `renovate`
-environment.
+Create a private security-operations repository. Store
+`RENOVATE_APP_CLIENT_ID` as a repository or organization variable and
+`RENOVATE_APP_PRIVATE_KEY` as a repository or organization secret. Reusable
+workflows cannot receive environment secrets from the called workflow, so do
+not depend on this public repo's `renovate` environment.
+
+This is a second delivery context for one credential contract, not a second App
+identity. The public repository registry records both contexts; the caller owns
+the repository/organization values and passes them explicitly.
+
+The public repository can prove only the called workflow's declared interface
+and its use of each named setting. The private caller must independently check
+that each value comes from an allowed repository or organization scope, that
+both deliveries are named explicitly, and that its workflows contain no
+`secrets: inherit`.
+
+When migrating an existing caller, first prove the central Renovate and
+compatibility workflows with the new environment variable. Then create the
+caller-owned Client ID variable, repin the caller to that exact proven
+renovate-config SHA, and prove this reusable workflow before deleting the old
+caller Client-ID secret. A caller pinned to an older SHA keeps using that
+version's secret contract until it is deliberately repinned.
 
 Its launch workflow should have this shape, replacing both placeholders with
 the same reviewed 40-character commit SHA:
@@ -38,8 +55,8 @@ jobs:
     uses: jasondockery/renovate-config/.github/workflows/security-hygiene.yml@<40-character-commit-sha>
     with:
       implementation_ref: <same-40-character-commit-sha>
+      RENOVATE_APP_CLIENT_ID: ${{ vars.RENOVATE_APP_CLIENT_ID }}
     secrets:
-      RENOVATE_APP_CLIENT_ID: ${{ secrets.RENOVATE_APP_CLIENT_ID }}
       RENOVATE_APP_PRIVATE_KEY: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
 ```
 

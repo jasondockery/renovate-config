@@ -536,6 +536,8 @@ test('workflow repository scopes and delivery contracts match authoritative poli
   assert.match(workflow, /^\s{2}workflow_call:$/m)
   assert.doesNotMatch(workflow, /^\s{2}workflow_dispatch:$/m)
   assert.doesNotMatch(workflow, /^\s+environment:/m)
+  assert.match(workflow, /^\s{6}RENOVATE_APP_CLIENT_ID:\n\s{8}description:.*\n\s{8}required: true\n\s{8}type: string$/m)
+  assert.doesNotMatch(workflow, /^\s{4}secrets:\n\s{6}RENOVATE_APP_CLIENT_ID:/m)
   const guard = workflowStep(workflow, 'Refuse public output repository')
   assert.ok(
     workflow.indexOf('      - name: Refuse public output repository') <
@@ -565,6 +567,8 @@ test('workflow repository scopes and delivery contracts match authoritative poli
       name
     )
     assert.match(step, /^\s+continue-on-error:\s+true$/m, name)
+    assert.match(step, /client-id: \$\{\{ inputs\.RENOVATE_APP_CLIENT_ID \}\}/, name)
+    assert.match(step, /private-key: \$\{\{ secrets\.RENOVATE_APP_PRIVATE_KEY \}\}/, name)
   }
   const build = workflowStep(workflow, 'Build report')
   assert.doesNotMatch(build, /HYGIENE_REPOS/)

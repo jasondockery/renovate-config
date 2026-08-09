@@ -12,6 +12,7 @@ const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url))
 export const VALIDATION_PHASES = Object.freeze([
   { name: 'Toolchain contract', script: 'tools/check-toolchain.mjs' },
   { name: 'Preset freeze', script: 'tools/check-preset-freeze.mjs' },
+  { name: 'Release controls desired state', script: 'tools/release-controls.mjs', arguments: ['validate'] },
   { name: 'Dependency coverage schema', script: 'tools/check-dependency-coverage-schema.mjs' },
   { name: 'Renovate system policy', script: 'tools/check-renovate-system-policy.mjs' },
   { name: 'Workflow action pins', script: 'tools/check-workflow-action-pins.mjs' },
@@ -54,7 +55,7 @@ export function runValidation({
     }
     write(`\n==> ${phase.name}\n`)
     const started = now()
-    const completed = run(process.execPath, [phase.script], {
+    const completed = run(process.execPath, [phase.script, ...(phase.arguments ?? [])], {
       cwd: repositoryRoot,
       env: process.env,
       stdio: 'inherit',

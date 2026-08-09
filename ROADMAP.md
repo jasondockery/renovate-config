@@ -28,21 +28,26 @@ Bootstrap sequence, in this order:
       `git log b466499..HEAD -- default.json` returns nothing, so no commit
       since the freeze was declared has altered the resolved preset. Steps 2
       onward are owner actions and remain open — the freeze stays in effect.
-- [ ] 2. Configure a GitHub tag ruleset that prevents release tags from being
-      updated or deleted. Owner action: repository rulesets are the owner's.
-- [ ] 2a. Evaluate GitHub immutable releases before the first tag. If adopted,
-      update `CHARTER.md` and `CONTRIBUTING.md` so publishing the GitHub Release
-      is part of the release contract; keep the tag ruleset as defense in
-      depth. Record the owner-setting receipt either way.
-- [ ] 3. Tag the verified commit **`1.0.0`** — no `v` prefix. Renovate's
+- [x] 2. Adopt immutable GitHub Releases plus an active tag ruleset that blocks
+      updates and deletions as defense in depth.
+- [x] 2a. Implement and verify the checked-in desired state, read-only check,
+      explicit owner apply command, preflight, hostile tests, and
+      post-publication verifier. No release tag is created by this work.
+- [ ] 2b. Owner action: review and apply `tools/release-controls.json`. Current
+      live state observed 2026-08-09 has immutable releases disabled and no
+      matching tag ruleset, so this gate remains open.
+- [ ] 2c. Record a passing `pnpm release:controls:check` live read-back receipt.
+- [ ] 3. Publish the verified commit as the first immutable GitHub Release,
+      **`1.0.0`** — no `v` prefix. Renovate's
       `#suffix` resolves a Git tag by exact name, so a `v1.0.0` tag must not be
       assumed to resolve as `#1.0.0`. One convention in both places. Owner
-      action: tags and pushes are the owner's.
+      action: prepare a draft, pass `pnpm release:preflight`, then publish it.
 - [ ] 4. Confirm the *released reference* resolves end to end, not just that the
       source file is valid: tag exists → `github>jasondockery/renovate-config#1.0.0`
       resolves → Renovate validates the resolved preset → a consumer config
       extending it passes. This catches tag naming, file naming, permissions,
-      and repository-resolution problems before three consumers change.
+      and repository-resolution problems before three consumers change. Run
+      `pnpm release:verify -- --version 1.0.0 --expected-sha <40-char-sha>`.
 - [ ] 5. Have the owner open the initial pin PR for this repository, then let a
       validation/discovery run confirm it.
 - [ ] 6. Have the owner open Groundwork's initial pin PR.
@@ -51,9 +56,8 @@ Bootstrap sequence, in this order:
       record that PR as the receipt that distribution actually works. Renovate
       proposes preset-version updates only once the reference is already pinned.
 - [ ] 9. Lift the freeze and note it here.
-- [ ] Document the release procedure in `CONTRIBUTING.md`, pointing at the
+- [x] Document the release procedure in `CONTRIBUTING.md`, pointing at the
       charter's patch/minor/major contract rather than restating it.
-      **Implemented locally; pending merge.**
 
 ## Proof levels
 

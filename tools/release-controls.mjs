@@ -68,9 +68,9 @@ export function collectReleaseDocumentationProblems({ charter, contributing, roa
   }
   for (const command of [
     'release:controls:check',
-    'release:controls:apply -- --confirm-owner-admin',
-    'release:preflight -- --version <version> --expected-sha <40-char-sha>',
-    'release:verify -- --version <version> --expected-sha <40-char-sha>',
+    'release:controls:apply --confirm-owner-admin',
+    'release:preflight --version <version> --expected-sha <40-char-sha>',
+    'release:verify --version <version> --expected-sha <40-char-sha>',
   ]) {
     if (!contributing.includes(command)) {
       problems.push(`CONTRIBUTING.md must document ${command}`)

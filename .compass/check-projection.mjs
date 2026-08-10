@@ -28,6 +28,10 @@ export const COMPASS_SHAREABLE_PATHS = Object.freeze([
   ]),
 ].sort())
 export const MAX_MANAGED_FILE_BYTES = 1024 * 1024
+export const MAX_INCLUDED_FILE_COUNT = 256
+export const MAX_PROJECTED_BYTES = 32 * 1024 * 1024
+export const MAX_ARTIFACT_BYTES = 64 * 1024 * 1024
+export const MAX_RECONSTRUCTED_ARTIFACT_BYTES = 64 * 1024 * 1024
 
 const SHA256 = /^[0-9a-f]{64}$/u
 const COMMIT = /^[0-9a-f]{40}$/u
@@ -212,6 +216,7 @@ function validateManagedNamespaces(root, problems) {
 }
 
 function validateReceiptShape(receipt, problems, expectedPaths) {
+  const initialProblemCount = problems.length
   if (receipt?.schema !== 'compass.artifact-receipt' || receipt.schemaVersion !== 1) {
     problems.push('Compass receipt has an unsupported schema or version')
     return false
@@ -223,7 +228,12 @@ function validateReceiptShape(receipt, problems, expectedPaths) {
     !SHA256.test(receipt.source?.fingerprintSha256 ?? '') ||
     receipt.source?.dirty !== false
   ) problems.push('Compass receipt does not bind a complete clean source identity')
-  if (!SHA256.test(receipt.artifactSha256 ?? '') || !Number.isSafeInteger(receipt.artifactBytes) || receipt.artifactBytes <= 0) {
+  if (
+    !SHA256.test(receipt.artifactSha256 ?? '') ||
+    !Number.isSafeInteger(receipt.artifactBytes) ||
+    receipt.artifactBytes <= 0 ||
+    receipt.artifactBytes > MAX_ARTIFACT_BYTES
+  ) {
     problems.push('Compass receipt has an invalid artifact identity')
   }
   if (receipt.validation?.result !== 'passed' || !SHA256.test(receipt.validation?.receiptSha256 ?? '')) {
@@ -232,6 +242,9 @@ function validateReceiptShape(receipt, problems, expectedPaths) {
   if (!Array.isArray(receipt.includedFiles)) {
     problems.push('Compass receipt includedFiles inventory is missing')
     return false
+  }
+  if (receipt.includedFiles.length > MAX_INCLUDED_FILE_COUNT) {
+    problems.push(`Compass receipt exceeds the ${MAX_INCLUDED_FILE_COUNT}-file inventory bound`)
   }
   const paths = receipt.includedFiles.map((entry) => entry?.path)
   if (expectedPaths === null) {
@@ -245,7 +258,52 @@ function validateReceiptShape(receipt, problems, expectedPaths) {
   } else if (JSON.stringify(paths) !== JSON.stringify(expectedPaths)) {
     problems.push('Compass receipt includedFiles inventory is not the exact canonical path order')
   }
-  return true
+
+  let projectedBytes = 0
+  let encodedBytes = 0
+  for (const entry of receipt.includedFiles) {
+    if (!SHA256.test(entry?.sha256 ?? '') || !Number.isSafeInteger(entry?.bytes) || entry.bytes < 0) {
+      problems.push(`Compass receipt inventory metadata is invalid: ${String(entry?.path)}`)
+      continue
+    }
+    if (entry.bytes > MAX_MANAGED_FILE_BYTES) {
+      problems.push(`Compass receipt byte count exceeds the ${MAX_MANAGED_FILE_BYTES}-byte bound: ${String(entry.path)}`)
+      continue
+    }
+    if (projectedBytes > MAX_PROJECTED_BYTES - entry.bytes) {
+      problems.push(`Compass receipt exceeds the ${MAX_PROJECTED_BYTES}-byte aggregate projected-content bound`)
+      continue
+    }
+    projectedBytes += entry.bytes
+    encodedBytes += 4 * Math.ceil(entry.bytes / 3)
+  }
+
+  if (problems.length === initialProblemCount) {
+    const reconstructionSkeleton = `${JSON.stringify({
+      schema: 'compass.artifact',
+      schemaVersion: 1,
+      source: {
+        repository: receipt.source.repository,
+        commit: receipt.source.commit,
+        tree: receipt.source.tree,
+        fingerprintSha256: receipt.source.fingerprintSha256,
+        dirty: receipt.source.dirty,
+      },
+      files: receipt.includedFiles.map((entry) => ({
+        path: entry.path,
+        sha256: entry.sha256,
+        bytes: entry.bytes,
+        contentBase64: '',
+      })),
+    }, null, 2)}\n`
+    const reconstructedBytes = Buffer.byteLength(reconstructionSkeleton) + encodedBytes
+    if (reconstructedBytes > MAX_RECONSTRUCTED_ARTIFACT_BYTES) {
+      problems.push(
+        `Compass receipt exceeds the ${MAX_RECONSTRUCTED_ARTIFACT_BYTES}-byte reconstructed-artifact bound`
+      )
+    }
+  }
+  return problems.length === initialProblemCount
 }
 
 export function inspectCompassProjection(root = defaultConsumerRoot, {
@@ -282,10 +340,6 @@ export function inspectCompassProjection(root = defaultConsumerRoot, {
     const sourcePath = shareablePaths[index]
     const entry = receipt.includedFiles[index]
     if (!entry || entry.path !== sourcePath || !safeRelativePath(entry.path)) continue
-    if (!SHA256.test(entry.sha256 ?? '') || !Number.isSafeInteger(entry.bytes) || entry.bytes < 0) {
-      problems.push(`Compass receipt inventory metadata is invalid: ${sourcePath}`)
-      continue
-    }
     const projectedPath = compassProjectionPath(sourcePath)
     const bytes = readRegularFile(
       consumerRoot,
@@ -311,12 +365,17 @@ export function inspectCompassProjection(root = defaultConsumerRoot, {
       fingerprintSha256: receipt.source.fingerprintSha256,
       dirty: receipt.source.dirty,
     }
-    const reconstructed = Buffer.from(`${JSON.stringify({
+    const reconstructedText = `${JSON.stringify({
       schema: 'compass.artifact',
       schemaVersion: 1,
       source: canonicalSource,
       files: artifactFiles,
-    }, null, 2)}\n`)
+    }, null, 2)}\n`
+    if (Buffer.byteLength(reconstructedText) > MAX_RECONSTRUCTED_ARTIFACT_BYTES) {
+      problems.push('projected Compass reconstruction exceeds its bounded allocation')
+      return { root: consumerRoot, receipt, problems }
+    }
+    const reconstructed = Buffer.from(reconstructedText)
     if (reconstructed.length !== receipt.artifactBytes || sha256(reconstructed) !== receipt.artifactSha256) {
       problems.push('projected Compass bytes do not reconstruct the receipt-bound artifact identity')
     }

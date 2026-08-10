@@ -10,6 +10,7 @@
   "scripts": {
     "toolchain:sync": "node tools/sync-toolchain.mjs",
     "check:toolchain": "node tools/check-toolchain.mjs",
+    "check:compass": "node tools/check-compass-projection.mjs",
     "check:outdated": "node tools/show-outdated.mjs",
     "check:github-config": "node tools/github-external-config.mjs",
     "release:controls:check": "node tools/release-controls.mjs check",

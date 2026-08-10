@@ -60,7 +60,10 @@ test('validation runner fails fast and marks later phases skipped', () => {
     result.records.map(({ result: phaseResult }) => phaseResult),
     ['passed', 'failed', ...Array(VALIDATION_PHASES.length - 2).fill('skipped')]
   )
-  assert.match(output, /Preset freeze\s+failed\s+10ms/)
+  assert.match(
+    output,
+    new RegExp(`${VALIDATION_PHASES[1].name}\\s+failed\\s+10ms`)
+  )
   assert.match(output, /Renovate system policy\s+skipped\s+-/)
 })
 

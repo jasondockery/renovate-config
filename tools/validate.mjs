@@ -11,6 +11,7 @@ const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url))
 
 export const VALIDATION_PHASES = Object.freeze([
   { name: 'Toolchain contract', script: 'tools/check-toolchain.mjs' },
+  { name: 'Compass projection', script: 'tools/check-compass-projection.mjs' },
   { name: 'Preset freeze', script: 'tools/check-preset-freeze.mjs' },
   { name: 'Release controls desired state', script: 'tools/release-controls.mjs', arguments: ['validate'] },
   { name: 'Dependency coverage schema', script: 'tools/check-dependency-coverage-schema.mjs' },

@@ -5,6 +5,16 @@ outcome. `CHARTER.md` defines ownership, governance, and proof boundaries.
 `specs/verification.md` defines how proof is selected, what it binds, and how
 it is reported.
 
+Shared engineering doctrine is projected from an immutable Compass artifact.
+Read `.compass/COMPASS.md` and `.compass/TERMINOLOGY.md` for the canonical local
+copy. Load `skills/verification-selection/SKILL.md` before proof selection,
+`skills/dependency-change/SKILL.md` before dependency changes,
+`skills/field-failure-backpressure/SKILL.md` for failures first observed outside
+normal local proof, and `skills/performance-sensitive-change/SKILL.md` before
+performance-sensitive work. These generated skills remain byte-bound to
+`.compass/receipt.json`; renovate-config-specific extensions stay in this file,
+`specs/`, and the local Renovate skills.
+
 **Toolchain versions are write-once, derive-everywhere.** Node changes only in `.node-version`; pnpm changes only in `package.json#packageManager`. Load `skills/toolchain-authority/SKILL.md`, run `pnpm toolchain:sync`, then `pnpm check:toolchain`. A new version consumer requires an explicit classification and regression test.
 
 Load `skills/live-renovate-acceptance/SKILL.md` before assessing a live runner,

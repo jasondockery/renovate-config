@@ -17,13 +17,26 @@ description: Select and report the cheapest reliable proof matching a change's b
    generated output to generation and parity, and distributed artifacts to a
    clean external consumer.
 5. Treat a test undiscovered by canonical verification as no coverage.
-6. For publication, commit first and prove that exact clean commit. Make no
-   source, index, or history change between final proof and push.
+6. Select the repository's authorized publication mode while preserving all
+   pre-existing owner-controlled Git state:
+   - **Owner-review mode:** implementation, focused proof, completed diff,
+     human review, commit, exact proof, then push or pull request.
+   - **Repository-authorized autonomous mode:** explicit repository or task
+     authority may include commit and push, but only for task-attributable
+     changes and with the same state-preservation requirements.
+   For either mode, commit before final publication proof and prove that exact
+   clean commit. Make no source, index, or history change between final proof
+   and push.
 7. Distinguish working-tree, exact-commit, hosted exact-SHA, and deployed proof.
    Never claim a higher level from a lower one.
 8. Record command, duration, tree effects, exact identity, cache or environment
    facts relevant to the claim, reruns, duplicate proof, invalidated proof, and
    remaining owner gates.
+
+Staged versus unstaged state does not define task ownership or approval. Inspect
+the complete task diff independently of the index, stage only attributable
+changes when authorized, and stop if owner and agent changes cannot be safely
+separated.
 
 ## Inclusive-product and web-performance ladder
 

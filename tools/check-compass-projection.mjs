@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
@@ -13,6 +14,15 @@ const REQUIRED_DOCTRINE_ROUTES = Object.freeze([
 ])
 const SKILL_RECEIPT_PATH = /^skills\/([^/]+)\/SKILL\.md$/u
 const DISCOVERY_ADAPTERS = Object.freeze(['.agents/skills', '.claude/skills'])
+export const ACCEPTED_COMPASS_IDENTITY = Object.freeze({
+  commit: '94c7770e4b7d2e8652763ad16c4dba4eb181c8a4',
+  tree: '054dcf341b37b04a3bbe8175202bc26ffb272708',
+  fingerprintSha256: '24f7c2f58d2641614c0da9cefa567ba2983caf5b37520e2ff1cf19449bce8db0',
+  artifactSha256: 'ba5441a9975d6f0d3a72ffc764d84ecbb594a6fa21ab010682457ac6f2bb7e4c',
+  artifactBytes: 79802,
+  validationReceiptSha256: 'face36ace31e22df4eb50ae96fd79a4685de4fb062768c256e21d35093640c31',
+  receiptSha256: '86050efa560bac46c06901840df3cda1a7fadd95168bd3837ecc02e8407bdf14',
+})
 
 function readableRealPath(candidate, label, problems) {
   try {
@@ -75,10 +85,43 @@ export function checkSkillDiscovery(root, receipt) {
   return problems
 }
 
+export function checkAcceptedCompassIdentity(receipt, receiptSha256) {
+  const problems = []
+  for (const [key, actual] of [
+    ['commit', receipt?.source?.commit],
+    ['tree', receipt?.source?.tree],
+    ['fingerprintSha256', receipt?.source?.fingerprintSha256],
+    ['artifactSha256', receipt?.artifactSha256],
+    ['artifactBytes', receipt?.artifactBytes],
+    ['validationReceiptSha256', receipt?.validation?.receiptSha256],
+    ['receiptSha256', receiptSha256],
+  ]) {
+    if (actual !== ACCEPTED_COMPASS_IDENTITY[key]) {
+      problems.push(`renovate-config accepted Compass ${key} differs`)
+    }
+  }
+  return problems
+}
+
 export function checkCompassProjection(root = repositoryRoot) {
   const inspected = inspectCompassProjection(root)
+  let receiptSha256
+  if (inspected.receipt && inspected.problems.length === 0) {
+    try {
+      receiptSha256 = createHash('sha256')
+        .update(fs.readFileSync(path.join(root, '.compass/receipt.json')))
+        .digest('hex')
+    } catch (error) {
+      inspected.problems.push(
+        `renovate-config accepted Compass receipt cannot be hashed: ${error instanceof Error ? error.message : String(error)}`
+      )
+    }
+  }
   const problems = [
     ...inspected.problems,
+    ...(inspected.receipt && inspected.problems.length === 0
+      ? checkAcceptedCompassIdentity(inspected.receipt, receiptSha256)
+      : []),
     ...(inspected.receipt ? checkSkillDiscovery(root, inspected.receipt) : []),
   ]
   let agents

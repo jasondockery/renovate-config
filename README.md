@@ -2,12 +2,24 @@
 
 ## Engineering direction
 
-This repository is the first consumer of the private Compass engineering
-authority. `.compass/COMPASS.md`, `.compass/TERMINOLOGY.md`, and the four shared
+This repository is the first consumer of the Compass engineering authority.
+`.compass/COMPASS.md`, `.compass/TERMINOLOGY.md`, and the receipt-listed shared
 skills are offline projections from the exact clean Compass commit recorded in
 `.compass/receipt.json`. `pnpm check:compass` verifies every projected byte and
 its provenance without a sibling checkout or network access. Renovate-specific
 policy, workflows, acceptance, and release procedures remain local.
+
+The accepted projected-contract source is
+`94c7770e4b7d2e8652763ad16c4dba4eb181c8a4` (tree
+`054dcf341b37b04a3bbe8175202bc26ffb272708`, fingerprint
+`24f7c2f58d2641614c0da9cefa567ba2983caf5b37520e2ff1cf19449bce8db0`,
+artifact `ba5441a9975d6f0d3a72ffc764d84ecbb594a6fa21ab010682457ac6f2bb7e4c`,
+and receipt-file SHA-256
+`86050efa560bac46c06901840df3cda1a7fadd95168bd3837ecc02e8407bdf14`).
+`cd1e684825e06a12cac688c066357d4a34687039` is its ancestor, and the later
+Compass commits changed managed consumer bytes. Publication hardening does not
+silently advance this receipt: renovate-config intentionally retains `94c7770…`
+until a separate exact-artifact projection change is reviewed and verified.
 
 Shared dependency-update automation for the owner's repositories.
 

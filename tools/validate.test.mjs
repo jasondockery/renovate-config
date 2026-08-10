@@ -183,6 +183,9 @@ test('validation phase timeout is authoritative, bounded, and recovery-directed'
 
 test('validation timeout cancels a real child tree through the shared supervisor', async (context) => {
   if (process.platform === 'win32') return
+  // This deadline must let the real Node fixture publish its readiness marker;
+  // the production validation deadline remains independently pinned below.
+  const fixtureStartupDeadlineMilliseconds = 1_000
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'renovate-validation-timeout-'))
   context.after(() => fs.rmSync(directory, { recursive: true, force: true }))
   const ready = path.join(directory, 'ready')
@@ -196,8 +199,8 @@ setInterval(() => {}, 1000)
 `)
   const result = await runValidation({
     phases: [{ name: 'Hostile tree', script: hostile, arguments: [ready] }],
-    phaseDeadlineMilliseconds: 100,
-    cancelGraceMilliseconds: 50,
+    phaseDeadlineMilliseconds: fixtureStartupDeadlineMilliseconds,
+    cancelGraceMilliseconds: 100,
     write: () => {},
     writeError: () => {},
   })

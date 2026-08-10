@@ -15,13 +15,13 @@ const REQUIRED_DOCTRINE_ROUTES = Object.freeze([
 const SKILL_RECEIPT_PATH = /^skills\/([^/]+)\/SKILL\.md$/u
 const DISCOVERY_ADAPTERS = Object.freeze(['.agents/skills', '.claude/skills'])
 export const ACCEPTED_COMPASS_IDENTITY = Object.freeze({
-  commit: '94c7770e4b7d2e8652763ad16c4dba4eb181c8a4',
-  tree: '054dcf341b37b04a3bbe8175202bc26ffb272708',
-  fingerprintSha256: '24f7c2f58d2641614c0da9cefa567ba2983caf5b37520e2ff1cf19449bce8db0',
-  artifactSha256: 'ba5441a9975d6f0d3a72ffc764d84ecbb594a6fa21ab010682457ac6f2bb7e4c',
-  artifactBytes: 79802,
-  validationReceiptSha256: 'face36ace31e22df4eb50ae96fd79a4685de4fb062768c256e21d35093640c31',
-  receiptSha256: '86050efa560bac46c06901840df3cda1a7fadd95168bd3837ecc02e8407bdf14',
+  commit: 'ef18a2f81a5c6ca14b681e7352b5302ff93f8527',
+  tree: 'dc969c5df71c6a823d222599726e268bb14cdd2f',
+  fingerprintSha256: '19ea84993a68a3d087504ed7103abea1ba94968141111402c7df344426306bd4',
+  artifactSha256: '7581b219652f3f1650f405361c03cbfb4c7f659c646f030fec538481225e3a15',
+  artifactBytes: 88719,
+  validationReceiptSha256: '337615e14aecaf29f9c7aaaede99ccf1c9c173310b7e5390aa589ecb2918a1ca',
+  receiptSha256: '4913b76945e6927cae61aa364f274cdb45ea1fbac399dcb3e87599b9e9e64813',
 })
 
 function readableRealPath(candidate, label, problems) {

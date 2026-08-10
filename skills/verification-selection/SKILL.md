@@ -25,5 +25,36 @@ description: Select and report the cheapest reliable proof matching a change's b
    facts relevant to the claim, reruns, duplicate proof, invalidated proof, and
    remaining owner gates.
 
+## Inclusive-product and web-performance ladder
+
+For applicable user-facing work, move quality left until the cheapest reliable
+boundary owns it:
+
+1. Static checks for structure, names, messages, locale metadata, direction,
+   deterministic contrast tokens, architecture, and resource budgets.
+2. Real-browser component proof for semantic DOM, automated accessibility
+   rules, keyboard behavior, focus, themes, forced colors, reduced motion,
+   target sizing, pseudo-locales, and RTL where applicable.
+3. Selected composed journeys for keyboard-only flows, dialogs, menus, forms,
+   error recovery, 320 CSS-pixel reflow, text-spacing overrides, locale changes,
+   and runtime failures.
+4. Build and lab performance against exact artifacts and declared regression
+   budgets.
+5. Exact-SHA deployed acceptance against the real routes, headers, assets, and
+   environment.
+6. Knowledgeable manual accessibility evaluation, including relevant assistive
+   technology, zoom/reflow, contrast modes, motion, color vision, and touch.
+7. Field or real-user evidence, including Core Web Vitals at the declared
+   percentile and device segments, once sufficient traffic exists.
+
+Select only the levels needed for the claim. Automated accessibility rules are
+a subset of accessibility evaluation; they do not establish a conformance claim
+without the required knowledgeable human evaluation. Lab performance is not
+field performance.
+
+Reviewed 2026-08-10 against W3C WAI
+[evaluation guidance](https://www.w3.org/WAI/test-evaluate/) and current
+[Core Web Vitals guidance](https://web.dev/articles/vitals).
+
 Use equivalent tools when the stack requires them; preserve the proof boundary,
 not a brand name.

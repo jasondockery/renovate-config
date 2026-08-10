@@ -83,6 +83,10 @@ remains explicit. Measure suite, job, build, and deploy duration. Do not solve
 an economics failure by merely raising a budget. CI minutes and developer
 waiting time are finite engineering resources.
 
+Quality moves left until the cheapest reliable boundary owns it. What cannot be
+automated remains an explicit human acceptance boundary, not an omitted
+requirement or an automated claim that exceeds its evidence.
+
 ## Secure by default
 
 Minimize attack surface and privilege. Protect secrets and sensitive data,
@@ -119,3 +123,18 @@ for its own domain, but it does not independently redefine the shared rule.
 
 Derived projected bytes are intentional: they make each checkout complete and
 offline-capable. Their receipt and drift check preserve Compass as the authority.
+
+## Skill authority and discovery
+
+Compass owns the canonical regular files under `skills/<name>/` and the generic
+projection conformance checker. Each repository owns how those canonical skills
+are exposed to tool-specific discovery paths. A repository may use a proven
+symlink adapter, a generated physical pointer or adapter, or a tool-native
+configuration mechanism, provided the adapter contains no independent policy
+and repository validation detects discovery or drift failures.
+
+Tool-discovery adapters are outside Compass-managed namespaces and may be
+symlinks when repository and tool policy permit them. Compass-managed projected
+files and directories remain regular, non-symlink filesystem entries. Prose
+that merely mentions a skill is documentation, not mechanical discovery, and
+is insufficient for a tool that requires a discovery path or adapter.

@@ -72,15 +72,20 @@ export function validateRenovate({
   return { ok: true, version, failures: [] }
 }
 
-function reportOutputs({ version, failures }) {
-  if (!process.env.GITHUB_OUTPUT) return
+export function reportOutputs(
+  { version, failures },
+  { outputPath = process.env.GITHUB_OUTPUT, warn = (message) => console.error(message) } = {}
+) {
+  if (!outputPath) return false
   try {
     fs.appendFileSync(
-      process.env.GITHUB_OUTPUT,
+      outputPath,
       `version=${version}\nfailed=${failures.join(',') || 'none'}\n`
     )
+    return true
   } catch (error) {
-    console.error(`::warning title=Validation summary unavailable::${error.message}`)
+    warn(`::warning title=Validation summary unavailable::${error.message}`)
+    return false
   }
 }
 

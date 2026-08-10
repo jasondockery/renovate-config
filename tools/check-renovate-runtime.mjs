@@ -345,9 +345,6 @@ export function collectRenovateRuntimeProblems(
     ['bounded Git-visible fingerprint input', /GIT_VISIBLE_CONTENT_BYTE_LIMIT/u],
     ['chunked file hashing', /HASH_CHUNK_BYTES/u],
     ['a launch-window cancellation guard', /controller\.signal\.aborted/u],
-    ['a persistent lane supervisor', /processSupervisor/u],
-    ['bounded unterminated output buffering', /MAX_PENDING_OUTPUT_BYTES/u],
-    ['bounded process-group escalation', /SIGTERM[\s\S]*SIGKILL/u],
   ]) {
     if (!pattern.test(verifySource)) problems.push(`tools/verify.mjs must preserve ${contract}.`)
   }
@@ -361,6 +358,25 @@ export function collectRenovateRuntimeProblems(
   }
   if (/collectVerificationCleanProblems/u.test(verifySource)) {
     problems.push('tools/verify.mjs must not require a clean implementation tree.')
+  }
+
+  let boundedCommandSource = ''
+  try {
+    boundedCommandSource = read(repoRoot, 'tools/bounded-command.mjs')
+  } catch {
+    problems.push('tools/bounded-command.mjs must be readable.')
+  }
+  if (!/from '\.\/bounded-command\.mjs'/u.test(verifySource)) {
+    problems.push('tools/verify.mjs must consume the shared bounded-command primitive.')
+  }
+  for (const [contract, pattern] of [
+    ['a persistent lane supervisor', /processSupervisor/u],
+    ['bounded unterminated output buffering', /MAX_PENDING_OUTPUT_BYTES/u],
+    ['bounded process-group escalation', /SIGTERM[\s\S]*SIGKILL/u],
+  ]) {
+    if (!pattern.test(boundedCommandSource)) {
+      problems.push(`tools/bounded-command.mjs must preserve ${contract}.`)
+    }
   }
 
   let supervisorSource = ''

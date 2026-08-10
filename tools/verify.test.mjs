@@ -7,6 +7,7 @@ import test from 'node:test'
 import { execFileSync, spawn, spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import {
+  classifyLane,
   fingerprintRepository,
   renderVerificationReceipt,
   runCommandLane,
@@ -327,6 +328,39 @@ test('final verification starts complementary lanes concurrently and reports cri
   assert.equal(receipt.performance.budgetSeconds, 240)
   assert.equal(receipt.performance.state, 'within')
   assert.match(output, /Verification receipt · passed/)
+})
+
+test('outer verification refuses zero with a signal or supervisor error', async () => {
+  assert.equal(classifyLane({ exitCode: 0, signal: 'SIGKILL', closureConfirmed: true }), 'failed')
+  assert.equal(classifyLane({ exitCode: 0, signal: null, error: 'protocol failed', closureConfirmed: true }), 'failed')
+
+  const receipt = await runVerification({
+    repoRoot: repositoryRoot,
+    fingerprint: () => ({ head: 'a'.repeat(40), fingerprint: 'sha256:same' }),
+    artifactCheck: () => [],
+    runLane: async ({ name }) => name === 'tests'
+      ? {
+          name,
+          command: 'pnpm run test',
+          exitCode: 0,
+          signal: 'SIGKILL',
+          closureConfirmed: true,
+          durationMilliseconds: 1,
+        }
+      : {
+          name,
+          command: 'pnpm run validate',
+          exitCode: 0,
+          signal: null,
+          error: 'supervisor protocol failed',
+          closureConfirmed: true,
+          durationMilliseconds: 1,
+        },
+    write: () => {},
+  })
+
+  assert.equal(receipt.result, 'failed')
+  assert.deepEqual(receipt.lanes.map(({ result }) => result), ['failed', 'failed'])
 })
 
 test('verify rejects unknown arguments before starting either lane', () => {

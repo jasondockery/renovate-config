@@ -239,6 +239,15 @@ function seconds(milliseconds) {
   return Math.ceil(milliseconds / 100) / 10
 }
 
+export function classifyLane(lane) {
+  if (lane.timedOut) return 'timed-out'
+  if (lane.cancelled) return 'cancelled'
+  return lane.exitCode === 0 && lane.signal == null && !lane.error &&
+    lane.closureConfirmed !== false
+    ? 'passed'
+    : 'failed'
+}
+
 export function renderVerificationReceipt(receipt) {
   const lines = [
     '',
@@ -361,7 +370,7 @@ export async function runVerification({
   const readOnlyPassed = readOnlyProblems.length === 0
   const lanes = [tests, validation].map((lane) => ({
     ...lane,
-    result: lane.timedOut ? 'timed-out' : lane.cancelled ? 'cancelled' : lane.exitCode === 0 ? 'passed' : 'failed',
+    result: classifyLane(lane),
   }))
   const wallMilliseconds = Math.max(0, now() - started)
   const timedOut = controller.signal.aborted && controller.signal.reason?.type === 'timeout'

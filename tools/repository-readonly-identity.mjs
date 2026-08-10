@@ -24,9 +24,11 @@ export function runBoundedGit(root, args, {
       killSignal: 'SIGKILL',
     })
   } catch (error) {
-    const timedOut = error?.code === 'ETIMEDOUT' || error?.signal === 'SIGKILL'
+    const timedOut = error?.code === 'ETIMEDOUT'
     const detail = timedOut
       ? `timed out after ${timeoutMilliseconds}ms`
+      : error?.signal
+        ? `terminated by signal ${error.signal}: ${error instanceof Error ? error.message : String(error)}`
       : error instanceof Error ? error.message : String(error)
     throw new Error(`bounded Git ${args.join(' ')} failed: ${detail}`, { cause: error })
   }

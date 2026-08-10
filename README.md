@@ -10,16 +10,15 @@ its provenance without a sibling checkout or network access. Renovate-specific
 policy, workflows, acceptance, and release procedures remain local.
 
 The accepted projected-contract source is
-`94c7770e4b7d2e8652763ad16c4dba4eb181c8a4` (tree
-`054dcf341b37b04a3bbe8175202bc26ffb272708`, fingerprint
-`24f7c2f58d2641614c0da9cefa567ba2983caf5b37520e2ff1cf19449bce8db0`,
-artifact `ba5441a9975d6f0d3a72ffc764d84ecbb594a6fa21ab010682457ac6f2bb7e4c`,
+`ef18a2f81a5c6ca14b681e7352b5302ff93f8527` (tree
+`dc969c5df71c6a823d222599726e268bb14cdd2f`, fingerprint
+`19ea84993a68a3d087504ed7103abea1ba94968141111402c7df344426306bd4`,
+artifact `7581b219652f3f1650f405361c03cbfb4c7f659c646f030fec538481225e3a15`,
 and receipt-file SHA-256
-`86050efa560bac46c06901840df3cda1a7fadd95168bd3837ecc02e8407bdf14`).
-`cd1e684825e06a12cac688c066357d4a34687039` is its ancestor, and the later
-Compass commits changed managed consumer bytes. Publication hardening does not
-silently advance this receipt: renovate-config intentionally retains `94c7770…`
-until a separate exact-artifact projection change is reviewed and verified.
+`4913b76945e6927cae61aa364f274cdb45ea1fbac399dcb3e87599b9e9e64813`).
+This explicit V2 adoption supersedes the earlier `94c7770…` projection;
+publication or unrelated Compass commits still cannot silently advance the
+accepted receipt.
 
 Shared dependency-update automation for the owner's repositories.
 

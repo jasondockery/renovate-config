@@ -1,5 +1,14 @@
 # Renovate Config
 
+## Engineering direction
+
+This repository is the first consumer of the private Compass engineering
+authority. `.compass/COMPASS.md`, `.compass/TERMINOLOGY.md`, and the four shared
+skills are offline projections from the exact clean Compass commit recorded in
+`.compass/receipt.json`. `pnpm check:compass` verifies every projected byte and
+its provenance without a sibling checkout or network access. Renovate-specific
+policy, workflows, acceptance, and release procedures remain local.
+
 Shared dependency-update automation for the owner's repositories.
 
 This repo has seven moving pieces:

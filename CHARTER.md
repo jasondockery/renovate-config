@@ -65,7 +65,9 @@ observable contract and evidence matrix are in
 - Security-alert remediation, risk acceptance, and repository-specific
   exceptions
 - General engineering skills, shared scripts, or CI utilities unrelated to
-  dependency updates or the bounded hygiene inbox
+  dependency updates or the bounded hygiene inbox. Shared engineering doctrine
+  and reusable general procedures come from the repository's exact Compass
+  projection; renovate-config remains only a consumer of that authority.
 - Security-hygiene secrets, execution history, summaries, artifacts, and the
   durable report issue; those belong to a private caller repository
 

@@ -6,9 +6,26 @@ import { execFileSync } from 'node:child_process'
 import test from 'node:test'
 import {
   compareRepositorySnapshots,
+  runBoundedGit,
   snapshotRepository,
   summarizeRelevantIgnored,
 } from './repository-readonly-identity.mjs'
+
+test('bounded Git applies timeout, output, and kill semantics', () => {
+  let observed
+  const output = runBoundedGit('/fixture', ['status'], {
+    runner(command, arguments_, options) {
+      observed = { command, arguments_, options }
+      return 'clean\n'
+    },
+  })
+  assert.equal(output, 'clean\n')
+  assert.equal(observed.command, 'git')
+  assert.deepEqual(observed.arguments_, ['-C', '/fixture', 'status'])
+  assert.equal(observed.options.timeout, 15_000)
+  assert.equal(observed.options.maxBuffer, 8 * 1024 * 1024)
+  assert.equal(observed.options.killSignal, 'SIGKILL')
+})
 
 function repository(context) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'renovate-readonly-identity-'))

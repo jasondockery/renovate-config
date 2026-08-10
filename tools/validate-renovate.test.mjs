@@ -5,6 +5,7 @@ import path from 'node:path'
 import test from 'node:test'
 import {
   RENOVATE_CONFIGS,
+  reportOutputs,
   validateRenovate,
   validatorEnvironment,
 } from './validate-renovate.mjs'
@@ -111,4 +112,23 @@ test('reports success only when every validator succeeds', (context) => {
   })
   assert.equal(result.ok, true)
   assert.deepEqual(result.failures, [])
+})
+
+test('exports the exact pinned version and observed failed configuration list', (context) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'renovate-validator-output-'))
+  context.after(() => fs.rmSync(directory, { recursive: true, force: true }))
+  const outputPath = path.join(directory, 'github-output')
+
+  assert.equal(reportOutputs({ version: '1.2.3', failures: [] }, { outputPath }), true)
+  assert.equal(
+    reportOutputs(
+      { version: '1.2.3', failures: ['default.json', 'runner.json'] },
+      { outputPath }
+    ),
+    true
+  )
+  assert.equal(
+    fs.readFileSync(outputPath, 'utf8'),
+    'version=1.2.3\nfailed=none\nversion=1.2.3\nfailed=default.json,runner.json\n'
+  )
 })

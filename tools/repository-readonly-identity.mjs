@@ -4,17 +4,32 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 const MAX_GIT_OUTPUT_BYTES = 8 * 1024 * 1024
+const GIT_TIMEOUT_MILLISECONDS = 15_000
 const MAX_TRACKED_PATHS = 50_000
 const MAX_RELEVANT_IGNORED_PATHS = 20_000
 const MAX_HASHED_BYTES = 1024 * 1024 * 1024
 const HASH_CHUNK_BYTES = 64 * 1024
 
-function git(root, args) {
-  return execFileSync('git', ['-C', root, ...args], {
-    encoding: 'utf8',
-    maxBuffer: MAX_GIT_OUTPUT_BYTES,
-    timeout: 30_000,
-  })
+export function runBoundedGit(root, args, {
+  command = 'git',
+  runner = execFileSync,
+  timeoutMilliseconds = GIT_TIMEOUT_MILLISECONDS,
+  maxBuffer = MAX_GIT_OUTPUT_BYTES,
+} = {}) {
+  try {
+    return runner(command, ['-C', root, ...args], {
+      encoding: 'utf8',
+      maxBuffer,
+      timeout: timeoutMilliseconds,
+      killSignal: 'SIGKILL',
+    })
+  } catch (error) {
+    const timedOut = error?.code === 'ETIMEDOUT' || error?.signal === 'SIGKILL'
+    const detail = timedOut
+      ? `timed out after ${timeoutMilliseconds}ms`
+      : error instanceof Error ? error.message : String(error)
+    throw new Error(`bounded Git ${args.join(' ')} failed: ${detail}`, { cause: error })
+  }
 }
 
 function hashFile(digest, file, budget) {
@@ -75,10 +90,10 @@ function fingerprintPaths(root, paths, pathLimit) {
 
 export function snapshotRepository(root, relevantIgnored = []) {
   const absoluteRoot = fs.realpathSync(root)
-  const headSha = git(absoluteRoot, ['rev-parse', 'HEAD']).trim()
+  const headSha = runBoundedGit(absoluteRoot, ['rev-parse', 'HEAD']).trim()
   if (!/^[0-9a-f]{40}$/u.test(headSha)) throw new Error(`${absoluteRoot} has no exact 40-character HEAD SHA`)
-  const status = git(absoluteRoot, ['status', '--porcelain=v1', '--untracked-files=all']).trim()
-  const tracked = git(absoluteRoot, ['ls-files', '-z']).split('\0').filter(Boolean)
+  const status = runBoundedGit(absoluteRoot, ['status', '--porcelain=v1', '--untracked-files=all']).trim()
+  const tracked = runBoundedGit(absoluteRoot, ['ls-files', '-z']).split('\0').filter(Boolean)
   const ignoredState = Object.fromEntries(relevantIgnored.map((relative) => {
     if (path.isAbsolute(relative) || relative.split('/').includes('..')) {
       throw new Error(`relevant ignored path escapes repository: ${relative}`)

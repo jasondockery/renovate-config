@@ -3,28 +3,40 @@
 // command. Ignored install artifacts need explicit checks because git status
 // does not report them.
 import fs from 'node:fs'
-import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
+import { isMainModule } from './is-main.mjs'
+import { runBoundedGit } from './repository-readonly-identity.mjs'
 
 const FORBIDDEN_ARTIFACTS = ['pnpm-lock.yaml', 'node_modules', '.pnpm-store']
+const canonicalRepositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
-function repositoryStatus(repoRoot) {
-  return execFileSync(
-    'git',
-    ['-C', repoRoot, 'status', '--porcelain=v1', '--untracked-files=all'],
-    { encoding: 'utf8' }
-  ).trim()
+export function repositoryStatus(repoRoot = canonicalRepositoryRoot, gitOptions) {
+  try {
+    return runBoundedGit(
+      repoRoot,
+      ['status', '--porcelain=v1', '--untracked-files=all'],
+      gitOptions
+    ).trim()
+  } catch (error) {
+    throw new Error(
+      `verification cleanliness could not inspect ${repoRoot}: ${error instanceof Error ? error.message : String(error)}. ` +
+      `Recovery: run git -C ${JSON.stringify(repoRoot)} status --porcelain=v1 --untracked-files=all, correct the Git failure, then rerun this check.`,
+      { cause: error }
+    )
+  }
 }
 
 export function collectVerificationCleanProblems({
-  repoRoot = process.cwd(),
-  status = repositoryStatus(repoRoot),
+  repoRoot = canonicalRepositoryRoot,
+  status,
+  gitOptions,
 } = {}) {
   const problems = []
-  if (status) {
-    problems.push(`repository files changed:\n${status}`)
+  const observedStatus = status ?? repositoryStatus(repoRoot, gitOptions)
+  if (observedStatus) {
+    problems.push(`repository files changed:\n${observedStatus}`)
   }
   for (const artifact of FORBIDDEN_ARTIFACTS) {
     if (fs.existsSync(path.join(repoRoot, artifact))) {
@@ -35,7 +47,14 @@ export function collectVerificationCleanProblems({
 }
 
 export function checkVerificationClean(options) {
-  const problems = collectVerificationCleanProblems(options)
+  let problems
+  try {
+    problems = collectVerificationCleanProblems(options)
+  } catch (error) {
+    console.error('verification read-only check failed:')
+    console.error(`  - ${error instanceof Error ? error.message : String(error)}`)
+    return false
+  }
   if (problems.length === 0) {
     console.log('ok: verification left the dependency-free checkout unchanged')
     return true
@@ -45,7 +64,6 @@ export function checkVerificationClean(options) {
   return false
 }
 
-const invokedPath = process.argv[1] ? path.resolve(process.argv[1]) : ''
-if (invokedPath === fileURLToPath(import.meta.url) && !checkVerificationClean()) {
+if (isMainModule(import.meta.url) && !checkVerificationClean()) {
   process.exitCode = 1
 }

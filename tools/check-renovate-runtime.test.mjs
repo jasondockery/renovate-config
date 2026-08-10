@@ -19,6 +19,7 @@ const CONTRACT_FILES = [
   '.github/workflows/renovate.yml',
   'tools/validate-renovate-integration.mjs',
   'tools/run-renovate-integration.mjs',
+  'tools/bounded-command.mjs',
   'tools/verify.mjs',
   'package.json',
   'renovate.json',
@@ -191,6 +192,14 @@ test('rejects weakened workflow permissions, artifact retention, or local deadli
       'const HARD_DEADLINE_MILLISECONDS = 0'
     ))
     assert.match(problems(repoRoot), /300-second total deadline/)
+  })
+  await context.test('shared bounded-command contract weakened', (subcontext) => {
+    const repoRoot = fixture(subcontext)
+    write(repoRoot, 'tools/bounded-command.mjs', read(repoRoot, 'tools/bounded-command.mjs').replaceAll(
+      'MAX_PENDING_OUTPUT_BYTES',
+      'UNBOUNDED_PENDING_OUTPUT_BYTES'
+    ))
+    assert.match(problems(repoRoot), /bounded unterminated output buffering/)
   })
 })
 

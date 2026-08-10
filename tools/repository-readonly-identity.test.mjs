@@ -27,6 +27,36 @@ test('bounded Git applies timeout, output, and kill semantics', () => {
   assert.equal(observed.options.killSignal, 'SIGKILL')
 })
 
+test('bounded Git distinguishes its deadline from an unexpected signal', () => {
+  assert.throws(
+    () => runBoundedGit('/fixture', ['status'], {
+      timeoutMilliseconds: 25,
+      runner() {
+        throw Object.assign(new Error('deadline'), { code: 'ETIMEDOUT', signal: 'SIGKILL' })
+      },
+    }),
+    /timed out after 25ms/u
+  )
+  assert.throws(
+    () => runBoundedGit('/fixture', ['status'], {
+      runner() {
+        throw Object.assign(new Error('killed elsewhere'), { signal: 'SIGKILL' })
+      },
+    }),
+    (error) => {
+      assert.match(error.message, /terminated by signal SIGKILL: killed elsewhere/u)
+      assert.doesNotMatch(error.message, /timed out/u)
+      return true
+    }
+  )
+  assert.throws(
+    () => runBoundedGit('/fixture', ['status'], {
+      runner() { throw new Error('ordinary failure') },
+    }),
+    /ordinary failure/u
+  )
+})
+
 function repository(context) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'renovate-readonly-identity-'))
   context.after(() => fs.rmSync(root, { recursive: true, force: true }))

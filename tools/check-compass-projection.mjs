@@ -4,6 +4,10 @@ import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
+import {
+  validateAuthorityRegistry,
+  validateConsumerReconciliation,
+} from '../.compass/check-authority-record.mjs'
 import { inspectCompassProjection } from '../.compass/check-projection.mjs'
 import { isMainModule } from './is-main.mjs'
 
@@ -11,18 +15,41 @@ const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url))
 const REQUIRED_DOCTRINE_ROUTES = Object.freeze([
   '.compass/COMPASS.md',
   '.compass/TERMINOLOGY.md',
+  '.compass/ai-workload-policy.json',
+  '.compass/authority-policy.json',
+  '.compass/authority-registry.json',
+  '.compass/consumer-reconciliation.schema.json',
+  'skills/ai-backend-change/SKILL.md',
+  'skills/shift-to-authority/SKILL.md',
 ])
+const CONSUMER_RECONCILIATION_PATH = 'tools/compass-consumer-reconciliation.json'
 const SKILL_RECEIPT_PATH = /^skills\/([^/]+)\/SKILL\.md$/u
 const DISCOVERY_ADAPTERS = Object.freeze(['.agents/skills', '.claude/skills'])
 export const ACCEPTED_COMPASS_IDENTITY = Object.freeze({
-  commit: 'c0a45d8a9c8db0e4dcaa5e2d543c48ac208289a0',
-  tree: '42cd8d33e7e0d1a21acf642c98dd146b54f896f8',
-  fingerprintSha256: '116bdd9d0e7515339a2eaa0b9a561f0aadd6301e9422226b0a77d06c721fe8ee',
-  artifactSha256: '636a96690a5e13c3d69cf98be78fa4c6c2b6f944b96e62438a055c54fc82744a',
-  artifactBytes: 101807,
-  validationReceiptSha256: 'fc77bd55c55bf050defa635cb8bb1957bb5aa9174ad27d324cfe7dd62a34bd10',
-  receiptSha256: '3fed0ea564079a4c676d37f18b3266d8263537260057c69da3cec4f23bf4c005',
+  commit: '043568a695b589154036ec85bc56e681a2b1e370',
+  tree: 'b5c9cab0aa018332a12498ffe58a5d60ef4af793',
+  fingerprintSha256: 'd22d95c06b507a6506d49c290d5d3a14f435ebcf2db7d6bd3ea0a91abb37c69d',
+  artifactSha256: '5a7b66cf0f36c95561eff56b386e7df6d9895b4e2a4c65ce5f5aaa8046293d43',
+  artifactBytes: 189698,
+  validationReceiptSha256: '8f637ca850edbedd39bc440939006b10c8b37dc59fe0cc8d167f15699a0e5b5d',
+  receiptSha256: '920c5cee7f4ac98582d3a541751f5fa147c1aa58318756cc6e9ea14381506374',
 })
+
+const LOCAL_EXACT_IDENTITY = Object.freeze({
+  sourceCommit: ACCEPTED_COMPASS_IDENTITY.commit,
+  sourceTree: ACCEPTED_COMPASS_IDENTITY.tree,
+  sourceFingerprintSha256: ACCEPTED_COMPASS_IDENTITY.fingerprintSha256,
+  artifactSha256: ACCEPTED_COMPASS_IDENTITY.artifactSha256,
+  artifactBytes: ACCEPTED_COMPASS_IDENTITY.artifactBytes,
+  validationReceiptSha256: ACCEPTED_COMPASS_IDENTITY.validationReceiptSha256,
+  artifactReceiptSha256: ACCEPTED_COMPASS_IDENTITY.receiptSha256,
+})
+
+function exactIdentityMatches(candidate) {
+  return candidate && Object.keys(LOCAL_EXACT_IDENTITY).every(
+    (field) => candidate[field] === LOCAL_EXACT_IDENTITY[field]
+  ) && Object.keys(candidate).length === Object.keys(LOCAL_EXACT_IDENTITY).length
+}
 
 function readableRealPath(candidate, label, problems) {
   try {
@@ -103,6 +130,57 @@ export function checkAcceptedCompassIdentity(receipt, receiptSha256) {
   return problems
 }
 
+function parseLocalJson(root, relativePath, label, problems) {
+  try {
+    const file = path.join(root, relativePath)
+    const metadata = fs.lstatSync(file)
+    if (metadata.isSymbolicLink() || !metadata.isFile()) {
+      problems.push(`${label} must be a regular non-symlink file`)
+      return null
+    }
+    return JSON.parse(fs.readFileSync(file, 'utf8'))
+  } catch (error) {
+    problems.push(`${label} is unreadable: ${error instanceof Error ? error.message : String(error)}`)
+    return null
+  }
+}
+
+export function checkCompassConsumerReconciliation(root = repositoryRoot) {
+  const problems = []
+  const policy = parseLocalJson(root, '.compass/authority-policy.json', 'Compass authority policy', problems)
+  const registry = parseLocalJson(root, '.compass/authority-registry.json', 'Compass authority registry', problems)
+  const reconciliation = parseLocalJson(root, CONSUMER_RECONCILIATION_PATH, 'renovate-config Compass reconciliation', problems)
+  if (!policy || !registry || !reconciliation) return problems
+
+  problems.push(...validateAuthorityRegistry(registry, policy))
+  problems.push(...validateConsumerReconciliation(reconciliation, policy))
+  if (reconciliation.consumer?.name !== 'renovate-config' || reconciliation.consumer?.repository !== 'jasondockery/renovate-config') {
+    problems.push('renovate-config Compass reconciliation has the wrong consumer identity')
+  }
+
+  const issuedCandidateIds = (Array.isArray(registry.candidates) ? registry.candidates : [])
+    .filter((candidate) => candidate.candidateState === 'issued')
+    .map((candidate) => candidate.id)
+    .sort()
+  const records = Array.isArray(reconciliation.records) ? reconciliation.records : []
+  const localCandidateIds = records.map((record) => record.candidateId).sort()
+  if (JSON.stringify(localCandidateIds) !== JSON.stringify(issuedCandidateIds)) {
+    problems.push('renovate-config Compass reconciliation does not cover every issued candidate exactly once')
+  }
+  for (const record of records) {
+    if (record.relationship !== 'direct') {
+      problems.push(`renovate-config Compass reconciliation ${record.candidateId} is not direct`)
+    }
+    if (!['pending-adoption', 'adopted'].includes(record.consumerState) || record.localReconciliation !== 'complete') {
+      problems.push(`renovate-config Compass reconciliation ${record.candidateId} has not completed local review integration`)
+    }
+    if (!exactIdentityMatches(record.authorityIdentity)) {
+      problems.push(`renovate-config Compass reconciliation ${record.candidateId} differs from the accepted authority identity`)
+    }
+  }
+  return problems
+}
+
 export function checkCompassProjection(root = repositoryRoot) {
   const inspected = inspectCompassProjection(root)
   let receiptSha256
@@ -123,6 +201,7 @@ export function checkCompassProjection(root = repositoryRoot) {
       ? checkAcceptedCompassIdentity(inspected.receipt, receiptSha256)
       : []),
     ...(inspected.receipt ? checkSkillDiscovery(root, inspected.receipt) : []),
+    ...checkCompassConsumerReconciliation(root),
   ]
   let agents
   try {

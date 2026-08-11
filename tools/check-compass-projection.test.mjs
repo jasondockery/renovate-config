@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url'
 import {
   ACCEPTED_COMPASS_IDENTITY,
   checkAcceptedCompassIdentity,
+  checkCompassConsumerReconciliation,
   checkCompassProjection,
   checkSkillDiscovery,
 } from './check-compass-projection.mjs'
@@ -20,6 +21,11 @@ function fixture() {
     fs.cpSync(path.join(repositoryRoot, relativePath), path.join(root, relativePath), { recursive: true })
   }
   fs.copyFileSync(path.join(repositoryRoot, 'AGENTS.md'), path.join(root, 'AGENTS.md'))
+  fs.mkdirSync(path.join(root, 'tools'))
+  fs.copyFileSync(
+    path.join(repositoryRoot, 'tools/compass-consumer-reconciliation.json'),
+    path.join(root, 'tools/compass-consumer-reconciliation.json')
+  )
   for (const adapterRoot of ['.agents', '.claude']) {
     fs.mkdirSync(path.join(root, adapterRoot))
     fs.symlinkSync('../skills', path.join(root, adapterRoot, 'skills'))
@@ -31,12 +37,12 @@ test('Compass projection matches its exact artifact receipt', () => {
   assert.deepEqual(checkCompassProjection(repositoryRoot), [])
 })
 
-test('renovate-config binds its accepted Compass capability-aware interaction identity across all seven dimensions', () => {
+test('renovate-config binds the corrected Compass authority identity across all seven dimensions', () => {
   const receiptBytes = fs.readFileSync(path.join(repositoryRoot, '.compass/receipt.json'))
   const receipt = JSON.parse(receiptBytes)
   const receiptSha256 = createHash('sha256').update(receiptBytes).digest('hex')
   assert.deepEqual(checkAcceptedCompassIdentity(receipt, receiptSha256), [])
-  assert.equal(ACCEPTED_COMPASS_IDENTITY.commit, 'c0a45d8a9c8db0e4dcaa5e2d543c48ac208289a0')
+  assert.equal(ACCEPTED_COMPASS_IDENTITY.commit, '043568a695b589154036ec85bc56e681a2b1e370')
   assert.equal(ACCEPTED_COMPASS_IDENTITY.receiptSha256, receiptSha256)
 
   const cases = [
@@ -59,6 +65,56 @@ test('renovate-config binds its accepted Compass capability-aware interaction id
   assert.match(
     checkAcceptedCompassIdentity(receipt, '0'.repeat(64)).join('\n'),
     /accepted Compass receiptSha256 differs/u
+  )
+})
+
+test('renovate-config owns a direct reconciliation for every issued Compass candidate', () => {
+  assert.deepEqual(checkCompassConsumerReconciliation(repositoryRoot), [])
+})
+
+test('renovate-config reconciliation fails closed on local identity and state drift', () => {
+  const cases = [
+    ['sourceCommit', '0'.repeat(40)],
+    ['sourceTree', '0'.repeat(40)],
+    ['sourceFingerprintSha256', '0'.repeat(64)],
+    ['artifactSha256', '0'.repeat(64)],
+    ['artifactBytes', 1],
+    ['validationReceiptSha256', '0'.repeat(64)],
+    ['artifactReceiptSha256', '0'.repeat(64)],
+  ]
+  for (const [field, value] of cases) {
+    const root = fixture()
+    const file = path.join(root, 'tools/compass-consumer-reconciliation.json')
+    const record = JSON.parse(fs.readFileSync(file, 'utf8'))
+    record.records[0].authorityIdentity[field] = value
+    fs.writeFileSync(file, `${JSON.stringify(record, null, 2)}\n`)
+    assert.match(
+      checkCompassConsumerReconciliation(root).join('\n'),
+      /differs from the accepted authority identity/u,
+      field
+    )
+  }
+
+  const root = fixture()
+  const file = path.join(root, 'tools/compass-consumer-reconciliation.json')
+  const record = JSON.parse(fs.readFileSync(file, 'utf8'))
+  record.records[0].relationship = 'via-authority'
+  record.records[0].localReconciliation = 'pending'
+  fs.writeFileSync(file, `${JSON.stringify(record, null, 2)}\n`)
+  const problems = checkCompassConsumerReconciliation(root).join('\n')
+  assert.match(problems, /not direct/u)
+  assert.match(problems, /has not completed local review integration/u)
+})
+
+test('renovate-config reconciliation fails when an issued candidate is missing', () => {
+  const root = fixture()
+  const file = path.join(root, 'tools/compass-consumer-reconciliation.json')
+  const record = JSON.parse(fs.readFileSync(file, 'utf8'))
+  record.records.pop()
+  fs.writeFileSync(file, `${JSON.stringify(record, null, 2)}\n`)
+  assert.match(
+    checkCompassConsumerReconciliation(root).join('\n'),
+    /does not cover every issued candidate exactly once/u
   )
 })
 

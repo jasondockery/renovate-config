@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url'
 export const COMPASS_REPOSITORY = 'jasondockery/compass'
 export const COMPASS_SKILL_NAMES = Object.freeze([
   'accessible-product-development',
+  'ai-backend-change',
   'dependency-change',
   'field-failure-backpressure',
   'inclusive-content-design',
@@ -16,11 +17,18 @@ export const COMPASS_SKILL_NAMES = Object.freeze([
   'performance-sensitive-change',
   'privacy-by-design',
   'secure-by-design',
+  'shift-to-authority',
   'verification-selection',
 ])
 export const COMPASS_SHAREABLE_PATHS = Object.freeze([
   'COMPASS.md',
   'TERMINOLOGY.md',
+  'ai-workload-policy.json',
+  'authority-policy.json',
+  'authority-registry.json',
+  'authority-registry.schema.json',
+  'consumer-reconciliation.schema.json',
+  'scripts/check-authority-record.mjs',
   'scripts/check-projection.mjs',
   ...COMPASS_SKILL_NAMES.flatMap((name) => [
     `skills/${name}/SKILL.md`,
@@ -59,9 +67,10 @@ function safeRelativePath(value) {
 }
 
 export function compassProjectionPath(sourcePath) {
-  if (sourcePath === 'COMPASS.md' || sourcePath === 'TERMINOLOGY.md') {
+  if (['COMPASS.md', 'TERMINOLOGY.md', 'ai-workload-policy.json', 'authority-policy.json', 'authority-registry.json', 'authority-registry.schema.json', 'consumer-reconciliation.schema.json'].includes(sourcePath)) {
     return `.compass/${sourcePath}`
   }
+  if (sourcePath === 'scripts/check-authority-record.mjs') return '.compass/check-authority-record.mjs'
   if (sourcePath === 'scripts/check-projection.mjs') return '.compass/check-projection.mjs'
   return sourcePath
 }
@@ -203,7 +212,7 @@ function validateManagedNamespaces(root, problems) {
   if (!inspectExactDirectory(
     root,
     '.compass',
-    ['COMPASS.md', 'TERMINOLOGY.md', 'check-projection.mjs', 'receipt.json'],
+    ['COMPASS.md', 'TERMINOLOGY.md', 'ai-workload-policy.json', 'authority-policy.json', 'authority-registry.json', 'authority-registry.schema.json', 'check-authority-record.mjs', 'check-projection.mjs', 'consumer-reconciliation.schema.json', 'receipt.json'],
     problems
   )) return false
 

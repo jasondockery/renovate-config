@@ -6,8 +6,17 @@ outcome. `CHARTER.md` defines ownership, governance, and proof boundaries.
 it is reported.
 
 Shared engineering doctrine is projected from an immutable Compass artifact.
-Read `.compass/COMPASS.md` and `.compass/TERMINOLOGY.md` for the canonical local
-copy. Load `skills/verification-selection/SKILL.md` before proof selection,
+Read `.compass/COMPASS.md`, `.compass/TERMINOLOGY.md`,
+`.compass/ai-workload-policy.json`, `.compass/authority-policy.json`, and
+`.compass/authority-registry.json` for the canonical local copy. The projected
+`.compass/consumer-reconciliation.schema.json` defines the consumer record;
+`tools/compass-consumer-reconciliation.json` is this repository's direct
+adoption evidence, not a projected Compass file. Load
+`skills/shift-to-authority/SKILL.md` for substantial engineering reviews,
+field-failure reviews, cross-repository coordination, and release, projection,
+or adoption handoffs. Load `skills/ai-backend-change/SKILL.md` for AI model,
+backend, adapter, selection, fallback, or model-artifact changes. Load
+`skills/verification-selection/SKILL.md` before proof selection,
 `skills/dependency-change/SKILL.md` before dependency changes,
 `skills/field-failure-backpressure/SKILL.md` for failures first observed outside
 normal local proof, and `skills/performance-sensitive-change/SKILL.md` before

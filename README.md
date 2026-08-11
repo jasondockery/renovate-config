@@ -3,22 +3,27 @@
 ## Engineering direction
 
 This repository is the first consumer of the Compass engineering authority.
-`.compass/COMPASS.md`, `.compass/TERMINOLOGY.md`, and the receipt-listed shared
-skills are offline projections from the exact clean Compass commit recorded in
-`.compass/receipt.json`. `pnpm check:compass` verifies every projected byte and
-its provenance without a sibling checkout or network access. Renovate-specific
-policy, workflows, acceptance, and release procedures remain local.
+`.compass/COMPASS.md`, `.compass/TERMINOLOGY.md`, the projected structured
+policies and authority registry, and the receipt-listed shared skills are
+offline projections from the exact clean Compass commit recorded in
+`.compass/receipt.json`. `pnpm check:compass` verifies every projected byte,
+the issued authority registry, and
+`tools/compass-consumer-reconciliation.json`, this repository's direct-consumer
+record, without a sibling checkout or network access. Renovate-specific policy,
+workflows, acceptance, and release procedures remain local.
 
-The accepted projected-contract source is
-`c0a45d8a9c8db0e4dcaa5e2d543c48ac208289a0` (tree
-`42cd8d33e7e0d1a21acf642c98dd146b54f896f8`, fingerprint
-`116bdd9d0e7515339a2eaa0b9a561f0aadd6301e9422226b0a77d06c721fe8ee`,
-artifact `636a96690a5e13c3d69cf98be78fa4c6c2b6f944b96e62438a055c54fc82744a`,
+The projected-contract source pending this repository's hosted adoption proof is
+`043568a695b589154036ec85bc56e681a2b1e370` (tree
+`b5c9cab0aa018332a12498ffe58a5d60ef4af793`, fingerprint
+`d22d95c06b507a6506d49c290d5d3a14f435ebcf2db7d6bd3ea0a91abb37c69d`,
+artifact `5a7b66cf0f36c95561eff56b386e7df6d9895b4e2a4c65ce5f5aaa8046293d43`
+at 189698 bytes, validation-receipt SHA-256
+`8f637ca850edbedd39bc440939006b10c8b37dc59fe0cc8d167f15699a0e5b5d`,
 and receipt-file SHA-256
-`3fed0ea564079a4c676d37f18b3266d8263537260057c69da3cec4f23bf4c005`).
-This capability-aware interaction-stability successor supersedes the accepted
-`3373461…` projection without rewriting it; publication or unrelated Compass
-commits still cannot silently advance the accepted receipt.
+`920c5cee7f4ac98582d3a541751f5fa147c1aa58318756cc6e9ea14381506374`).
+It supersedes the held historical `681c872…` and `f3e135d…` identities without
+rewriting them. Publication or unrelated Compass commits still cannot silently
+advance the accepted receipt.
 
 Shared dependency-update automation for the owner's repositories.
 

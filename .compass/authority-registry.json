@@ -1,0 +1,237 @@
+{
+  "schema": "compass.shift-to-authority-registry",
+  "schemaVersion": 1,
+  "authority": "compass",
+  "candidates": [
+    {
+      "id": "sta-compass-shift-to-authority",
+      "invariant": "Cross-repository concerns move to the correct canonical authority through one generic evidence-bound lifecycle.",
+      "origin": {
+        "repository": "jasondockery/compass",
+        "identity": {
+          "kind": "source",
+          "repository": "jasondockery/compass",
+          "commit": "c0a45d8a9c8db0e4dcaa5e2d543c48ac208289a0"
+        }
+      },
+      "evidence": [
+        {
+          "id": "owner-review-c0a45d8",
+          "type": "cross-repository-review",
+          "repository": "jasondockery/compass",
+          "sourceCommit": "c0a45d8a9c8db0e4dcaa5e2d543c48ac208289a0",
+          "summary": "Owner review accepted one authority-relative convergence practice with local-repair-first and identity-bound movement."
+        },
+        {
+          "id": "renovate-review-f3e135d",
+          "type": "consumer-field-review",
+          "repository": "jasondockery/renovate-config",
+          "sourceCommit": "f3e135dd81b4b9c0f0706936bdc6c9a329ef68f8",
+          "summary": "A direct-consumer review exposed the need to separate authority issuance from independently owned consumer reconciliation."
+        }
+      ],
+      "affectedScope": [
+        "compass",
+        "roost",
+        "groundwork",
+        "renovate-config",
+        "hatch",
+        "future-authorities"
+      ],
+      "localRepairStatus": "complete",
+      "authorityReconciliation": "complete",
+      "incorporationStatus": "complete",
+      "proposedAuthority": "compass",
+      "ownershipReason": "Generic ownership, lifecycle, reporting, relationship, and proof doctrine belongs to Compass.",
+      "consumerOwnedRemainder": "Each direct consumer owns its reconciliation record, implementation, review integration, distribution mechanics, and adoption proof; downstream products own acceptance through their upstream authority.",
+      "candidateState": "issued",
+      "authorityIdentity": {
+        "kind": "containing-artifact-receipt",
+        "requiredDimensions": [
+          "sourceCommit",
+          "sourceTree",
+          "sourceFingerprintSha256",
+          "artifactSha256",
+          "artifactBytes",
+          "validationReceiptSha256",
+          "artifactReceiptSha256"
+        ]
+      },
+      "supersedes": null,
+      "transitionHistory": [
+        {
+          "sequence": 1,
+          "state": "local",
+          "identity": {
+            "kind": "source",
+            "repository": "jasondockery/compass",
+            "commit": "c0a45d8a9c8db0e4dcaa5e2d543c48ac208289a0"
+          }
+        },
+        {
+          "sequence": 2,
+          "state": "nominated",
+          "identity": {
+            "kind": "source",
+            "repository": "jasondockery/compass",
+            "commit": "c0a45d8a9c8db0e4dcaa5e2d543c48ac208289a0"
+          }
+        },
+        {
+          "sequence": 3,
+          "state": "accepted",
+          "identity": {
+            "kind": "source",
+            "repository": "jasondockery/compass",
+            "commit": "681c8729145490e8165b01898559145b88822b27"
+          }
+        },
+        {
+          "sequence": 4,
+          "state": "issued",
+          "identity": {
+            "kind": "containing-artifact-receipt",
+            "requiredDimensions": [
+              "sourceCommit",
+              "sourceTree",
+              "sourceFingerprintSha256",
+              "artifactSha256",
+              "artifactBytes",
+              "validationReceiptSha256",
+              "artifactReceiptSha256"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "sta-compass-replaceable-ai-workloads",
+      "invariant": "AI models and inference backends are replaceable, explicit implementations of named workloads; consumers depend on capability contracts, never vendor or model SDK identity, and no local-to-hosted fallback occurs silently.",
+      "origin": {
+        "repository": "jasondockery/compass",
+        "identity": {
+          "kind": "source",
+          "repository": "jasondockery/compass",
+          "commit": "681c8729145490e8165b01898559145b88822b27"
+        }
+      },
+      "evidence": [
+        {
+          "id": "owner-ai-review-681c872",
+          "type": "cross-repository-review",
+          "repository": "jasondockery/compass",
+          "sourceCommit": "681c8729145490e8165b01898559145b88822b27",
+          "summary": "Owner review after local model churn accepted vendor-neutral named-workload, capability, fallback, provenance, privacy, and removal doctrine."
+        },
+        {
+          "id": "roost-ai-corroboration",
+          "type": "consumer-field-review",
+          "repository": "jasondockery/roost",
+          "sourceCommit": "df38ff2d358426f7cb05a8991d245d36bf7c494b",
+          "summary": "Roost independently corroborated the same invariant while retaining its implementation defects within Roost authority."
+        }
+      ],
+      "affectedScope": [
+        "compass-doctrine",
+        "roost-reusable-and-generated-workloads",
+        "groundwork-backend-provisioning",
+        "generated-consumers",
+        "hatch-product-acceptance",
+        "renovate-config-discovery"
+      ],
+      "localRepairStatus": "not-required",
+      "authorityReconciliation": "complete",
+      "incorporationStatus": "complete",
+      "proposedAuthority": "compass",
+      "ownershipReason": "Vendor-neutral workload, capability, privacy, provenance, change, fallback, and removal doctrine is generic across repositories and providers.",
+      "consumerOwnedRemainder": "Roost owns schemas, adapters, CLI, templates, and conformance; Groundwork owns provisioning and hardware acceptance; products own workload selection, evaluation, consent, and deployed acceptance; renovate-config owns package update automation.",
+      "candidateState": "issued",
+      "authorityIdentity": {
+        "kind": "containing-artifact-receipt",
+        "requiredDimensions": [
+          "sourceCommit",
+          "sourceTree",
+          "sourceFingerprintSha256",
+          "artifactSha256",
+          "artifactBytes",
+          "validationReceiptSha256",
+          "artifactReceiptSha256"
+        ]
+      },
+      "supersedes": null,
+      "transitionHistory": [
+        {
+          "sequence": 1,
+          "state": "local",
+          "identity": {
+            "kind": "source",
+            "repository": "jasondockery/compass",
+            "commit": "681c8729145490e8165b01898559145b88822b27"
+          }
+        },
+        {
+          "sequence": 2,
+          "state": "nominated",
+          "identity": {
+            "kind": "source",
+            "repository": "jasondockery/compass",
+            "commit": "681c8729145490e8165b01898559145b88822b27"
+          }
+        },
+        {
+          "sequence": 3,
+          "state": "accepted",
+          "identity": {
+            "kind": "source",
+            "repository": "jasondockery/compass",
+            "commit": "f3e135dd81b4b9c0f0706936bdc6c9a329ef68f8"
+          }
+        },
+        {
+          "sequence": 4,
+          "state": "issued",
+          "identity": {
+            "kind": "containing-artifact-receipt",
+            "requiredDimensions": [
+              "sourceCommit",
+              "sourceTree",
+              "sourceFingerprintSha256",
+              "artifactSha256",
+              "artifactBytes",
+              "validationReceiptSha256",
+              "artifactReceiptSha256"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "heldAuthorityIdentities": [
+    {
+      "identity": {
+        "sourceCommit": "681c8729145490e8165b01898559145b88822b27",
+        "sourceTree": "ec3948804d9d431255b65f558d135677ec6e4367",
+        "sourceFingerprintSha256": "f63d4e7a65db821db6a02aa7a4160b91090695f54733f964e193a2f84d807160",
+        "artifactSha256": "08603c83dbb72a1a0b86d2b03e687a1dfefbe3d1187c0712248061163e591489",
+        "artifactBytes": 118635,
+        "validationReceiptSha256": "dcfe2aeaf92d1fed7fbdebb89c97a04d74b0789e2cd7c51a9075c84b1bc866f0",
+        "artifactReceiptSha256": "d536b05984a4c64183f72cf23cfd5cb0f0a0352010016e15671766183113c90b"
+      },
+      "disposition": "historical-not-adoptable",
+      "reason": "The identity combined authority candidate state with a shared consumer state and lacked a strict consumer-owned reconciliation contract."
+    },
+    {
+      "identity": {
+        "sourceCommit": "f3e135dd81b4b9c0f0706936bdc6c9a329ef68f8",
+        "sourceTree": "ae6d91f97d4e7efd0ae54be73572d027abb32cbd",
+        "sourceFingerprintSha256": "b8adfdc2c6f1f8ceba1680fd26c9bfcb3397f4297f22a3c415de52d441b3e005",
+        "artifactSha256": "35c0344e3a0c2598fdc7dcecf077faff886a1f1ff22f9403772b0059d4744eb4",
+        "artifactBytes": 139211,
+        "validationReceiptSha256": "26f8d7f7c092feb1365425da4a7a4991983714da01505b1b8dfa99522fef3ff5",
+        "artifactReceiptSha256": "2d50f7cc078378ff2d9d268fcb8db7c26340cfe529590b0843c841507ce1457a"
+      },
+      "disposition": "historical-not-adoptable",
+      "reason": "The mechanically proven AI successor inherited the authority-state contradiction and its adoption handoff was explicitly held."
+    }
+  ]
+}

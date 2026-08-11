@@ -33,6 +33,11 @@ description: Select and report the cheapest reliable proof matching a change's b
    facts relevant to the claim, reruns, duplicate proof, invalidated proof, and
    remaining owner gates.
 
+For a substantial engineering code review, field-failure review,
+cross-repository coordination, or release, projection, or adoption handoff, use
+`shift-to-authority` and emit its one required `Shift to Authority candidates`
+field. Small reviews and ordinary status messages do not require that field.
+
 Staged versus unstaged state does not define task ownership or approval. Inspect
 the complete task diff independently of the index, stage only attributable
 changes when authorized, and stop if owner and agent changes cannot be safely

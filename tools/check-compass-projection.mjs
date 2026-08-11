@@ -45,10 +45,33 @@ const LOCAL_EXACT_IDENTITY = Object.freeze({
   artifactReceiptSha256: ACCEPTED_COMPASS_IDENTITY.receiptSha256,
 })
 
+const ACCEPTED_CONSUMER_PROOF = Object.freeze({
+  commit: '7cea9e467406917b55d1c654f529b9bd638b8361',
+  tree: '5684879449b67b180f9a077f8a6834c07f56ba37',
+  receiptSha256: 'cb02eeebbd93d99d712a6f33d0357916283667643a996e0f556032a35587369c',
+  hostedRun: Object.freeze({
+    provider: 'github-actions',
+    runId: 31475565675,
+    attempt: 1,
+    headSha: '7cea9e467406917b55d1c654f529b9bd638b8361',
+  }),
+})
+
 function exactIdentityMatches(candidate) {
   return candidate && Object.keys(LOCAL_EXACT_IDENTITY).every(
     (field) => candidate[field] === LOCAL_EXACT_IDENTITY[field]
   ) && Object.keys(candidate).length === Object.keys(LOCAL_EXACT_IDENTITY).length
+}
+
+function consumerProofMatches(candidate) {
+  return candidate?.commit === ACCEPTED_CONSUMER_PROOF.commit &&
+    candidate?.tree === ACCEPTED_CONSUMER_PROOF.tree &&
+    candidate?.receiptSha256 === ACCEPTED_CONSUMER_PROOF.receiptSha256 &&
+    candidate?.hostedRun?.provider === ACCEPTED_CONSUMER_PROOF.hostedRun.provider &&
+    candidate?.hostedRun?.runId === ACCEPTED_CONSUMER_PROOF.hostedRun.runId &&
+    candidate?.hostedRun?.attempt === ACCEPTED_CONSUMER_PROOF.hostedRun.attempt &&
+    candidate?.hostedRun?.headSha === ACCEPTED_CONSUMER_PROOF.hostedRun.headSha &&
+    Object.keys(candidate).length === 4 && Object.keys(candidate.hostedRun).length === 4
 }
 
 function readableRealPath(candidate, label, problems) {
@@ -171,11 +194,14 @@ export function checkCompassConsumerReconciliation(root = repositoryRoot) {
     if (record.relationship !== 'direct') {
       problems.push(`renovate-config Compass reconciliation ${record.candidateId} is not direct`)
     }
-    if (!['pending-adoption', 'adopted'].includes(record.consumerState) || record.localReconciliation !== 'complete') {
-      problems.push(`renovate-config Compass reconciliation ${record.candidateId} has not completed local review integration`)
+    if (record.consumerState !== 'adopted' || record.localReconciliation !== 'complete') {
+      problems.push(`renovate-config Compass reconciliation ${record.candidateId} is not adopted`)
     }
     if (!exactIdentityMatches(record.authorityIdentity)) {
       problems.push(`renovate-config Compass reconciliation ${record.candidateId} differs from the accepted authority identity`)
+    }
+    if (!consumerProofMatches(record.consumerProof)) {
+      problems.push(`renovate-config Compass reconciliation ${record.candidateId} differs from the accepted consumer proof`)
     }
   }
   return problems

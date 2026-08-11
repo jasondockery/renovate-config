@@ -103,7 +103,36 @@ test('renovate-config reconciliation fails closed on local identity and state dr
   fs.writeFileSync(file, `${JSON.stringify(record, null, 2)}\n`)
   const problems = checkCompassConsumerReconciliation(root).join('\n')
   assert.match(problems, /not direct/u)
-  assert.match(problems, /has not completed local review integration/u)
+  assert.match(problems, /is not adopted/u)
+})
+
+test('renovate-config reconciliation binds the exact consumer commit and hosted receipt', () => {
+  const cases = [
+    ['commit', '0'.repeat(40)],
+    ['tree', '0'.repeat(40)],
+    ['receiptSha256', '0'.repeat(64)],
+  ]
+  for (const [field, value] of cases) {
+    const root = fixture()
+    const file = path.join(root, 'tools/compass-consumer-reconciliation.json')
+    const record = JSON.parse(fs.readFileSync(file, 'utf8'))
+    record.records[0].consumerProof[field] = value
+    fs.writeFileSync(file, `${JSON.stringify(record, null, 2)}\n`)
+    assert.match(
+      checkCompassConsumerReconciliation(root).join('\n'),
+      /differs from the accepted consumer proof/u,
+      field
+    )
+  }
+
+  const root = fixture()
+  const file = path.join(root, 'tools/compass-consumer-reconciliation.json')
+  const record = JSON.parse(fs.readFileSync(file, 'utf8'))
+  record.records[0].consumerProof.hostedRun.headSha = '0'.repeat(40)
+  fs.writeFileSync(file, `${JSON.stringify(record, null, 2)}\n`)
+  const problems = checkCompassConsumerReconciliation(root).join('\n')
+  assert.match(problems, /hosted proof is invalid/u)
+  assert.match(problems, /differs from the accepted consumer proof/u)
 })
 
 test('renovate-config reconciliation fails when an issued candidate is missing', () => {

@@ -29,6 +29,8 @@ adoption. Load
 field-failure reviews, cross-repository coordination, and release, projection,
 or adoption handoffs. Load `skills/ai-backend-change/SKILL.md` for AI model,
 backend, adapter, selection, fallback, or model-artifact changes. Load
+`skills/developer-tool-change/SKILL.md` before adding, upgrading, replacing,
+configuring, or removing developer tools. Load
 `skills/verification-selection/SKILL.md` before proof selection,
 `skills/dependency-change/SKILL.md` before dependency changes,
 `skills/field-failure-backpressure/SKILL.md` for failures first observed outside

@@ -15,18 +15,24 @@ explicit canonical provider-bound adoption command and requires an Actions-,
 Checks-, and Contents-read GitHub token. Renovate-specific policy, workflows,
 acceptance, and release procedures remain local.
 
-The projected contract source is the corrected issued identity
-`857644af0fcafff2605ff2b42325c497fe98dc24` (tree
-`5592df2170c78f0461bcd695a9545f19f88d918b`, fingerprint
-`a1be91471edb9144f91283cb612ff8b8d5fdc20b7d6c3901a534dc757851e2cc`,
-artifact `6efc7010c9bbb75ae4b7d965994376bd7203623c20aca6183bca50c48f76c691`
-at 272855 bytes, validation-receipt SHA-256
-`d7434a2c68fbfbfc9cb3c72f762a869f2a5e6c12af9d85f1ba9f4576704eef0e`,
+The projected contract source is the operable-tools successor
+`dcedfeda65c57cb918776989e9108c2a2497a102` (tree
+`ff0d55bbc8fce808185a2fabe62f8f46b9b876f2`, fingerprint
+`54682153aea3a3dd2d8daad29d672614562fd3fd5ea3606ed3d142a7d6a1bafa`,
+artifact `0c6ff7dc7f03420b52256deb749a735d381dba9093a6fc9c2e2603e96413172b`
+at 287047 bytes, validation-receipt SHA-256
+`0d837deb91233c9b00d8a3e0b36da2eb732d62d12c3a7d9350969b9ba6457511`,
 and receipt-file SHA-256
-`e72415d80de38c69fdf83c15889def5577bd51eeb5901cc9fa1817cbe6df9785`).
-The record is pending until this exact consumer commit has a successful hosted
-`ci-gate` receipt and a separate adopted-state evidence commit passes the
-canonical authenticated check. Historical Compass identities `043568a…`,
+`7c0cd3fb965628b9db96a635bdd11e71e6d559fb5adbfa9b94adabcb128f3399`).
+Its three issued candidate records remain pending until this successor's exact
+consumer commit has a successful hosted `ci-gate` receipt and the separate
+adopted-state evidence commit passes the authenticated canonical check. The
+superseded 857 consumer commit
+`06f9639be2b3dd5e894b7b8d5a11220c497592e8` (tree
+`22e311aafec046c59735097d7236e0a828f9bb3c`) and successful `ci-gate` run
+`31487991221`, attempt 1, prove those pending bytes but were intentionally not
+promoted to adopted before the direct successor arrived.
+Historical Compass identities `043568a…`,
 `681c872…`, and `f3e135d…` remain immutable diagnostic evidence and MUST NOT be
 newly adopted. Historical consumer commit
 `7cea9e467406917b55d1c654f529b9bd638b8361` (tree

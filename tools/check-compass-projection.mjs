@@ -18,6 +18,7 @@ const REQUIRED_DOCTRINE_ROUTES = Object.freeze([
   '.compass/consumer-hosted-adoption-receipt.schema.json',
   '.compass/consumer-reconciliation.schema.json',
   'skills/ai-backend-change/SKILL.md',
+  'skills/developer-tool-change/SKILL.md',
   'skills/shift-to-authority/SKILL.md',
 ])
 const SKILL_RECEIPT_PATH = /^skills\/([^/]+)\/SKILL\.md$/u

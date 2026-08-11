@@ -1,6 +1,6 @@
 {
   "schema": "compass.shift-to-authority-registry",
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "authority": "compass",
   "candidates": [
     {
@@ -269,45 +269,251 @@
       ]
     }
   ],
-  "heldAuthorityIdentities": [
+  "heldAuthoritySources": [
     {
-      "identity": {
+      "source": {
+        "repository": "jasondockery/compass",
         "sourceCommit": "681c8729145490e8165b01898559145b88822b27",
         "sourceTree": "ec3948804d9d431255b65f558d135677ec6e4367",
-        "sourceFingerprintSha256": "f63d4e7a65db821db6a02aa7a4160b91090695f54733f964e193a2f84d807160",
-        "artifactSha256": "08603c83dbb72a1a0b86d2b03e687a1dfefbe3d1187c0712248061163e591489",
-        "artifactBytes": 118635,
-        "validationReceiptSha256": "dcfe2aeaf92d1fed7fbdebb89c97a04d74b0789e2cd7c51a9075c84b1bc866f0",
-        "artifactReceiptSha256": "d536b05984a4c64183f72cf23cfd5cb0f0a0352010016e15671766183113c90b"
+        "sourceFingerprintSha256": "f63d4e7a65db821db6a02aa7a4160b91090695f54733f964e193a2f84d807160"
       },
       "disposition": "historical-not-adoptable",
-      "reason": "The identity combined authority candidate state with a shared consumer state and lacked a strict consumer-owned reconciliation contract."
+      "reason": "The source combined authority candidate state with a shared consumer state and lacked a strict consumer-owned reconciliation contract.",
+      "observedExactIdentities": [
+        {
+          "sourceCommit": "681c8729145490e8165b01898559145b88822b27",
+          "sourceTree": "ec3948804d9d431255b65f558d135677ec6e4367",
+          "sourceFingerprintSha256": "f63d4e7a65db821db6a02aa7a4160b91090695f54733f964e193a2f84d807160",
+          "artifactSha256": "08603c83dbb72a1a0b86d2b03e687a1dfefbe3d1187c0712248061163e591489",
+          "artifactBytes": 118635,
+          "validationReceiptSha256": "dcfe2aeaf92d1fed7fbdebb89c97a04d74b0789e2cd7c51a9075c84b1bc866f0",
+          "artifactReceiptSha256": "d536b05984a4c64183f72cf23cfd5cb0f0a0352010016e15671766183113c90b"
+        },
+        {
+          "sourceCommit": "681c8729145490e8165b01898559145b88822b27",
+          "sourceTree": "ec3948804d9d431255b65f558d135677ec6e4367",
+          "sourceFingerprintSha256": "f63d4e7a65db821db6a02aa7a4160b91090695f54733f964e193a2f84d807160",
+          "artifactSha256": "08603c83dbb72a1a0b86d2b03e687a1dfefbe3d1187c0712248061163e591489",
+          "artifactBytes": 118635,
+          "validationReceiptSha256": "dcfe2aeaf92d1fed7fbdebb89c97a04d74b0789e2cd7c51a9075c84b1bc866f0",
+          "artifactReceiptSha256": "d536b059bf32eb3b4c15c213fc319419ada41f468e15e56809c7db97f70c1fcf"
+        },
+        {
+          "sourceCommit": "681c8729145490e8165b01898559145b88822b27",
+          "sourceTree": "ec3948804d9d431255b65f558d135677ec6e4367",
+          "sourceFingerprintSha256": "f63d4e7a65db821db6a02aa7a4160b91090695f54733f964e193a2f84d807160",
+          "artifactSha256": "08603c83dbb72a1a0b86d2b03e687a1dfefbe3d1187c0712248061163e591489",
+          "artifactBytes": 118635,
+          "validationReceiptSha256": "bbf0fe3bbb9409276d408f32bf38b8599bf77fe44baa90370e2ad3980c44f2d4",
+          "artifactReceiptSha256": "725e0b4523d52ef201ce05202470a0ee016d9466a0d1305b6a969d4cb2cab3bb"
+        }
+      ]
     },
     {
-      "identity": {
+      "source": {
+        "repository": "jasondockery/compass",
         "sourceCommit": "f3e135dd81b4b9c0f0706936bdc6c9a329ef68f8",
         "sourceTree": "ae6d91f97d4e7efd0ae54be73572d027abb32cbd",
-        "sourceFingerprintSha256": "b8adfdc2c6f1f8ceba1680fd26c9bfcb3397f4297f22a3c415de52d441b3e005",
-        "artifactSha256": "35c0344e3a0c2598fdc7dcecf077faff886a1f1ff22f9403772b0059d4744eb4",
-        "artifactBytes": 139211,
-        "validationReceiptSha256": "26f8d7f7c092feb1365425da4a7a4991983714da01505b1b8dfa99522fef3ff5",
-        "artifactReceiptSha256": "2d50f7cc078378ff2d9d268fcb8db7c26340cfe529590b0843c841507ce1457a"
+        "sourceFingerprintSha256": "b8adfdc2c6f1f8ceba1680fd26c9bfcb3397f4297f22a3c415de52d441b3e005"
       },
       "disposition": "historical-not-adoptable",
-      "reason": "The mechanically proven AI successor inherited the authority-state contradiction and its adoption handoff was explicitly held."
+      "reason": "The source inherited the authority-state contradiction and its adoption handoff was explicitly held.",
+      "observedExactIdentities": [
+        {
+          "sourceCommit": "f3e135dd81b4b9c0f0706936bdc6c9a329ef68f8",
+          "sourceTree": "ae6d91f97d4e7efd0ae54be73572d027abb32cbd",
+          "sourceFingerprintSha256": "b8adfdc2c6f1f8ceba1680fd26c9bfcb3397f4297f22a3c415de52d441b3e005",
+          "artifactSha256": "35c0344e3a0c2598fdc7dcecf077faff886a1f1ff22f9403772b0059d4744eb4",
+          "artifactBytes": 139211,
+          "validationReceiptSha256": "26f8d7f7c092feb1365425da4a7a4991983714da01505b1b8dfa99522fef3ff5",
+          "artifactReceiptSha256": "2d50f7cc078378ff2d9d268fcb8db7c26340cfe529590b0843c841507ce1457a"
+        }
+      ]
     },
     {
-      "identity": {
+      "source": {
+        "repository": "jasondockery/compass",
         "sourceCommit": "043568a695b589154036ec85bc56e681a2b1e370",
         "sourceTree": "b5c9cab0aa018332a12498ffe58a5d60ef4af793",
-        "sourceFingerprintSha256": "d22d95c06b507a6506d49c290d5d3a14f435ebcf2db7d6bd3ea0a91abb37c69d",
-        "artifactSha256": "5a7b66cf0f36c95561eff56b386e7df6d9895b4e2a4c65ce5f5aaa8046293d43",
-        "artifactBytes": 189698,
-        "validationReceiptSha256": "8f637ca850edbedd39bc440939006b10c8b37dc59fe0cc8d167f15699a0e5b5d",
-        "artifactReceiptSha256": "920c5cee7f4ac98582d3a541751f5fa147c1aa58318756cc6e9ea14381506374"
+        "sourceFingerprintSha256": "d22d95c06b507a6506d49c290d5d3a14f435ebcf2db7d6bd3ea0a91abb37c69d"
       },
       "disposition": "historical-not-adoptable",
-      "reason": "The identity did not cross-bind issued registry state, the containing projection receipt, consumer reconciliation, and complete hosted adoption proof in one canonical validation invocation."
+      "reason": "The source did not cross-bind issued registry state, the containing projection receipt, consumer reconciliation, and complete hosted adoption proof in one canonical validation invocation.",
+      "observedExactIdentities": [
+        {
+          "sourceCommit": "043568a695b589154036ec85bc56e681a2b1e370",
+          "sourceTree": "b5c9cab0aa018332a12498ffe58a5d60ef4af793",
+          "sourceFingerprintSha256": "d22d95c06b507a6506d49c290d5d3a14f435ebcf2db7d6bd3ea0a91abb37c69d",
+          "artifactSha256": "5a7b66cf0f36c95561eff56b386e7df6d9895b4e2a4c65ce5f5aaa8046293d43",
+          "artifactBytes": 189698,
+          "validationReceiptSha256": "8f637ca850edbedd39bc440939006b10c8b37dc59fe0cc8d167f15699a0e5b5d",
+          "artifactReceiptSha256": "920c5cee7f4ac98582d3a541751f5fa147c1aa58318756cc6e9ea14381506374"
+        }
+      ]
+    },
+    {
+      "source": {
+        "repository": "jasondockery/compass",
+        "sourceCommit": "857644af0fcafff2605ff2b42325c497fe98dc24",
+        "sourceTree": "5592df2170c78f0461bcd695a9545f19f88d918b",
+        "sourceFingerprintSha256": "a1be91471edb9144f91283cb612ff8b8d5fdc20b7d6c3901a534dc757851e2cc"
+      },
+      "disposition": "historical-not-adoptable",
+      "reason": "The source authenticated the complete provider boundary separately for every adopted candidate and could exceed its single absolute deadline when candidates shared one exact hosted-evidence bundle.",
+      "observedExactIdentities": [
+        {
+          "sourceCommit": "857644af0fcafff2605ff2b42325c497fe98dc24",
+          "sourceTree": "5592df2170c78f0461bcd695a9545f19f88d918b",
+          "sourceFingerprintSha256": "a1be91471edb9144f91283cb612ff8b8d5fdc20b7d6c3901a534dc757851e2cc",
+          "artifactSha256": "6efc7010c9bbb75ae4b7d965994376bd7203623c20aca6183bca50c48f76c691",
+          "artifactBytes": 272855,
+          "validationReceiptSha256": "9c62d6f4d21ea92b30078ab45feb25189a1ebabf538aeb0282750ca170066451",
+          "artifactReceiptSha256": "40a32533fde9666a0ccaedd454b38f738eab463c501997df683f47b46f874716"
+        },
+        {
+          "sourceCommit": "857644af0fcafff2605ff2b42325c497fe98dc24",
+          "sourceTree": "5592df2170c78f0461bcd695a9545f19f88d918b",
+          "sourceFingerprintSha256": "a1be91471edb9144f91283cb612ff8b8d5fdc20b7d6c3901a534dc757851e2cc",
+          "artifactSha256": "6efc7010c9bbb75ae4b7d965994376bd7203623c20aca6183bca50c48f76c691",
+          "artifactBytes": 272855,
+          "validationReceiptSha256": "d7434a2c68fbfbfc9cb3c72f762a869f2a5e6c12af9d85f1ba9f4576704eef0e",
+          "artifactReceiptSha256": "e72415d80de38c69fdf83c15889def5577bd51eeb5901cc9fa1817cbe6df9785"
+        }
+      ]
+    },
+    {
+      "source": {
+        "repository": "jasondockery/compass",
+        "sourceCommit": "dcedfeda65c57cb918776989e9108c2a2497a102",
+        "sourceTree": "ff0d55bbc8fce808185a2fabe62f8f46b9b876f2",
+        "sourceFingerprintSha256": "54682153aea3a3dd2d8daad29d672614562fd3fd5ea3606ed3d142a7d6a1bafa"
+      },
+      "disposition": "historical-not-adoptable",
+      "reason": "The source inherited the repeated provider-authentication defect and its adoption handoff was withdrawn after the live canonical field failure.",
+      "observedExactIdentities": [
+        {
+          "sourceCommit": "dcedfeda65c57cb918776989e9108c2a2497a102",
+          "sourceTree": "ff0d55bbc8fce808185a2fabe62f8f46b9b876f2",
+          "sourceFingerprintSha256": "54682153aea3a3dd2d8daad29d672614562fd3fd5ea3606ed3d142a7d6a1bafa",
+          "artifactSha256": "0c6ff7dc7f03420b52256deb749a735d381dba9093a6fc9c2e2603e96413172b",
+          "artifactBytes": 287047,
+          "validationReceiptSha256": "a6c3528f4e8b0a65b02d17389a07c2e9db6a15d8ad9e6e5e23d1beff89356d2c",
+          "artifactReceiptSha256": "47525b81ad9989d09121c251ff0e39851e8d661d5452a897c49b3a3794db2fb1"
+        },
+        {
+          "sourceCommit": "dcedfeda65c57cb918776989e9108c2a2497a102",
+          "sourceTree": "ff0d55bbc8fce808185a2fabe62f8f46b9b876f2",
+          "sourceFingerprintSha256": "54682153aea3a3dd2d8daad29d672614562fd3fd5ea3606ed3d142a7d6a1bafa",
+          "artifactSha256": "0c6ff7dc7f03420b52256deb749a735d381dba9093a6fc9c2e2603e96413172b",
+          "artifactBytes": 287047,
+          "validationReceiptSha256": "0d837deb91233c9b00d8a3e0b36da2eb732d62d12c3a7d9350969b9ba6457511",
+          "artifactReceiptSha256": "7c0cd3fb965628b9db96a635bdd11e71e6d559fb5adbfa9b94adabcb128f3399"
+        }
+      ]
+    },
+    {
+      "source": {
+        "repository": "jasondockery/compass",
+        "sourceCommit": "bc7cc430489a21f416b37f9e11d8da62d73581e9",
+        "sourceTree": "3453df1697a0c836b9c7f1e55127e3a58731cc92",
+        "sourceFingerprintSha256": "8db5a3b87bd3f86951405636ac436062ccd8807c8621eb6a80207469ca4aa697"
+      },
+      "disposition": "historical-not-adoptable",
+      "reason": "The source lacked the machine-readable supersession records required to prevent new adoption of its defective ancestors and was classified as diagnostic evidence.",
+      "observedExactIdentities": [
+        {
+          "sourceCommit": "bc7cc430489a21f416b37f9e11d8da62d73581e9",
+          "sourceTree": "3453df1697a0c836b9c7f1e55127e3a58731cc92",
+          "sourceFingerprintSha256": "8db5a3b87bd3f86951405636ac436062ccd8807c8621eb6a80207469ca4aa697",
+          "artifactSha256": "8c418f04a90b154d4d6c3a7dbd4f8d2d0c1d8d879bd541f90daa8fd5e5aef698",
+          "artifactBytes": 289315,
+          "validationReceiptSha256": "b86033a60b101ad505adfafcf13ec26d40865b854223756d6ec50d3646929500",
+          "artifactReceiptSha256": "35031fb9239f931cf3293ea3fc3a9838155bca8bb361a40fca161bc702e3ec9b"
+        }
+      ]
+    },
+    {
+      "source": {
+        "repository": "jasondockery/compass",
+        "sourceCommit": "2564baeba13c748a7c542475f801136e006450be",
+        "sourceTree": "66067ab9d6e31233792994467fee247103194337",
+        "sourceFingerprintSha256": "9f63d9466e3a003bb3d8159e86cdeb5ef7360765347a6f59d26ad8f5717f4e5f"
+      },
+      "disposition": "historical-not-adoptable",
+      "reason": "The source modeled source-code defects as exact receipt holds and could not block unseen receipt variants for an affected source.",
+      "observedExactIdentities": [
+        {
+          "sourceCommit": "2564baeba13c748a7c542475f801136e006450be",
+          "sourceTree": "66067ab9d6e31233792994467fee247103194337",
+          "sourceFingerprintSha256": "9f63d9466e3a003bb3d8159e86cdeb5ef7360765347a6f59d26ad8f5717f4e5f",
+          "artifactSha256": "afdc87011cb1d16950c2af08b91edcd68960b584d34e468d45bb7e67eeaec097",
+          "artifactBytes": 294515,
+          "validationReceiptSha256": "cac4a7044698e48b30cd233bc0346aab183b53cdfb402bf0da414ac6fe6e1be3",
+          "artifactReceiptSha256": "1388ff4dc496154e11b3da4b6345ce62e16d0cb7ed1f385c8cb4b82d6cd08032"
+        }
+      ]
+    },
+    {
+      "source": {
+        "repository": "jasondockery/compass",
+        "sourceCommit": "dc9ae45d6611873fc8849f79b36ee8482faa77c6",
+        "sourceTree": "83e8e6837607b42e813f1d71acca87f1b24e46bc",
+        "sourceFingerprintSha256": "c9f42ab78c911d545e4596a3265eb68d82f4815949c7209d242c4bae744d8b81"
+      },
+      "disposition": "historical-not-adoptable",
+      "reason": "The source preserved multiple exact receipt variants but still enforced source-code defects only through exact seven-dimensional matching, allowing a fresh unseen receipt to bypass the hold.",
+      "observedExactIdentities": [
+        {
+          "sourceCommit": "dc9ae45d6611873fc8849f79b36ee8482faa77c6",
+          "sourceTree": "83e8e6837607b42e813f1d71acca87f1b24e46bc",
+          "sourceFingerprintSha256": "c9f42ab78c911d545e4596a3265eb68d82f4815949c7209d242c4bae744d8b81",
+          "artifactSha256": "0579e201248267eedc920a460edc26950ddabf3e74f8b45c09750adc47be3291",
+          "artifactBytes": 298495,
+          "validationReceiptSha256": "81f4b47e971038519332ec3ba2110ca66b6f4888684ac99dc2dc957c6d07a17d",
+          "artifactReceiptSha256": "95b989914c205cd1f0d7a6bde24c92f7301ff052d8d28631dbbe7350eaf6a55c"
+        },
+        {
+          "sourceCommit": "dc9ae45d6611873fc8849f79b36ee8482faa77c6",
+          "sourceTree": "83e8e6837607b42e813f1d71acca87f1b24e46bc",
+          "sourceFingerprintSha256": "c9f42ab78c911d545e4596a3265eb68d82f4815949c7209d242c4bae744d8b81",
+          "artifactSha256": "0579e201248267eedc920a460edc26950ddabf3e74f8b45c09750adc47be3291",
+          "artifactBytes": 298495,
+          "validationReceiptSha256": "b14593796a2125a26c6ba392c2fc044f08208b9acb79b8325b6c850d5523d3e5",
+          "artifactReceiptSha256": "599eba5ecd38532b4289bc4e56f8be7ef9177b1df7c019c24dd14a7560bcc992"
+        }
+      ]
+    },
+    {
+      "source": {
+        "repository": "jasondockery/compass",
+        "sourceCommit": "2d09ca52da3d9b6d14010d811c84c29dcb186fc8",
+        "sourceTree": "45f3d719c211890d89f39d216c3af06ad9d17efb",
+        "sourceFingerprintSha256": "6651e69450bb37376f75b7ce7b8d1333d43c86c06fe34145943bb185e2e4cc80"
+      },
+      "disposition": "historical-not-adoptable",
+      "reason": "The source-wide hold model did not bind a syntactically valid hold repository to the authority policy repository and its source guard did not compare every complete observed identity.",
+      "observedExactIdentities": [
+        {
+          "sourceCommit": "2d09ca52da3d9b6d14010d811c84c29dcb186fc8",
+          "sourceTree": "45f3d719c211890d89f39d216c3af06ad9d17efb",
+          "sourceFingerprintSha256": "6651e69450bb37376f75b7ce7b8d1333d43c86c06fe34145943bb185e2e4cc80",
+          "artifactSha256": "d7546ed34dea50c69689a20583a81a7ace70707a40e15f298ca1099008d11549",
+          "artifactBytes": 309751,
+          "validationReceiptSha256": "9075664395359db737fbfa1b4c47b9bf9f081a8212af06c889054459cadd10cd",
+          "artifactReceiptSha256": "74df3659e02576b66b798b542493c8955b3cf3c0f90b3e1b38402c34873576b3"
+        },
+        {
+          "sourceCommit": "2d09ca52da3d9b6d14010d811c84c29dcb186fc8",
+          "sourceTree": "45f3d719c211890d89f39d216c3af06ad9d17efb",
+          "sourceFingerprintSha256": "6651e69450bb37376f75b7ce7b8d1333d43c86c06fe34145943bb185e2e4cc80",
+          "artifactSha256": "d7546ed34dea50c69689a20583a81a7ace70707a40e15f298ca1099008d11549",
+          "artifactBytes": 309751,
+          "validationReceiptSha256": "ae2d3a192d57751f5741a9157ff6a83459404ac2f24ef7db67b632ccf48f0786",
+          "artifactReceiptSha256": "9ffdd0617e858d1ecee3b7ea8e9caf3b6ba1d5e267b0e40f94c12f34faf8af57"
+        }
+      ]
     }
+  ],
+  "heldAuthorityIdentities": [
   ]
 }

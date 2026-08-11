@@ -97,6 +97,17 @@ proof exists, call the local record a consumer reconciliation record. Only a
 complete cross-bound adopted record is adoption evidence. Once adopted,
 reconcile provisional duplicated policy locally.
 
+Treat every `historical-not-adoptable` registry hold as immutable diagnostic
+history only. A source-code defect requires a source-wide hold keyed by
+repository, commit, tree, and fingerprint; reject every receipt for that source,
+including unseen variants. Bind the repository to the authority's canonical
+policy repository. Preserve every known seven-dimensional receipt as observed
+evidence beneath that hold and reject duplicate observations; keep the required
+observation array empty when the defect predates any receipt. Use an
+exact `artifact-receipt` hold only for an artifact- or receipt-local defect; it
+must not widen to other receipts for the same source. Require a later successor
+to record every known affected source and observed identity before handoff.
+
 ## Report
 
 Emit exactly one `Shift to Authority candidates` field for the review classes
@@ -136,5 +147,9 @@ The projected JSON Schemas validate portable structure. The projected
 executable is the normative semantic validator for transition order, sequence,
 terminal state, authority binding, and hosted provenance. One absolute deadline
 covers the complete provider validation, including pagination and body reads.
+Authenticate each unique exact hosted-evidence bundle once per invocation, then
+validate every candidate's transition and receipt binding independently against
+that authenticated result. Any evidence mutation is a distinct bundle and must
+fail closed unless it independently proves the complete contract.
 
 Hatch relates to Compass through Roost, not by direct Compass projection.

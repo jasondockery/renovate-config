@@ -15,26 +15,33 @@ explicit canonical provider-bound adoption command and requires an Actions-,
 Checks-, and Contents-read GitHub token. Renovate-specific policy, workflows,
 acceptance, and release procedures remain local.
 
-The projected contract source is the operable-tools successor
-`dcedfeda65c57cb918776989e9108c2a2497a102` (tree
-`ff0d55bbc8fce808185a2fabe62f8f46b9b876f2`, fingerprint
-`54682153aea3a3dd2d8daad29d672614562fd3fd5ea3606ed3d142a7d6a1bafa`,
-artifact `0c6ff7dc7f03420b52256deb749a735d381dba9093a6fc9c2e2603e96413172b`
-at 287047 bytes, validation-receipt SHA-256
-`0d837deb91233c9b00d8a3e0b36da2eb732d62d12c3a7d9350969b9ba6457511`,
+The projected contract source is the repository-bound source-hold successor
+`0b6911dbf66240fe7dfeee2808e1d51663dcdfaa` (tree
+`f6a218049ee60667101ca4f5b56767002dc6acf3`, fingerprint
+`d0ef4a00ff39bd0b3829527a788fd1c640799cd78505fc9ff08c73741a5c114d`,
+artifact `63fa100f36c5392d6a8536363cc31bbb9c6cd8c74eb159ba80ecd8fc7d706541`
+at 314639 bytes, validation-receipt SHA-256
+`3501e8944be9ecba1133fdfd0a56e036fdd3b5d0613f322dec10e73f391c28bb`,
 and receipt-file SHA-256
-`7c0cd3fb965628b9db96a635bdd11e71e6d559fb5adbfa9b94adabcb128f3399`).
+`bf2be1851c006a2a7276ccb521ffa5862f97e5b51be5f08c27352fa32105c5d5`).
 Its three issued candidate records remain pending until this successor's exact
 consumer commit has a successful hosted `ci-gate` receipt and the separate
 adopted-state evidence commit passes the authenticated canonical check. The
+superseded dced consumer commit
+`21100d89ba740750569606f1d9ce1dd9724127f2` (tree
+`9ce145e3225851f6df215a035277865d51b3ddb0`) and successful `ci-gate` run
+`31488424568`, attempt 1, prove those pending bytes but cannot establish
+adoption because its Compass source is historical-not-adoptable. The
 superseded 857 consumer commit
 `06f9639be2b3dd5e894b7b8d5a11220c497592e8` (tree
 `22e311aafec046c59735097d7236e0a828f9bb3c`) and successful `ci-gate` run
 `31487991221`, attempt 1, prove those pending bytes but were intentionally not
 promoted to adopted before the direct successor arrived.
-Historical Compass identities `043568a…`,
-`681c872…`, and `f3e135d…` remain immutable diagnostic evidence and MUST NOT be
-newly adopted. Historical consumer commit
+Historical Compass sources `043568a…`, `681c872…`, `f3e135d…`, `857644af…`,
+`dcedfeda…`, `bc7cc430…`, `2564baeb…`, `dc9ae45d…`, and `2d09ca52…` remain
+immutable diagnostic evidence and MUST NOT be newly adopted. Their complete
+known receipt variants remain recorded as observations under source-wide
+holds. Historical consumer commit
 `7cea9e467406917b55d1c654f529b9bd638b8361` (tree
 `5684879449b67b180f9a077f8a6834c07f56ba37`) and evidence-binding commit
 `9374b565b0f957155d4ce6b6a90e9a6e9fc4e181` (tree

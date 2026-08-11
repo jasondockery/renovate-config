@@ -63,6 +63,14 @@ function sha256(value) {
   return createHash('sha256').update(value).digest('hex')
 }
 
+function canonicalJson(value) {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(',')}}`
+  }
+  return JSON.stringify(value)
+}
+
 function safeRelativePath(value) {
   return typeof value === 'string' && SAFE_RELATIVE_PATH.test(value) && path.posix.normalize(value) === value
 }
@@ -78,6 +86,20 @@ function validateExactIdentity(identity, label, problems) {
     if (!SHA256.test(identity[key])) problems.push(`${label} ${key} is invalid`)
   }
   if (!Number.isSafeInteger(identity.artifactBytes) || identity.artifactBytes < 1) problems.push(`${label} artifactBytes is invalid`)
+}
+
+function validateAuthoritySource(source, label, problems) {
+  if (!exactKeys(source, ['repository', 'sourceCommit', 'sourceTree', 'sourceFingerprintSha256'], label, problems)) return
+  if (!REPOSITORY.test(source.repository ?? '') || !COMMIT.test(source.sourceCommit ?? '') || !COMMIT.test(source.sourceTree ?? '') || !SHA256.test(source.sourceFingerprintSha256 ?? '')) {
+    problems.push(`${label} is invalid`)
+  }
+}
+
+function sameAuthoritySource(source, repository, identity) {
+  return source?.repository === repository
+    && source.sourceCommit === identity?.sourceCommit
+    && source.sourceTree === identity?.sourceTree
+    && source.sourceFingerprintSha256 === identity?.sourceFingerprintSha256
 }
 
 function validateTransitionIdentity(identity, label, problems) {
@@ -133,10 +155,11 @@ export function validateAuthorityPolicy(policy) {
 
 export function validateAuthorityRegistry(registry, policy) {
   const problems = [...validateAuthorityPolicy(policy)]
-  if (!exactKeys(registry, ['schema', 'schemaVersion', 'authority', 'candidates', 'heldAuthorityIdentities'], 'authority registry', problems)) return problems
-  if (registry.schema !== 'compass.shift-to-authority-registry' || registry.schemaVersion !== 2 || !NAME.test(registry.authority ?? '') || !Object.hasOwn(policy.authorities ?? {}, registry.authority)) {
+  if (!exactKeys(registry, ['schema', 'schemaVersion', 'authority', 'candidates', 'heldAuthoritySources', 'heldAuthorityIdentities'], 'authority registry', problems)) return problems
+  if (registry.schema !== 'compass.shift-to-authority-registry' || registry.schemaVersion !== 3 || !NAME.test(registry.authority ?? '') || !Object.hasOwn(policy.authorities ?? {}, registry.authority)) {
     problems.push('authority registry identity is invalid')
   }
+  const authorityRepository = policy.authorities?.[registry.authority]?.repository
   if (!Array.isArray(registry.candidates) || registry.candidates.length < 1) problems.push('authority registry candidates are missing')
   const ids = new Set()
   const legal = new Set(['local:nominated', 'nominated:accepted', 'accepted:issued', 'local:rejected', 'nominated:rejected', 'accepted:rejected'])
@@ -187,14 +210,42 @@ export function validateAuthorityRegistry(registry, policy) {
       if (candidate.authorityIdentity?.kind !== 'containing-projection-receipt' || candidate.authorityReconciliation !== 'complete' || candidate.incorporationStatus !== 'complete') {
         problems.push(`${label} issued state lacks exact receipt binding or completed authority work`)
       }
+      if (candidate.authorityIdentity?.repository !== authorityRepository) problems.push(`${label} issued receipt repository does not match its authority policy`)
     } else if (candidate.authorityIdentity !== null) problems.push(`${label} non-issued state has an authorityIdentity`)
   }
-  if (!Array.isArray(registry.heldAuthorityIdentities) || registry.heldAuthorityIdentities.length < 1) problems.push('authority registry held identities are missing')
+  if (!Array.isArray(registry.heldAuthoritySources)) problems.push('authority registry held sources are missing')
+  const heldSources = new Set()
+  const observedIdentities = new Set()
+  for (const [index, hold] of (registry.heldAuthoritySources ?? []).entries()) {
+    const label = `held authority source ${index + 1}`
+    if (!exactKeys(hold, ['source', 'disposition', 'reason', 'observedExactIdentities'], label, problems)) continue
+    validateAuthoritySource(hold.source, `${label} identity`, problems)
+    if (hold.source?.repository !== authorityRepository) problems.push(`${label} repository does not match its authority policy`)
+    if (hold.disposition !== 'historical-not-adoptable' || !nonEmpty(hold.reason)) problems.push(`${label} disposition is invalid`)
+    const sourceIdentity = canonicalJson(hold.source)
+    if (heldSources.has(sourceIdentity)) problems.push(`${label} duplicates a held authority source`)
+    heldSources.add(sourceIdentity)
+    if (!Array.isArray(hold.observedExactIdentities)) problems.push(`${label} observed exact identities are missing`)
+    for (const [observationIndex, identity] of (hold.observedExactIdentities ?? []).entries()) {
+      const observationLabel = `${label} observed exact identity ${observationIndex + 1}`
+      validateExactIdentity(identity, observationLabel, problems)
+      if (!sameAuthoritySource(hold.source, hold.source?.repository, identity)) problems.push(`${observationLabel} does not match its held source`)
+      const exactIdentity = canonicalJson(identity)
+      if (observedIdentities.has(exactIdentity)) problems.push(`${observationLabel} duplicates observed exact evidence`)
+      observedIdentities.add(exactIdentity)
+    }
+  }
+  if (!Array.isArray(registry.heldAuthorityIdentities)) problems.push('authority registry held artifact identities are invalid')
+  const heldIdentities = new Set()
   for (const [index, hold] of (registry.heldAuthorityIdentities ?? []).entries()) {
     const label = `held authority identity ${index + 1}`
-    if (!exactKeys(hold, ['identity', 'disposition', 'reason'], label, problems)) continue
+    if (!exactKeys(hold, ['identity', 'scope', 'disposition', 'reason'], label, problems)) continue
     validateExactIdentity(hold.identity, `${label} identity`, problems)
-    if (hold.disposition !== 'historical-not-adoptable' || !nonEmpty(hold.reason)) problems.push(`${label} disposition is invalid`)
+    if (hold.scope !== 'artifact-receipt' || hold.disposition !== 'historical-not-adoptable' || !nonEmpty(hold.reason)) problems.push(`${label} disposition is invalid`)
+    const exactIdentity = canonicalJson(hold.identity)
+    if (heldIdentities.has(exactIdentity)) problems.push(`${label} duplicates a held authority identity`)
+    if (observedIdentities.has(exactIdentity)) problems.push(`${label} duplicates source-hold observed evidence`)
+    heldIdentities.add(exactIdentity)
   }
   return problems
 }
@@ -407,6 +458,8 @@ function loadAuthorityProjection(projectionRoot, { canonicalCompass = false, exp
     problems.push('issued candidates do not share one containing projection receipt binding')
   }
   const identity = resolveProjectionReceiptIdentity(receipt, receiptDocument.bytes, receiptDocument.path, binding, problems)
+  if (identity && (registry.heldAuthoritySources ?? []).some((hold) => sameAuthoritySource(hold.source, binding?.repository, identity))) problems.push('containing projection source is historical-not-adoptable')
+  if (identity && (registry.heldAuthorityIdentities ?? []).some((hold) => sameExactIdentity(hold.identity, identity))) problems.push('containing projection identity is historical-not-adoptable')
   if (canonicalCompass && registry.authority !== 'compass') problems.push('canonical Compass registry authority must be compass')
   if (canonicalCompass && !isDeepStrictEqual(binding, COMPASS_RECEIPT_BINDING)) problems.push('canonical Compass receipt binding is invalid')
   if (expectedAuthority && registry.authority !== expectedAuthority) problems.push(`upstream registry authority must be ${expectedAuthority}`)
@@ -630,7 +683,7 @@ function expectedPendingItem(currentItem) {
   return prior
 }
 
-function parseProviderReconciliation(contents, current, currentItem, policy, schema, label) {
+function parseProviderReconciliation(contents, current, policy, schema, label) {
   if (contents?.type !== 'file' || contents.encoding !== 'base64' || contents.path !== current.consumer.reconciliationPath || !COMMIT.test(contents.sha ?? '') || typeof contents.content !== 'string') throw new Error(`${label} GitHub reconciliation file response is invalid`)
   let bytes
   const encoded = contents.content.replaceAll(/\s/gu, '')
@@ -648,11 +701,14 @@ function parseProviderReconciliation(contents, current, currentItem, policy, sch
   for (const key of ['name', 'repository', 'reconciliationPath']) {
     if (prior.consumer[key] !== current.consumer[key]) throw new Error(`${label} provider-proven consumer identity or canonical path differs from the current reconciliation`)
   }
+  return prior
+}
+
+function validateProviderPriorCandidate(prior, currentItem, label) {
   const priorMatches = prior.records.filter(({ candidateId }) => candidateId === currentItem.candidateId)
   if (priorMatches.length !== 1 || !isDeepStrictEqual(priorMatches[0], expectedPendingItem(currentItem))) {
     throw new Error(`${label} adopted candidate changes more than the final transition and hosted evidence`)
   }
-  return prior
 }
 
 async function listRunArtifacts(token, base, runId, name, deadlineAt) {
@@ -671,9 +727,7 @@ async function listRunArtifacts(token, base, runId, name, deadlineAt) {
   return artifacts
 }
 
-async function validateProviderAdoption(item, consumer, policy, consumerSchema, hostedReceiptSchema, token, deadlineAt) {
-  const label = `consumer record ${String(item.candidateId)} adoption evidence`
-  const evidence = item.adoptionEvidence
+async function authenticateProviderAdoption(evidence, consumer, policy, consumerSchema, token, deadlineAt, label) {
   const run = evidence.hostedRun
   const artifactBinding = run.evidence
   const base = repositoryApiBase(run.repository)
@@ -684,7 +738,7 @@ async function validateProviderAdoption(item, consumer, policy, consumerSchema, 
   if (commitEvidence.sha !== evidence.commit || commitEvidence.tree?.sha !== evidence.tree) throw new Error(`${label} GitHub commit tree identity is invalid`)
   const reconciliationApiPath = consumer.consumer.reconciliationPath.split('/').map(encodeURIComponent).join('/')
   const priorContents = await request(`${base}/contents/${reconciliationApiPath}?ref=${evidence.commit}`)
-  parseProviderReconciliation(priorContents, consumer, item, policy, consumerSchema, label)
+  const prior = parseProviderReconciliation(priorContents, consumer, policy, consumerSchema, label)
   const jobsPath = `${base}/actions/runs/${run.runId}/attempts/${run.attempt}/jobs`
   const firstJobs = await request(`${jobsPath}?per_page=100&page=1`, { allowPagination: true })
   const totalJobs = firstJobs.value.total_count
@@ -723,6 +777,26 @@ async function validateProviderAdoption(item, consumer, policy, consumerSchema, 
   } catch {
     throw new Error(`${label} downloaded hosted receipt is invalid JSON`)
   }
+  return { prior, receipt }
+}
+
+async function validateProviderAdoption(item, consumer, policy, consumerSchema, hostedReceiptSchema, token, deadlineAt, authenticatedEvidence) {
+  const label = `consumer record ${String(item.candidateId)} adoption evidence`
+  const cacheKey = canonicalJson({
+    consumer: {
+      name: consumer.consumer.name,
+      repository: consumer.consumer.repository,
+      reconciliationPath: consumer.consumer.reconciliationPath,
+    },
+    evidence: item.adoptionEvidence,
+  })
+  let authentication = authenticatedEvidence.get(cacheKey)
+  if (!authentication) {
+    authentication = authenticateProviderAdoption(item.adoptionEvidence, consumer, policy, consumerSchema, token, deadlineAt, label)
+    authenticatedEvidence.set(cacheKey, authentication)
+  }
+  const { prior, receipt } = await authentication
+  validateProviderPriorCandidate(prior, item, label)
   const problems = []
   validateHostedReceipt(receipt, item, consumer.consumer.reconciliationPath, hostedReceiptSchema, label, problems)
   if (problems.length > 0) throw new Error(problems[0])
@@ -767,7 +841,11 @@ export async function validateAuthorityBundle({
     }
     if (candidate.candidateState !== 'issued') problems.push(`${label} candidate is not issued`)
     if (!isDeepStrictEqual(candidate.authorityIdentity, authority.binding)) problems.push(`${label} candidate is not bound to the containing projection receipt`)
-    if (item.relationship === 'direct' && !sameExactIdentity(item.authorityIdentity, authority.identity)) problems.push(`${label} direct authority identity does not equal the containing projection receipt`)
+    if (item.relationship === 'direct') {
+      if ((authority.registry.heldAuthoritySources ?? []).some((hold) => sameAuthoritySource(hold.source, candidate.authorityIdentity?.repository, item.authorityIdentity))) problems.push(`${label} references a historical-not-adoptable authority source`)
+      if ((authority.registry.heldAuthorityIdentities ?? []).some((hold) => sameExactIdentity(item.authorityIdentity, hold.identity))) problems.push(`${label} references a historical-not-adoptable authority identity`)
+      if (!sameExactIdentity(item.authorityIdentity, authority.identity)) problems.push(`${label} direct authority identity does not equal the containing projection receipt`)
+    }
     if (item.relationship === 'via-authority') {
       const matching = upstream.filter((bundle) => bundle.registry?.authority === item.viaAuthority?.name)
       if (matching.length !== 1) problems.push(`${label} requires exactly one matching upstream authority bundle`)
@@ -784,8 +862,9 @@ export async function validateAuthorityBundle({
   if (adopted.length > 0 && !nonEmpty(providerToken)) return ['provider provenance: an actions-read GitHub token is required']
   const deadlineMs = Number.isSafeInteger(providerDeadlineMs) && providerDeadlineMs > 0 ? Math.min(providerDeadlineMs, PROVIDER_DEADLINE_MS) : PROVIDER_DEADLINE_MS
   const deadlineAt = Date.now() + deadlineMs
+  const authenticatedEvidence = new Map()
   for (const item of adopted) {
-    try { await validateProviderAdoption(item, consumer, authority.policy, authority.consumerSchema, authority.hostedReceiptSchema, providerToken, deadlineAt) } catch (error) {
+    try { await validateProviderAdoption(item, consumer, authority.policy, authority.consumerSchema, authority.hostedReceiptSchema, providerToken, deadlineAt, authenticatedEvidence) } catch (error) {
       problems.push(`provider provenance: ${error instanceof Error ? error.message : String(error)}`)
       break
     }

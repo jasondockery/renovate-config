@@ -27,9 +27,11 @@ export const COMPASS_SHAREABLE_PATHS = Object.freeze([
   'authority-policy.json',
   'authority-registry.json',
   'authority-registry.schema.json',
+  'consumer-hosted-adoption-receipt.schema.json',
   'consumer-reconciliation.schema.json',
   'scripts/check-authority-record.mjs',
   'scripts/check-projection.mjs',
+  'scripts/validate-json-schema.mjs',
   ...COMPASS_SKILL_NAMES.flatMap((name) => [
     `skills/${name}/SKILL.md`,
     `skills/${name}/agents/openai.yaml`,
@@ -67,11 +69,12 @@ function safeRelativePath(value) {
 }
 
 export function compassProjectionPath(sourcePath) {
-  if (['COMPASS.md', 'TERMINOLOGY.md', 'ai-workload-policy.json', 'authority-policy.json', 'authority-registry.json', 'authority-registry.schema.json', 'consumer-reconciliation.schema.json'].includes(sourcePath)) {
+  if (['COMPASS.md', 'TERMINOLOGY.md', 'ai-workload-policy.json', 'authority-policy.json', 'authority-registry.json', 'authority-registry.schema.json', 'consumer-hosted-adoption-receipt.schema.json', 'consumer-reconciliation.schema.json'].includes(sourcePath)) {
     return `.compass/${sourcePath}`
   }
   if (sourcePath === 'scripts/check-authority-record.mjs') return '.compass/check-authority-record.mjs'
   if (sourcePath === 'scripts/check-projection.mjs') return '.compass/check-projection.mjs'
+  if (sourcePath === 'scripts/validate-json-schema.mjs') return '.compass/validate-json-schema.mjs'
   return sourcePath
 }
 
@@ -212,7 +215,7 @@ function validateManagedNamespaces(root, problems) {
   if (!inspectExactDirectory(
     root,
     '.compass',
-    ['COMPASS.md', 'TERMINOLOGY.md', 'ai-workload-policy.json', 'authority-policy.json', 'authority-registry.json', 'authority-registry.schema.json', 'check-authority-record.mjs', 'check-projection.mjs', 'consumer-reconciliation.schema.json', 'receipt.json'],
+    ['COMPASS.md', 'TERMINOLOGY.md', 'ai-workload-policy.json', 'authority-policy.json', 'authority-registry.json', 'authority-registry.schema.json', 'check-authority-record.mjs', 'check-projection.mjs', 'consumer-hosted-adoption-receipt.schema.json', 'consumer-reconciliation.schema.json', 'receipt.json', 'validate-json-schema.mjs'],
     problems
   )) return false
 
@@ -224,14 +227,16 @@ function validateManagedNamespaces(root, problems) {
   return true
 }
 
-function validateReceiptShape(receipt, problems, expectedPaths) {
+function validateReceiptShape(receipt, problems, expectedPaths, expectedRepository) {
   const initialProblemCount = problems.length
   if (receipt?.schema !== 'compass.artifact-receipt' || receipt.schemaVersion !== 1) {
     problems.push('Compass receipt has an unsupported schema or version')
     return false
   }
   if (
-    receipt.source?.repository !== COMPASS_REPOSITORY ||
+    (expectedRepository === null
+      ? typeof receipt.source?.repository !== 'string' || !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/u.test(receipt.source.repository)
+      : receipt.source?.repository !== expectedRepository) ||
     !COMMIT.test(receipt.source?.commit ?? '') ||
     !COMMIT.test(receipt.source?.tree ?? '') ||
     !SHA256.test(receipt.source?.fingerprintSha256 ?? '') ||
@@ -318,6 +323,7 @@ function validateReceiptShape(receipt, problems, expectedPaths) {
 export function inspectCompassProjection(root = defaultConsumerRoot, {
   expectedPaths = COMPASS_SHAREABLE_PATHS,
   checkManagedNamespaces = true,
+  expectedRepository = COMPASS_REPOSITORY,
 } = {}) {
   const consumerRoot = path.resolve(root)
   const problems = []
@@ -339,7 +345,7 @@ export function inspectCompassProjection(root = defaultConsumerRoot, {
     problems.push(`Compass receipt is malformed JSON: ${error instanceof Error ? error.message : String(error)}`)
     return { root: consumerRoot, receipt: null, problems }
   }
-  if (!validateReceiptShape(receipt, problems, expectedPaths)) {
+  if (!validateReceiptShape(receipt, problems, expectedPaths, expectedRepository)) {
     return { root: consumerRoot, receipt, problems }
   }
 

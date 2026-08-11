@@ -3,23 +3,23 @@
   "schemaVersion": 1,
   "source": {
     "repository": "jasondockery/compass",
-    "commit": "043568a695b589154036ec85bc56e681a2b1e370",
-    "tree": "b5c9cab0aa018332a12498ffe58a5d60ef4af793",
-    "fingerprintSha256": "d22d95c06b507a6506d49c290d5d3a14f435ebcf2db7d6bd3ea0a91abb37c69d",
+    "commit": "857644af0fcafff2605ff2b42325c497fe98dc24",
+    "tree": "5592df2170c78f0461bcd695a9545f19f88d918b",
+    "fingerprintSha256": "a1be91471edb9144f91283cb612ff8b8d5fdc20b7d6c3901a534dc757851e2cc",
     "dirty": false
   },
-  "artifactSha256": "5a7b66cf0f36c95561eff56b386e7df6d9895b4e2a4c65ce5f5aaa8046293d43",
-  "artifactBytes": 189698,
+  "artifactSha256": "6efc7010c9bbb75ae4b7d965994376bd7203623c20aca6183bca50c48f76c691",
+  "artifactBytes": 272855,
   "includedFiles": [
     {
       "path": "COMPASS.md",
-      "sha256": "fe79d699d9475427eea7da2e6c60dae7b3c4a4eba7106f7a8c1d433cc742e0a4",
-      "bytes": 19105
+      "sha256": "403c3f7ed32affae8e5aa6898fc67bcd1c798150cd59bbacd1a8ae12cc5750c9",
+      "bytes": 21529
     },
     {
       "path": "TERMINOLOGY.md",
-      "sha256": "44c6934fe562750c4ddd6631e276c400d3f14cb57008fe7957dc3ec2d5c70e20",
-      "bytes": 9893
+      "sha256": "81e5a3874dcbb092ec3bb2c6b5072146c29384c1ad648a8ab41a57b31bc91744",
+      "bytes": 10861
     },
     {
       "path": "ai-workload-policy.json",
@@ -28,33 +28,43 @@
     },
     {
       "path": "authority-policy.json",
-      "sha256": "20c41995eea5579f5ee25e9fc37e0b659d097f357bec10ee84bf069825651b21",
-      "bytes": 3083
+      "sha256": "b7ae5e8bee6706f30dbbe87cf56b80d3a49eaed016a2a518b33fb425415086b7",
+      "bytes": 3401
     },
     {
       "path": "authority-registry.json",
-      "sha256": "c766a2000f674a0ea5f6711eb2032595a3c5036ac639351dfba804c264a1f8f5",
-      "bytes": 9206
+      "sha256": "c632b2bc0c9e1443a2d468a64eea5deb6b1c7f23720cc14e842d419168577ec7",
+      "bytes": 9540
     },
     {
       "path": "authority-registry.schema.json",
-      "sha256": "843b3259e5d0aa9614e66f65a7d31c6ca37025cdf9a551c2008572f5691abf21",
-      "bytes": 6680
+      "sha256": "be61aed37a87340b0cdc9e5cc4e2e740f20465a265196aa2a4f4cab42bcb4259",
+      "bytes": 6573
+    },
+    {
+      "path": "consumer-hosted-adoption-receipt.schema.json",
+      "sha256": "eb0d58ee7fa8fd939c33b36bc4fc89accb95842e9883bfe9ec26ecde7c245cb5",
+      "bytes": 2285
     },
     {
       "path": "consumer-reconciliation.schema.json",
-      "sha256": "0a8969b9c02dad2f8187fb198158dfd1ba26d7be3aa99984959f7977c37116fc",
-      "bytes": 6051
+      "sha256": "0d88bf22a8592e52f182925134e344e6176c1b6bcf70af00e1739e6182b476f4",
+      "bytes": 9473
     },
     {
       "path": "scripts/check-authority-record.mjs",
-      "sha256": "c4880b4c401629be9ad293efba43575789863d8079bac7efd5ad2240de7e23e2",
-      "bytes": 17958
+      "sha256": "c0ae0780de654ce72eacfb29c50804e2d66ee2cb0a31dfe584832b542485da6c",
+      "bytes": 62716
     },
     {
       "path": "scripts/check-projection.mjs",
-      "sha256": "e3b6d2abb1459c75285f13c13dfb8586b20f0a72105cf8d4568e42b2cc2db6c7",
-      "bytes": 15689
+      "sha256": "2f40c3326691626751f636bc0e6f302558f4dea6ca48b911a5c0d62efb2916ac",
+      "bytes": 16251
+    },
+    {
+      "path": "scripts/validate-json-schema.mjs",
+      "sha256": "69ddb3f450c90699ea5722db01e970cedeea082695bba93033dbcc40347da714",
+      "bytes": 4144
     },
     {
       "path": "skills/accessible-product-development/SKILL.md",
@@ -158,8 +168,8 @@
     },
     {
       "path": "skills/shift-to-authority/SKILL.md",
-      "sha256": "64d5bcc200149147d9d3568b14f4120462048a57e2ba5e8380dfcf4e8a9ccdc0",
-      "bytes": 4396
+      "sha256": "cb6260132a14c251c0df1434e920f20b5dba0263f67e86cd7438246c8ad1d0b9",
+      "bytes": 7351
     },
     {
       "path": "skills/shift-to-authority/agents/openai.yaml",
@@ -179,7 +189,7 @@
   ],
   "validation": {
     "result": "passed",
-    "receiptSha256": "8f637ca850edbedd39bc440939006b10c8b37dc59fe0cc8d167f15699a0e5b5d",
+    "receiptSha256": "d7434a2c68fbfbfc9cb3c72f762a869f2a5e6c12af9d85f1ba9f4576704eef0e",
     "command": "scripts/validate-compass"
   }
 }

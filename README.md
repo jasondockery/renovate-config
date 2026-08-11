@@ -7,33 +7,37 @@ This repository is the first consumer of the Compass engineering authority.
 policies and authority registry, and the receipt-listed shared skills are
 offline projections from the exact clean Compass commit recorded in
 `.compass/receipt.json`. `pnpm check:compass` verifies every projected byte,
-the issued authority registry, and
+the issued authority registry, and the local reconciliation structure and
+identity while remaining an offline check. It also verifies
 `tools/compass-consumer-reconciliation.json`, this repository's direct-consumer
-record, without a sibling checkout or network access. Renovate-specific policy,
-workflows, acceptance, and release procedures remain local.
+record, without a sibling Compass checkout. `pnpm compass:adoption:check` is the
+explicit canonical provider-bound adoption command and requires an Actions-,
+Checks-, and Contents-read GitHub token. Renovate-specific policy, workflows,
+acceptance, and release procedures remain local.
 
-The currently projected contract source is the held historical identity
-`043568a695b589154036ec85bc56e681a2b1e370` (tree
-`b5c9cab0aa018332a12498ffe58a5d60ef4af793`, fingerprint
-`d22d95c06b507a6506d49c290d5d3a14f435ebcf2db7d6bd3ea0a91abb37c69d`,
-artifact `5a7b66cf0f36c95561eff56b386e7df6d9895b4e2a4c65ce5f5aaa8046293d43`
-at 189698 bytes, validation-receipt SHA-256
-`8f637ca850edbedd39bc440939006b10c8b37dc59fe0cc8d167f15699a0e5b5d`,
+The projected contract source is the corrected issued identity
+`857644af0fcafff2605ff2b42325c497fe98dc24` (tree
+`5592df2170c78f0461bcd695a9545f19f88d918b`, fingerprint
+`a1be91471edb9144f91283cb612ff8b8d5fdc20b7d6c3901a534dc757851e2cc`,
+artifact `6efc7010c9bbb75ae4b7d965994376bd7203623c20aca6183bca50c48f76c691`
+at 272855 bytes, validation-receipt SHA-256
+`d7434a2c68fbfbfc9cb3c72f762a869f2a5e6c12af9d85f1ba9f4576704eef0e`,
 and receipt-file SHA-256
-`920c5cee7f4ac98582d3a541751f5fa147c1aa58318756cc6e9ea14381506374`).
-It, `681c872…`, and `f3e135d…` are immutable diagnostic evidence and MUST NOT
-be newly adopted. Consumer commit
+`e72415d80de38c69fdf83c15889def5577bd51eeb5901cc9fa1817cbe6df9785`).
+The record is pending until this exact consumer commit has a successful hosted
+`ci-gate` receipt and a separate adopted-state evidence commit passes the
+canonical authenticated check. Historical Compass identities `043568a…`,
+`681c872…`, and `f3e135d…` remain immutable diagnostic evidence and MUST NOT be
+newly adopted. Historical consumer commit
 `7cea9e467406917b55d1c654f529b9bd638b8361` (tree
 `5684879449b67b180f9a077f8a6834c07f56ba37`) and evidence-binding commit
 `9374b565b0f957155d4ce6b6a90e9a6e9fc4e181` (tree
 `c55863f6c63e7f6f966ec72884ce6849a4e6f8bc`) proved their exact bytes but never
-established valid adoption because the projected authority validator did not
+established valid adoption because their projected authority validator did not
 cross-bind the registry, containing receipt, consumer record, and hosted gate
-artifact. The repository-owned reconciliation is therefore pending with no
-adoption proof. A formal corrected Compass successor must replace these
-projected bytes and repeat the complete pending, hosted-proof, and adopted
-sequence. Publication or unrelated Compass commits still cannot silently
-advance the projected receipt.
+artifact. They are retained as historical diagnostic proof, not adoption.
+Publication or unrelated Compass commits cannot silently advance the projected
+receipt.
 
 Shared dependency-update automation for the owner's repositories.
 

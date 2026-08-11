@@ -1,13 +1,10 @@
 import assert from 'node:assert/strict'
-import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 import {
-  HISTORICAL_COMPASS_IDENTITY,
-  checkHistoricalCompassIdentity,
   checkCompassConsumerReconciliation,
   checkCompassProjection,
   checkSkillDiscovery,
@@ -15,16 +12,30 @@ import {
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
+function pendingRecord(record) {
+  const pending = structuredClone(record)
+  for (const item of pending.records) {
+    if (item.consumerState !== 'adopted') continue
+    item.consumerState = 'pending-adoption'
+    item.transitionHistory.pop()
+    delete item.adoptionEvidence
+  }
+  return pending
+}
+
 function fixture() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'renovate-compass-'))
+  const root = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'renovate-compass-'))
   for (const relativePath of ['.compass', 'skills']) {
     fs.cpSync(path.join(repositoryRoot, relativePath), path.join(root, relativePath), { recursive: true })
   }
   fs.copyFileSync(path.join(repositoryRoot, 'AGENTS.md'), path.join(root, 'AGENTS.md'))
   fs.mkdirSync(path.join(root, 'tools'))
-  fs.copyFileSync(
-    path.join(repositoryRoot, 'tools/compass-consumer-reconciliation.json'),
-    path.join(root, 'tools/compass-consumer-reconciliation.json')
+  const sourceRecord = JSON.parse(
+    fs.readFileSync(path.join(repositoryRoot, 'tools/compass-consumer-reconciliation.json'), 'utf8')
+  )
+  fs.writeFileSync(
+    path.join(root, 'tools/compass-consumer-reconciliation.json'),
+    `${JSON.stringify(pendingRecord(sourceRecord), null, 2)}\n`
   )
   for (const adapterRoot of ['.agents', '.claude']) {
     fs.mkdirSync(path.join(root, adapterRoot))
@@ -33,46 +44,18 @@ function fixture() {
   return root
 }
 
-test('Compass projection matches its exact artifact receipt', () => {
-  assert.deepEqual(checkCompassProjection(repositoryRoot), [])
+function mutateRecord(root, mutate) {
+  const file = path.join(root, 'tools/compass-consumer-reconciliation.json')
+  const record = JSON.parse(fs.readFileSync(file, 'utf8'))
+  mutate(record)
+  fs.writeFileSync(file, `${JSON.stringify(record, null, 2)}\n`)
+}
+
+test('Compass projection and consumer reconciliation match the issued authority', async () => {
+  assert.deepEqual(await checkCompassProjection(repositoryRoot), [])
 })
 
-test('renovate-config binds the held historical Compass identity across all seven dimensions', () => {
-  const receiptBytes = fs.readFileSync(path.join(repositoryRoot, '.compass/receipt.json'))
-  const receipt = JSON.parse(receiptBytes)
-  const receiptSha256 = createHash('sha256').update(receiptBytes).digest('hex')
-  assert.deepEqual(checkHistoricalCompassIdentity(receipt, receiptSha256), [])
-  assert.equal(HISTORICAL_COMPASS_IDENTITY.commit, '043568a695b589154036ec85bc56e681a2b1e370')
-  assert.equal(HISTORICAL_COMPASS_IDENTITY.receiptSha256, receiptSha256)
-
-  const cases = [
-    ['commit', (candidate) => { candidate.source.commit = '94c7770e4b7d2e8652763ad16c4dba4eb181c8a4' }],
-    ['tree', (candidate) => { candidate.source.tree = '0'.repeat(40) }],
-    ['fingerprintSha256', (candidate) => { candidate.source.fingerprintSha256 = '0'.repeat(64) }],
-    ['artifactSha256', (candidate) => { candidate.artifactSha256 = '0'.repeat(64) }],
-    ['artifactBytes', (candidate) => { candidate.artifactBytes = 1 }],
-    ['validationReceiptSha256', (candidate) => { candidate.validation.receiptSha256 = '0'.repeat(64) }],
-  ]
-  for (const [field, mutate] of cases) {
-    const candidate = structuredClone(receipt)
-    mutate(candidate)
-    assert.match(
-      checkHistoricalCompassIdentity(candidate, receiptSha256).join('\n'),
-      new RegExp(`historical Compass ${field} differs`, 'u'),
-      field
-    )
-  }
-  assert.match(
-    checkHistoricalCompassIdentity(receipt, '0'.repeat(64)).join('\n'),
-    /historical Compass receiptSha256 differs/u
-  )
-})
-
-test('renovate-config owns a direct reconciliation for every issued Compass candidate', () => {
-  assert.deepEqual(checkCompassConsumerReconciliation(repositoryRoot), [])
-})
-
-test('renovate-config reconciliation fails closed on local identity and state drift', () => {
+test('canonical Compass validation binds every exact identity dimension', async () => {
   const cases = [
     ['sourceCommit', '0'.repeat(40)],
     ['sourceTree', '0'.repeat(40)],
@@ -84,87 +67,92 @@ test('renovate-config reconciliation fails closed on local identity and state dr
   ]
   for (const [field, value] of cases) {
     const root = fixture()
-    const file = path.join(root, 'tools/compass-consumer-reconciliation.json')
-    const record = JSON.parse(fs.readFileSync(file, 'utf8'))
-    record.records[0].authorityIdentity[field] = value
-    fs.writeFileSync(file, `${JSON.stringify(record, null, 2)}\n`)
+    mutateRecord(root, (record) => { record.records[0].authorityIdentity[field] = value })
     assert.match(
-      checkCompassConsumerReconciliation(root).join('\n'),
-      /differs from the historical projection identity/u,
+      (await checkCompassConsumerReconciliation(root)).join('\n'),
+      /direct authority identity does not equal the containing projection receipt/u,
       field
     )
   }
-
-  const root = fixture()
-  const file = path.join(root, 'tools/compass-consumer-reconciliation.json')
-  const record = JSON.parse(fs.readFileSync(file, 'utf8'))
-  record.records[0].relationship = 'via-authority'
-  record.records[0].localReconciliation = 'complete'
-  fs.writeFileSync(file, `${JSON.stringify(record, null, 2)}\n`)
-  const problems = checkCompassConsumerReconciliation(root).join('\n')
-  assert.match(problems, /not direct/u)
-  assert.match(problems, /does not preserve the adoption hold/u)
 })
 
-test('renovate-config reconciliation rejects a terminal claim while the Compass identity is held', () => {
-  const root = fixture()
-  const file = path.join(root, 'tools/compass-consumer-reconciliation.json')
-  const record = JSON.parse(fs.readFileSync(file, 'utf8'))
-  record.records[0].consumerState = 'adopted'
-  record.records[0].localReconciliation = 'complete'
-  record.records[0].consumerProof = {
-    commit: '7cea9e467406917b55d1c654f529b9bd638b8361',
-    tree: '5684879449b67b180f9a077f8a6834c07f56ba37',
-    receiptSha256: 'cb02eeebbd93d99d712a6f33d0357916283667643a996e0f556032a35587369c',
-    hostedRun: {
-      provider: 'github-actions',
-      runId: 31475565675,
-      attempt: 1,
-      headSha: '7cea9e467406917b55d1c654f529b9bd638b8361',
-    },
-  }
-  fs.writeFileSync(file, `${JSON.stringify(record, null, 2)}\n`)
-  const problems = checkCompassConsumerReconciliation(root).join('\n')
-  assert.match(problems, /does not preserve the adoption hold/u)
-  assert.match(problems, /retains withdrawn consumer proof/u)
+test('canonical Compass validation rejects state, candidate, and adoption-contract drift', async () => {
+  const relationshipRoot = fixture()
+  mutateRecord(relationshipRoot, (record) => { record.records[0].relationship = 'via-authority' })
+  assert.match((await checkCompassConsumerReconciliation(relationshipRoot)).join('\n'), /viaAuthority/u)
+
+  const missingRoot = fixture()
+  mutateRecord(missingRoot, (record) => { record.records.pop() })
+  assert.match((await checkCompassConsumerReconciliation(missingRoot)).join('\n'), /every issued candidate/u)
+
+  const contractRoot = fixture()
+  mutateRecord(contractRoot, (record) => {
+    record.records[0].adoptionContract.requiredGate = ''
+  })
+  assert.match((await checkCompassConsumerReconciliation(contractRoot)).join('\n'), /hosted authority is invalid/u)
 })
 
-test('renovate-config reconciliation fails when an issued candidate is missing', () => {
+test('offline verification preserves local cross-binding while provider adoption stays explicit', async () => {
   const root = fixture()
-  const file = path.join(root, 'tools/compass-consumer-reconciliation.json')
-  const record = JSON.parse(fs.readFileSync(file, 'utf8'))
-  record.records.pop()
-  fs.writeFileSync(file, `${JSON.stringify(record, null, 2)}\n`)
+  mutateRecord(root, (record) => {
+    const item = record.records[0]
+    item.consumerState = 'adopted'
+    item.transitionHistory.push({ sequence: 3, state: 'adopted' })
+    item.adoptionEvidence = {
+      repository: 'jasondockery/renovate-config',
+      commit: 'a'.repeat(40),
+      tree: 'b'.repeat(40),
+      hostedRun: {
+        provider: 'github-actions',
+        repository: 'jasondockery/renovate-config',
+        workflow: '.github/workflows/ci.yml',
+        requiredGate: 'ci-gate',
+        requiredJobId: 10,
+        requiredCheckId: 10,
+        conclusion: 'success',
+        runId: 20,
+        attempt: 1,
+        headSha: 'a'.repeat(40),
+        evidence: {
+          kind: 'artifact',
+          artifactId: 30,
+          name: 'renovate-config-ci-receipt-20-1',
+          path: 'compass-hosted-adoption-receipt.json',
+          artifactSha256: 'c'.repeat(64),
+          receiptSha256: 'd'.repeat(64),
+        },
+      },
+    }
+  })
+  assert.deepEqual(await checkCompassConsumerReconciliation(root), [])
   assert.match(
-    checkCompassConsumerReconciliation(root).join('\n'),
-    /does not cover every issued candidate exactly once/u
+    (await checkCompassConsumerReconciliation(root, { authenticateProvider: true, providerToken: '' })).join('\n'),
+    /actions-read GitHub token is required/u
   )
 })
 
-test('renovate-config does not reimplement generic Compass conformance', () => {
+test('renovate-config delegates authority binding and generic projection semantics to Compass', () => {
   const source = fs.readFileSync(path.join(repositoryRoot, 'tools/check-compass-projection.mjs'), 'utf8')
-  assert.match(source, /from '\.\.\/\.compass\/check-projection\.mjs'/u)
-  assert.doesNotMatch(source, /expectedSourcePaths/u)
+  assert.match(source, /validateAuthorityBundle/u)
+  assert.match(source, /inspectCompassProjection/u)
+  assert.doesNotMatch(source, /HISTORICAL_COMPASS_IDENTITY|LOCAL_EXACT_IDENTITY|sameExactIdentity/u)
   assert.doesNotMatch(source, /dependency-change|field-failure-backpressure|performance-sensitive-change|verification-selection/u)
-  assert.doesNotMatch(source, /REQUIRED_LOCAL_ROUTES/u)
 })
 
-test('renovate-config rejects receipt-byte drift even when parsed identity fields are unchanged', () => {
-  const root = fixture()
-  fs.appendFileSync(path.join(root, '.compass/receipt.json'), '\n')
-  assert.match(checkCompassProjection(root).join('\n'), /historical Compass receiptSha256 differs/u)
+test('renovate-config rejects receipt-byte and projected-byte drift', async () => {
+  const receiptRoot = fixture()
+  fs.appendFileSync(path.join(receiptRoot, '.compass/receipt.json'), '\n')
+  assert.match((await checkCompassProjection(receiptRoot)).join('\n'), /receipt/u)
+
+  const doctrineRoot = fixture()
+  fs.appendFileSync(path.join(doctrineRoot, '.compass/COMPASS.md'), '\nindependent policy\n')
+  assert.match((await checkCompassProjection(doctrineRoot)).join('\n'), /COMPASS\.md/u)
 })
 
-test('renovate-config wrapper delegates generic drift semantics to Compass', () => {
-  const root = fixture()
-  fs.appendFileSync(path.join(root, '.compass/COMPASS.md'), '\nindependent policy\n')
-  assert.match(checkCompassProjection(root).join('\n'), /COMPASS\.md/u)
-})
-
-test('renovate-config wrapper retains only repository-local AGENTS routing', () => {
+test('renovate-config wrapper retains repository-local AGENTS routing', async () => {
   const root = fixture()
   fs.writeFileSync(path.join(root, 'AGENTS.md'), '# Local only\n')
-  assert.match(checkCompassProjection(root).join('\n'), /does not route/u)
+  assert.match((await checkCompassProjection(root)).join('\n'), /does not route/u)
 })
 
 test('skill discovery is derived from the receipt and accepts a future projected skill', () => {

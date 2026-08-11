@@ -1,55 +1,27 @@
 #!/usr/bin/env node
-import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
-import {
-  validateAuthorityRegistry,
-  validateConsumerReconciliation,
-} from '../.compass/check-authority-record.mjs'
+import { validateAuthorityBundle } from '../.compass/check-authority-record.mjs'
 import { inspectCompassProjection } from '../.compass/check-projection.mjs'
 import { isMainModule } from './is-main.mjs'
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+export const CONSUMER_RECONCILIATION_PATH = 'tools/compass-consumer-reconciliation.json'
 const REQUIRED_DOCTRINE_ROUTES = Object.freeze([
   '.compass/COMPASS.md',
   '.compass/TERMINOLOGY.md',
   '.compass/ai-workload-policy.json',
   '.compass/authority-policy.json',
   '.compass/authority-registry.json',
+  '.compass/consumer-hosted-adoption-receipt.schema.json',
   '.compass/consumer-reconciliation.schema.json',
   'skills/ai-backend-change/SKILL.md',
   'skills/shift-to-authority/SKILL.md',
 ])
-const CONSUMER_RECONCILIATION_PATH = 'tools/compass-consumer-reconciliation.json'
 const SKILL_RECEIPT_PATH = /^skills\/([^/]+)\/SKILL\.md$/u
 const DISCOVERY_ADAPTERS = Object.freeze(['.agents/skills', '.claude/skills'])
-export const HISTORICAL_COMPASS_IDENTITY = Object.freeze({
-  commit: '043568a695b589154036ec85bc56e681a2b1e370',
-  tree: 'b5c9cab0aa018332a12498ffe58a5d60ef4af793',
-  fingerprintSha256: 'd22d95c06b507a6506d49c290d5d3a14f435ebcf2db7d6bd3ea0a91abb37c69d',
-  artifactSha256: '5a7b66cf0f36c95561eff56b386e7df6d9895b4e2a4c65ce5f5aaa8046293d43',
-  artifactBytes: 189698,
-  validationReceiptSha256: '8f637ca850edbedd39bc440939006b10c8b37dc59fe0cc8d167f15699a0e5b5d',
-  receiptSha256: '920c5cee7f4ac98582d3a541751f5fa147c1aa58318756cc6e9ea14381506374',
-})
-
-const HISTORICAL_EXACT_IDENTITY = Object.freeze({
-  sourceCommit: HISTORICAL_COMPASS_IDENTITY.commit,
-  sourceTree: HISTORICAL_COMPASS_IDENTITY.tree,
-  sourceFingerprintSha256: HISTORICAL_COMPASS_IDENTITY.fingerprintSha256,
-  artifactSha256: HISTORICAL_COMPASS_IDENTITY.artifactSha256,
-  artifactBytes: HISTORICAL_COMPASS_IDENTITY.artifactBytes,
-  validationReceiptSha256: HISTORICAL_COMPASS_IDENTITY.validationReceiptSha256,
-  artifactReceiptSha256: HISTORICAL_COMPASS_IDENTITY.receiptSha256,
-})
-
-function exactIdentityMatches(candidate) {
-  return candidate && Object.keys(HISTORICAL_EXACT_IDENTITY).every(
-    (field) => candidate[field] === HISTORICAL_EXACT_IDENTITY[field]
-  ) && Object.keys(candidate).length === Object.keys(HISTORICAL_EXACT_IDENTITY).length
-}
 
 function readableRealPath(candidate, label, problems) {
   try {
@@ -112,99 +84,44 @@ export function checkSkillDiscovery(root, receipt) {
   return problems
 }
 
-export function checkHistoricalCompassIdentity(receipt, receiptSha256) {
-  const problems = []
-  for (const [key, actual] of [
-    ['commit', receipt?.source?.commit],
-    ['tree', receipt?.source?.tree],
-    ['fingerprintSha256', receipt?.source?.fingerprintSha256],
-    ['artifactSha256', receipt?.artifactSha256],
-    ['artifactBytes', receipt?.artifactBytes],
-    ['validationReceiptSha256', receipt?.validation?.receiptSha256],
-    ['receiptSha256', receiptSha256],
-  ]) {
-    if (actual !== HISTORICAL_COMPASS_IDENTITY[key]) {
-      problems.push(`renovate-config historical Compass ${key} differs`)
-    }
+export async function checkCompassConsumerReconciliation(root = repositoryRoot, options = {}) {
+  const authenticateProvider = options.authenticateProvider === true
+  const problems = await validateAuthorityBundle({
+    projectionRoot: root,
+    consumerRoot: root,
+    reconciliationPath: CONSUMER_RECONCILIATION_PATH,
+    providerToken: authenticateProvider ? options.providerToken : '',
+  })
+  if (!authenticateProvider) {
+    const missingToken = 'provider provenance: an actions-read GitHub token is required'
+    const index = problems.indexOf(missingToken)
+    if (index >= 0) problems.splice(index, 1)
   }
-  return problems
-}
-
-function parseLocalJson(root, relativePath, label, problems) {
   try {
-    const file = path.join(root, relativePath)
-    const metadata = fs.lstatSync(file)
-    if (metadata.isSymbolicLink() || !metadata.isFile()) {
-      problems.push(`${label} must be a regular non-symlink file`)
-      return null
+    const registry = JSON.parse(fs.readFileSync(path.join(root, '.compass/authority-registry.json'), 'utf8'))
+    const reconciliation = JSON.parse(
+      fs.readFileSync(path.join(root, CONSUMER_RECONCILIATION_PATH), 'utf8')
+    )
+    const issued = (registry.candidates ?? [])
+      .filter(({ candidateState }) => candidateState === 'issued')
+      .map(({ id }) => id)
+      .sort()
+    const local = (reconciliation.records ?? []).map(({ candidateId }) => candidateId).sort()
+    if (JSON.stringify(local) !== JSON.stringify(issued)) {
+      problems.push('renovate-config consumer reconciliation does not cover every issued candidate exactly once')
     }
-    return JSON.parse(fs.readFileSync(file, 'utf8'))
   } catch (error) {
-    problems.push(`${label} is unreadable: ${error instanceof Error ? error.message : String(error)}`)
-    return null
-  }
-}
-
-export function checkCompassConsumerReconciliation(root = repositoryRoot) {
-  const problems = []
-  const policy = parseLocalJson(root, '.compass/authority-policy.json', 'Compass authority policy', problems)
-  const registry = parseLocalJson(root, '.compass/authority-registry.json', 'Compass authority registry', problems)
-  const reconciliation = parseLocalJson(root, CONSUMER_RECONCILIATION_PATH, 'renovate-config Compass reconciliation', problems)
-  if (!policy || !registry || !reconciliation) return problems
-
-  problems.push(...validateAuthorityRegistry(registry, policy))
-  problems.push(...validateConsumerReconciliation(reconciliation, policy))
-  if (reconciliation.consumer?.name !== 'renovate-config' || reconciliation.consumer?.repository !== 'jasondockery/renovate-config') {
-    problems.push('renovate-config Compass reconciliation has the wrong consumer identity')
-  }
-
-  const issuedCandidateIds = (Array.isArray(registry.candidates) ? registry.candidates : [])
-    .filter((candidate) => candidate.candidateState === 'issued')
-    .map((candidate) => candidate.id)
-    .sort()
-  const records = Array.isArray(reconciliation.records) ? reconciliation.records : []
-  const localCandidateIds = records.map((record) => record.candidateId).sort()
-  if (JSON.stringify(localCandidateIds) !== JSON.stringify(issuedCandidateIds)) {
-    problems.push('renovate-config Compass reconciliation does not cover every issued candidate exactly once')
-  }
-  for (const record of records) {
-    if (record.relationship !== 'direct') {
-      problems.push(`renovate-config Compass reconciliation ${record.candidateId} is not direct`)
-    }
-    if (record.consumerState !== 'pending-adoption' || record.localReconciliation !== 'pending') {
-      problems.push(`renovate-config Compass reconciliation ${record.candidateId} does not preserve the adoption hold`)
-    }
-    if (!exactIdentityMatches(record.authorityIdentity)) {
-      problems.push(`renovate-config Compass reconciliation ${record.candidateId} differs from the historical projection identity`)
-    }
-    if (Object.hasOwn(record, 'consumerProof')) {
-      problems.push(`renovate-config Compass reconciliation ${record.candidateId} retains withdrawn consumer proof`)
-    }
+    problems.push(`renovate-config candidate coverage is unreadable: ${error instanceof Error ? error.message : String(error)}`)
   }
   return problems
 }
 
-export function checkCompassProjection(root = repositoryRoot) {
+export async function checkCompassProjection(root = repositoryRoot, options = {}) {
   const inspected = inspectCompassProjection(root)
-  let receiptSha256
-  if (inspected.receipt && inspected.problems.length === 0) {
-    try {
-      receiptSha256 = createHash('sha256')
-        .update(fs.readFileSync(path.join(root, '.compass/receipt.json')))
-        .digest('hex')
-    } catch (error) {
-      inspected.problems.push(
-        `renovate-config historical Compass receipt cannot be hashed: ${error instanceof Error ? error.message : String(error)}`
-      )
-    }
-  }
   const problems = [
     ...inspected.problems,
-    ...(inspected.receipt && inspected.problems.length === 0
-      ? checkHistoricalCompassIdentity(inspected.receipt, receiptSha256)
-      : []),
     ...(inspected.receipt ? checkSkillDiscovery(root, inspected.receipt) : []),
-    ...checkCompassConsumerReconciliation(root),
+    ...await checkCompassConsumerReconciliation(root, options),
   ]
   let agents
   try {
@@ -222,12 +139,12 @@ export function checkCompassProjection(root = repositoryRoot) {
 }
 
 if (isMainModule(import.meta.url)) {
-  const problems = checkCompassProjection()
+  const problems = await checkCompassProjection()
   if (problems.length > 0) {
     console.error(`Compass projection check failed:\n- ${problems.join('\n- ')}`)
     process.exitCode = 1
   } else {
     const receipt = JSON.parse(fs.readFileSync(path.join(repositoryRoot, '.compass/receipt.json'), 'utf8'))
-    console.log(`Compass projection matches ${receipt.source.commit} (${receipt.artifactSha256}).`)
+    console.log(`Compass projection and consumer reconciliation match ${receipt.source.commit} (${receipt.artifactSha256}).`)
   }
 }

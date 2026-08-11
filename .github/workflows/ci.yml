@@ -354,6 +354,10 @@ jobs:
     name: ci-gate
     if: always()
     needs: [tests, validation, renovate_integration, workflow_security]
+    permissions:
+      actions: read
+      checks: read
+      contents: read
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -370,6 +374,15 @@ jobs:
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version-file: .node-version
+
+      - name: Validate Compass consumer reconciliation
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          node .compass/check-authority-record.mjs
+          --projection-root .
+          --consumer-root .
+          --reconciliation-path tools/compass-consumer-reconciliation.json
 
       - name: Build authoritative CI receipt
         id: receipt
@@ -540,16 +553,40 @@ jobs:
             --head-sha "$HEAD_SHA" \
             --reproduce 'pnpm verify && pnpm renovate:integration' \
             --reproduce-label 'Local tests/validation equivalent' || receipt_status=$?
+          compass_receipt_status=0
+          if [ "$result" = passed ] && [ "$receipt_status" -eq 0 ] \
+            && [ "$GITHUB_EVENT_NAME" = push ] && [ "$GITHUB_REF" = refs/heads/main ] \
+            && [ "$HEAD_SHA" = "$GITHUB_SHA" ]; then
+            tree_sha=$(git rev-parse "$GITHUB_SHA^{tree}") || compass_receipt_status=$?
+            if [ "$compass_receipt_status" -eq 0 ]; then
+              node tools/compass-hosted-adoption-receipt.mjs \
+                --output compass-hosted-adoption-receipt.json \
+                --repository "$GITHUB_REPOSITORY" \
+                --commit "$GITHUB_SHA" \
+                --tree "$tree_sha" \
+                --reconciliation-path tools/compass-consumer-reconciliation.json \
+                --workflow .github/workflows/ci.yml \
+                --required-gate ci-gate \
+                --run-id "$GITHUB_RUN_ID" \
+                --attempt "$GITHUB_RUN_ATTEMPT" \
+                --head-sha "$HEAD_SHA" \
+                --artifact-name "renovate-config-ci-receipt-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" \
+                --artifact-path compass-hosted-adoption-receipt.json \
+                || compass_receipt_status=$?
+            fi
+          fi
           [ ! -f "$RUNNER_TEMP/ci-summary.md" ] \
             || cat "$RUNNER_TEMP/ci-summary.md" >> "$GITHUB_STEP_SUMMARY" \
             || echo "::warning title=Job summary unavailable::The authoritative CI receipt was written, but its Markdown view could not be appended."
-          [ "$result" = passed ] && [ "$receipt_status" -eq 0 ]
+          [ "$result" = passed ] && [ "$receipt_status" -eq 0 ] && [ "$compass_receipt_status" -eq 0 ]
 
       - name: Upload CI receipt
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: renovate-config-ci-receipt-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ci-receipt.json
+          path: |
+            ci-receipt.json
+            compass-hosted-adoption-receipt.json
           if-no-files-found: error
           retention-days: 30

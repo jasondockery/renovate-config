@@ -119,7 +119,7 @@ domain-specific states.
 - **Shift to Authority lifecycle** — `local → nominated → accepted → issued →
   adopted`: local repair, an authority nomination, authority approval and
   incorporation, an immutable identity and formal handoff, then consumer-owned
-  adoption proof and local reconciliation.
+  reconciliation and, only after complete adopted proof, adoption evidence.
 - **Authority registry** — the authority-owned candidate record containing
   stable IDs, evidence, current authority state, ordered transition history,
   receipt-bound issuance, and historical adoption holds; it contains no shared
@@ -127,7 +127,19 @@ domain-specific states.
 - **Consumer reconciliation record** — a consumer-owned record that binds one
   candidate to its direct, via-authority, or truly inapplicable relationship,
   local reconciliation, exact authority identity when applicable, disposition,
-  and adoption proof.
+  state transition, and hosted-proof contract. It is not adoption evidence
+  until the adopted state and complete proof validate together.
+- **Adoption contract snapshot** — the immutable record-level hosted workflow,
+  gate, and artifact convention fixed before a candidate enters hosted proof.
+  The consumer-level contract is only the default for new pending records;
+  changing it does not rewrite historical snapshots.
+- **Adoption evidence** — a validated adopted consumer reconciliation whose
+  provider-proven prior pending record, exact authority identity, consumer
+  commit and tree, immutable hosted-proof contract, required hosted workflow,
+  job, fixed provider app and check, successful run attempt, uniquely named and
+  job-timed provider artifact, downloaded archive and digest, parsed receipt,
+  and final state transition are cross-bound in one canonical invocation. Local
+  or committed receipt bytes alone are not adoption evidence.
 - **AI workload** — a stable named product job whose explicit capability
   contract remains independent of a model, inference backend, or adapter.
 - **Inference backend** — the location, runtime, or service that performs model

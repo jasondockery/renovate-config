@@ -10,10 +10,21 @@ Read `.compass/COMPASS.md`, `.compass/TERMINOLOGY.md`,
 `.compass/ai-workload-policy.json`, `.compass/authority-policy.json`, and
 `.compass/authority-registry.json` for the canonical local copy. The projected
 `.compass/consumer-reconciliation.schema.json` defines the consumer record;
+`.compass/consumer-hosted-adoption-receipt.schema.json` defines the exact
+hosted receipt, and `.compass/validate-json-schema.mjs` is the projected schema
+validator. The canonical `.compass/check-authority-record.mjs` command derives
+the authority bundle from the projection root and authenticates adopted-state
+provider evidence; do not duplicate that identity or provider logic locally.
 `tools/compass-consumer-reconciliation.json` is this repository's direct
-consumer reconciliation record, not a projected Compass file. It becomes
-adoption evidence only after a non-held Compass successor and its complete
-hosted proof are cross-bound by the canonical Compass validator. Load
+consumer reconciliation record, not a projected Compass file. Keep a new
+identity pending through the first exact-commit hosted gate, then make a
+separate evidence-only transition to adopted and run `pnpm
+compass:adoption:check`. The record becomes adoption evidence only after its
+complete hosted proof is retrieved and cross-bound by the canonical Compass
+validator. `pnpm check:compass` deliberately performs the canonical local
+cross-binding without provider access; it may suppress only the canonical
+missing-token disposition. Never use that offline check to claim hosted
+adoption. Load
 `skills/shift-to-authority/SKILL.md` for substantial engineering reviews,
 field-failure reviews, cross-repository coordination, and release, projection,
 or adoption handoffs. Load `skills/ai-backend-change/SKILL.md` for AI model,

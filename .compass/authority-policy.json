@@ -57,22 +57,27 @@
   "candidateIdPattern": "^sta-[a-z0-9]+(?:-[a-z0-9]+)*$",
   "authorities": {
     "compass": {
+      "repository": "jasondockery/compass",
       "scope": "generic doctrine, terminology, behavior, and proof requirements",
       "requiresProductFrameworkProviderDeploymentIndependence": true
     },
     "roost": {
+      "repository": "jasondockery/roost",
       "scope": "reusable or generated implementation, components, templates, and conformance checks",
       "requiresProductFrameworkProviderDeploymentIndependence": false
     },
     "groundwork": {
+      "repository": "jasondockery/groundwork",
       "scope": "developer-environment provisioning, configuration, and acceptance on supported platforms, currently macOS and Linux",
       "requiresProductFrameworkProviderDeploymentIndependence": false
     },
     "renovate-config": {
+      "repository": "jasondockery/renovate-config",
       "scope": "dependency automation, scheduling, configuration, and runner policy",
       "requiresProductFrameworkProviderDeploymentIndependence": false
     },
     "hatch": {
+      "repository": "jasondockery/hatch",
       "scope": "product-specific, visual, authentication, deployed, and manual accessibility acceptance",
       "requiresProductFrameworkProviderDeploymentIndependence": false
     }
@@ -91,6 +96,7 @@
     "authorityRegistry": "authority-registry.json",
     "authorityRegistrySchema": "authority-registry.schema.json",
     "consumerReconciliationSchema": "consumer-reconciliation.schema.json",
+    "consumerHostedAdoptionReceiptSchema": "consumer-hosted-adoption-receipt.schema.json",
     "validator": "scripts/check-authority-record.mjs"
   },
   "reviewTemplateFields": [

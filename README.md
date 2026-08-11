@@ -10,15 +10,15 @@ its provenance without a sibling checkout or network access. Renovate-specific
 policy, workflows, acceptance, and release procedures remain local.
 
 The accepted projected-contract source is
-`95a501c1ef104985beb734ffcc437885ef5644e2` (tree
-`e1de10d8c7287692af928084cef9e93941cbac48`, fingerprint
-`0500da9da37455db3dc231ee50a57a4f69f18576b3d68ab2cd79e956e714e81e`,
-artifact `420ee28c2b3c2ae034414b7156c3a83fff782c4bc28f077b3dfee605010834aa`,
+`33734612b4183f372945eff10bf2eec9c025e7b0` (tree
+`021756f1a1ba33493bd0d8c5a866ec7199f720e6`, fingerprint
+`64d9fe5a9227a92d340a97a8264d9761de8d1426c5fbe3d864f402b2e9b414f2`,
+artifact `8917f473688c74f149062db41ee9997ac18f609467ef9d810a127b7a53839617`,
 and receipt-file SHA-256
-`05ab1099bb163c528a12af00bc7bfbaf55a0a25f375a88849fad2d9f22059507`).
-This constrained provider-closure successor supersedes the accepted
-`ef18a2f…` projection without rewriting it; publication or unrelated Compass
-commits still cannot silently advance the accepted receipt.
+`d5a8594df5eb860d3701c540f51bdd1650c5a9639e161ffef3c42600856920e9`).
+This interaction-stability successor supersedes the accepted `95a501c…`
+projection without rewriting it; publication or unrelated Compass commits
+still cannot silently advance the accepted receipt.
 
 Shared dependency-update automation for the owner's repositories.
 

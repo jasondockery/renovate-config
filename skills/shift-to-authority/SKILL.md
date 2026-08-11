@@ -14,19 +14,41 @@ states, relationships, review classes, and new-authority prerequisites. Treat
 the registry as authority-owned candidate and issuance truth. Do not copy those
 tables into product policy.
 
-Validate authority records with the projected dependency-free command:
+Validate a consumer reconciliation against one complete projected authority in
+one dependency-free command. For adopted records, provide a repository-scoped
+`GH_TOKEN` or `GITHUB_TOKEN` with Actions read, Checks read, Contents read, and
+Metadata read access. The fixed GitHub Actions adapter retrieves the prior
+reconciliation, commit tree, exact run attempt, job, check/app, artifact,
+archive, and receipt itself and fails closed when provider evidence is
+unavailable or exceeds a bounded deadline:
 
-```text
+```bash
 node .compass/check-authority-record.mjs \
-  --policy .compass/authority-policy.json \
-  --registry .compass/authority-registry.json
+  --projection-root . \
+  --consumer-root . \
+  --reconciliation-path <repository-relative-consumer-record>
 ```
 
 Direct consumers create and own their reconciliation record from
-`consumer-reconciliation.schema.json`, then validate it with the same tool and
-`--consumer <record>`. A projected registry never supplies a shared consumer
-state, and Compass's observational `consumers.json` never substitutes for local
-adoption evidence.
+`consumer-reconciliation.schema.json`. The single invocation derives policy,
+registry, and receipt from that root, runs full projection-integrity
+verification, and cross-binds the candidate, issued state, relationship,
+seven-dimensional identity, consumer state, and authenticated hosted evidence.
+Caller-supplied or preexisting receipt bytes are diagnostic only. A projected
+registry never supplies a shared consumer state, and Compass's observational
+`consumers.json` never substitutes for a consumer reconciliation record.
+
+Finalize adoption in two phases. First commit the canonical record at
+`pending-adoption` with complete local reconciliation, the exact authority
+relationship, and a record-level snapshot of the hosted-proof contract; run the
+required hosted gate at that commit. The consumer-level contract remains the
+default for newly pending candidates. The later record may change that candidate only by adding
+the final `pending-adoption` to `adopted` transition and hosted evidence. The
+validator retrieves the prior file from the provider-proven commit at the same
+repository-relative path and requires the consumer identity, contract,
+relationship, authority identity, local reconciliation, and prior transition
+history to match. A later change to the consumer-level default does not rewrite
+or invalidate the candidate's historical snapshot.
 
 ## Decide and repair
 
@@ -52,15 +74,28 @@ and an explicit owner decision; nomination never creates a repository.
 
 Follow the lifecycle from the normative policy. Keep authority candidate state
 and each consumer's state in different records. An issued candidate must bind
-the containing artifact receipt's exact seven-dimensional identity and must
-record completed authority incorporation and reconciliation. Ordered transition
-history preserves prior states; the current record never pretends a historical
-nomination is current.
+the concrete projected path, schema, and repository of its containing receipt.
+The canonical validator derives that receipt's exact seven-dimensional identity
+from the single projection root. It cross-binds that identity to each direct
+consumer reconciliation. For GitHub Actions it also binds the provider-reported
+commit tree; fixed app identity; exact run, attempt, job, and check; one uniquely
+named `{runId}`/`{attempt}` artifact created during that job; downloaded byte
+count and digest; and the parsed hosted receipt. The candidate also records
+completed authority incorporation and reconciliation. Ordered
+transition history preserves prior states; the current record never pretends a
+historical nomination is current.
+
+The hosted receipt is produced before artifact upload. It contains only
+precomputable consumer, run, job/check, artifact-name, receipt-path, and result
+fields. The provider-assigned artifact ID plus archive and receipt digests belong
+only in the post-run adopted reconciliation.
 
 Consumer movement is prohibited until an issued identity-bound handoff exists.
 Silence, dirty working bytes, another consumer's result, or a mechanically green
-identity on an adoption hold is not acceptance or adoption. Once an issued
-change is adopted, reconcile provisional duplicated policy locally.
+identity on an adoption hold is not acceptance or adoption. Before adopted
+proof exists, call the local record a consumer reconciliation record. Only a
+complete cross-bound adopted record is adoption evidence. Once adopted,
+reconcile provisional duplicated policy locally.
 
 ## Report
 
@@ -73,11 +108,12 @@ Shift to Authority candidates:
 - none
 ```
 
-For candidates, generate the current field list instead of copying a template:
+For candidates, generate the current field list from the projection instead of
+copying a template:
 
 ```text
 node .compass/check-authority-record.mjs \
-  --policy .compass/authority-policy.json \
+  --projection-root . \
   --print-review-template
 ```
 
@@ -88,9 +124,17 @@ record honest local repair and local reconciliation status.
 
 Every actual consumer owns one record conforming to the projected consumer
 schema. A direct relationship binds the exact Compass identity. A relationship
-through another authority binds that upstream authority's exact identity and
-does not claim direct Compass adoption. A truly inapplicable relationship gives
-an exact reason. Deferred work requires the schema's owner-bound disposition
-and never claims adoption or conformance.
+through another authority requires its complete registry and receipt bundle via
+one repeated `--upstream-projection-root <root>` argument per intermediary,
+binds that upstream authority's exact identity and Compass-policy repository,
+and does not claim direct Compass adoption. A caller-created self-signed
+intermediary is invalid. A truly inapplicable relationship gives an exact
+reason. Deferred work requires the schema's owner-bound disposition and never
+claims adoption or conformance.
+
+The projected JSON Schemas validate portable structure. The projected
+executable is the normative semantic validator for transition order, sequence,
+terminal state, authority binding, and hosted provenance. One absolute deadline
+covers the complete provider validation, including pagination and body reads.
 
 Hatch relates to Compass through Roost, not by direct Compass projection.

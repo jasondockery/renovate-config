@@ -320,18 +320,52 @@ and reconciliation of provisional duplicated policy.
 Authority lifecycle, states, relationships, ownership scopes, required review
 classes, and new-authority prerequisites. `authority-registry.json` separately
 owns current candidate state, evidence, ordered transitions, issuance bindings,
-and historical adoption holds. The projected JSON Schemas and dependency-free
-validator define strict authority and consumer-owned reconciliation records.
+and historical adoption holds. The projected JSON Schemas define portable
+record structure; the dependency-free projected validator is the normative
+semantic authority for lifecycle transitions, cross-record identity, provider
+provenance, and adoption.
 `skills/shift-to-authority/SKILL.md` loads and executes those contracts rather
 than duplicating them. Other documents summarize or link to those authorities.
 
 Authority issuance and consumer adoption are separate facts. An issued Compass
-candidate binds the containing artifact receipt's exact seven-dimensional
-identity. Every direct consumer owns its own reconciliation record, exact
-authority identity, local status, and adoption proof. A downstream relationship
-binds its upstream authority; a truly inapplicable relationship records why.
-Compass's observational consumer ledger is neither projected policy nor local
-consumer proof.
+candidate names the concrete projected path, schema, and repository of its
+containing receipt; the canonical validator resolves that receipt to exact
+seven-dimensional values. Every direct consumer owns its reconciliation record,
+exact authority identity, local status, hosted-proof contract, and transition
+history. The projected validator accepts one projection root, one declared
+consumer root, and one repository-relative reconciliation path in one
+invocation. It derives policy, registry, schemas, and receipt from the projection
+root, performs complete projection-integrity verification, rejects symlinked
+governed roots or ancestors, and cross-binds candidate existence, issued state,
+receipt identity, and relationship without consumer-specific authority logic. A
+downstream relationship additionally requires the intermediary authority's
+complete registry and receipt bundle. Its registry authority, policy entry,
+issued receipt binding, and receipt source must match the canonical repository
+recorded by Compass policy; a caller-created self-signed bundle is invalid. A
+truly inapplicable relationship records why.
+
+Until the consumer reaches `adopted` with complete successful hosted proof, call
+the record a **consumer reconciliation record**, not adoption evidence. Adoption
+evidence begins from a provider-proven prior record at `pending-adoption`. That
+prior record must use the same canonical path, consumer identity, hosted-proof
+contract snapshot, candidate, relationship, authority identity, completed local
+reconciliation, and transition history; the current candidate may add only the
+final adopted transition and hosted evidence. The consumer-level contract is a
+default for new pending work; each pending or adopted candidate retains its
+immutable historical snapshot. Evidence further binds the
+provider-reported consumer commit and tree, required workflow, job, fixed
+provider app and check, successful conclusion, run ID, attempt, exact head SHA,
+unique run-and-attempt-named artifact created during the required job, archive
+byte count and digest, receipt path, receipt digest, and parsed receipt. The
+receipt produced before upload contains no provider-assigned artifact ID or
+archive digest; those values belong to the post-run reconciliation. The
+canonical validator retrieves these records and bytes through the authenticated
+provider API, bounds response sizes and deadlines, and fails closed offline.
+One absolute deadline covers the complete provider validation rather than
+resetting for each request or page.
+Local or committed receipt bytes are diagnostic only. Compass's observational
+consumer ledger is neither projected policy nor a consumer reconciliation
+record or adoption evidence.
 
 ## Shared by authority, specialized by ownership
 

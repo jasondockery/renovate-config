@@ -1,6 +1,6 @@
 {
   "schema": "compass.shift-to-authority-registry",
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "authority": "compass",
   "candidates": [
     {
@@ -46,16 +46,10 @@
       "consumerOwnedRemainder": "Each direct consumer owns its reconciliation record, implementation, review integration, distribution mechanics, and adoption proof; downstream products own acceptance through their upstream authority.",
       "candidateState": "issued",
       "authorityIdentity": {
-        "kind": "containing-artifact-receipt",
-        "requiredDimensions": [
-          "sourceCommit",
-          "sourceTree",
-          "sourceFingerprintSha256",
-          "artifactSha256",
-          "artifactBytes",
-          "validationReceiptSha256",
-          "artifactReceiptSha256"
-        ]
+        "kind": "containing-projection-receipt",
+        "path": ".compass/receipt.json",
+        "schema": "compass.artifact-receipt",
+        "repository": "jasondockery/compass"
       },
       "supersedes": null,
       "transitionHistory": [
@@ -90,16 +84,10 @@
           "sequence": 4,
           "state": "issued",
           "identity": {
-            "kind": "containing-artifact-receipt",
-            "requiredDimensions": [
-              "sourceCommit",
-              "sourceTree",
-              "sourceFingerprintSha256",
-              "artifactSha256",
-              "artifactBytes",
-              "validationReceiptSha256",
-              "artifactReceiptSha256"
-            ]
+            "kind": "containing-projection-receipt",
+            "path": ".compass/receipt.json",
+            "schema": "compass.artifact-receipt",
+            "repository": "jasondockery/compass"
           }
         }
       ]
@@ -147,16 +135,10 @@
       "consumerOwnedRemainder": "Roost owns schemas, adapters, CLI, templates, and conformance; Groundwork owns provisioning and hardware acceptance; products own workload selection, evaluation, consent, and deployed acceptance; renovate-config owns package update automation.",
       "candidateState": "issued",
       "authorityIdentity": {
-        "kind": "containing-artifact-receipt",
-        "requiredDimensions": [
-          "sourceCommit",
-          "sourceTree",
-          "sourceFingerprintSha256",
-          "artifactSha256",
-          "artifactBytes",
-          "validationReceiptSha256",
-          "artifactReceiptSha256"
-        ]
+        "kind": "containing-projection-receipt",
+        "path": ".compass/receipt.json",
+        "schema": "compass.artifact-receipt",
+        "repository": "jasondockery/compass"
       },
       "supersedes": null,
       "transitionHistory": [
@@ -191,16 +173,10 @@
           "sequence": 4,
           "state": "issued",
           "identity": {
-            "kind": "containing-artifact-receipt",
-            "requiredDimensions": [
-              "sourceCommit",
-              "sourceTree",
-              "sourceFingerprintSha256",
-              "artifactSha256",
-              "artifactBytes",
-              "validationReceiptSha256",
-              "artifactReceiptSha256"
-            ]
+            "kind": "containing-projection-receipt",
+            "path": ".compass/receipt.json",
+            "schema": "compass.artifact-receipt",
+            "repository": "jasondockery/compass"
           }
         }
       ]
@@ -232,6 +208,19 @@
       },
       "disposition": "historical-not-adoptable",
       "reason": "The mechanically proven AI successor inherited the authority-state contradiction and its adoption handoff was explicitly held."
+    },
+    {
+      "identity": {
+        "sourceCommit": "043568a695b589154036ec85bc56e681a2b1e370",
+        "sourceTree": "b5c9cab0aa018332a12498ffe58a5d60ef4af793",
+        "sourceFingerprintSha256": "d22d95c06b507a6506d49c290d5d3a14f435ebcf2db7d6bd3ea0a91abb37c69d",
+        "artifactSha256": "5a7b66cf0f36c95561eff56b386e7df6d9895b4e2a4c65ce5f5aaa8046293d43",
+        "artifactBytes": 189698,
+        "validationReceiptSha256": "8f637ca850edbedd39bc440939006b10c8b37dc59fe0cc8d167f15699a0e5b5d",
+        "artifactReceiptSha256": "920c5cee7f4ac98582d3a541751f5fa147c1aa58318756cc6e9ea14381506374"
+      },
+      "disposition": "historical-not-adoptable",
+      "reason": "The identity did not cross-bind issued registry state, the containing projection receipt, consumer reconciliation, and complete hosted adoption proof in one canonical validation invocation."
     }
   ]
 }

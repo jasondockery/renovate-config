@@ -24,10 +24,15 @@ at 314639 bytes, validation-receipt SHA-256
 `3501e8944be9ecba1133fdfd0a56e036fdd3b5d0613f322dec10e73f391c28bb`,
 and receipt-file SHA-256
 `bf2be1851c006a2a7276ccb521ffa5862f97e5b51be5f08c27352fa32105c5d5`).
-Its three issued candidate records remain pending until this successor's exact
-consumer commit has a successful hosted `ci-gate` receipt and the separate
-adopted-state evidence commit passes the authenticated canonical check. The
-superseded dced consumer commit
+Its three issued candidate records are adopted through pending consumer commit
+`5ee6f465dc7d47e41a56dbd04b4de4d60aa1d27c` (tree
+`5a38e591fa140474524ab2df67c60a090fbc0f39`) and successful hosted `ci-gate`
+run `31495794224`, attempt 1. Provider artifact
+`renovate-config-ci-receipt-31495794224-1` (ID `9102920595`, archive SHA-256
+`415b27c48f8a510003f5e5acac25f454c70403bb7435e02499cb105dfd6d209c`)
+contains the authenticated adoption receipt with SHA-256
+`07052468e3f1943d10639c4e8b85a338d7ec360572c66d3eda87121221e13308`.
+The superseded dced consumer commit
 `21100d89ba740750569606f1d9ce1dd9724127f2` (tree
 `9ce145e3225851f6df215a035277865d51b3ddb0`) and successful `ci-gate` run
 `31488424568`, attempt 1, prove those pending bytes but cannot establish

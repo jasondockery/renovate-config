@@ -254,7 +254,10 @@ test('every executable workflow keeps one sanitized receipt and explicit retenti
   assert.match(ci, /--required-gate ci-gate/)
   assert.match(ci, /--artifact-name "renovate-config-ci-receipt-\$GITHUB_RUN_ID-\$GITHUB_RUN_ATTEMPT"/)
   assert.match(ci, /--artifact-path compass-hosted-adoption-receipt\.json/)
-  assert.match(ci, /^  ci-gate:\n(?:.|\n)*?^    permissions:\n      actions: read\n      checks: read\n      contents: read$/m)
+  assert.match(
+    ci,
+    /^  ci-gate:\n(?:.|\n)*?^    permissions:\n      actions: read # Canonical Compass adoption proof reads the named run artifact\.\n      checks: read # Canonical Compass adoption proof authenticates the required check and app\.\n      contents: read # Checkout and provider proof read the exact commit and pending record\.$/m
+  )
   assert.match(ci, /name: Validate Compass consumer reconciliation\n        env:\n          GH_TOKEN: \$\{\{ github\.token \}\}/)
   assert.doesNotMatch(ci, /^env:\n  GH_TOKEN:/m)
   assert.match(ci, /\[ "\$GITHUB_EVENT_NAME" = push \] && \[ "\$GITHUB_REF" = refs\/heads\/main \]/)

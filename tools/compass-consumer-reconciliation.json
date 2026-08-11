@@ -9,7 +9,7 @@
     {
       "candidateId": "sta-compass-shift-to-authority",
       "relationship": "direct",
-      "consumerState": "pending-adoption",
+      "consumerState": "adopted",
       "localReconciliation": "complete",
       "authorityIdentity": {
         "sourceCommit": "043568a695b589154036ec85bc56e681a2b1e370",
@@ -19,12 +19,23 @@
         "artifactBytes": 189698,
         "validationReceiptSha256": "8f637ca850edbedd39bc440939006b10c8b37dc59fe0cc8d167f15699a0e5b5d",
         "artifactReceiptSha256": "920c5cee7f4ac98582d3a541751f5fa147c1aa58318756cc6e9ea14381506374"
+      },
+      "consumerProof": {
+        "commit": "7cea9e467406917b55d1c654f529b9bd638b8361",
+        "tree": "5684879449b67b180f9a077f8a6834c07f56ba37",
+        "receiptSha256": "cb02eeebbd93d99d712a6f33d0357916283667643a996e0f556032a35587369c",
+        "hostedRun": {
+          "provider": "github-actions",
+          "runId": 31475565675,
+          "attempt": 1,
+          "headSha": "7cea9e467406917b55d1c654f529b9bd638b8361"
+        }
       }
     },
     {
       "candidateId": "sta-compass-replaceable-ai-workloads",
       "relationship": "direct",
-      "consumerState": "pending-adoption",
+      "consumerState": "adopted",
       "localReconciliation": "complete",
       "authorityIdentity": {
         "sourceCommit": "043568a695b589154036ec85bc56e681a2b1e370",
@@ -34,6 +45,17 @@
         "artifactBytes": 189698,
         "validationReceiptSha256": "8f637ca850edbedd39bc440939006b10c8b37dc59fe0cc8d167f15699a0e5b5d",
         "artifactReceiptSha256": "920c5cee7f4ac98582d3a541751f5fa147c1aa58318756cc6e9ea14381506374"
+      },
+      "consumerProof": {
+        "commit": "7cea9e467406917b55d1c654f529b9bd638b8361",
+        "tree": "5684879449b67b180f9a077f8a6834c07f56ba37",
+        "receiptSha256": "cb02eeebbd93d99d712a6f33d0357916283667643a996e0f556032a35587369c",
+        "hostedRun": {
+          "provider": "github-actions",
+          "runId": 31475565675,
+          "attempt": 1,
+          "headSha": "7cea9e467406917b55d1c654f529b9bd638b8361"
+        }
       }
     }
   ]

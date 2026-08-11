@@ -12,7 +12,7 @@ the issued authority registry, and
 record, without a sibling checkout or network access. Renovate-specific policy,
 workflows, acceptance, and release procedures remain local.
 
-The projected-contract source pending this repository's hosted adoption proof is
+The adopted projected-contract source is
 `043568a695b589154036ec85bc56e681a2b1e370` (tree
 `b5c9cab0aa018332a12498ffe58a5d60ef4af793`, fingerprint
 `d22d95c06b507a6506d49c290d5d3a14f435ebcf2db7d6bd3ea0a91abb37c69d`,
@@ -23,7 +23,12 @@ and receipt-file SHA-256
 `920c5cee7f4ac98582d3a541751f5fa147c1aa58318756cc6e9ea14381506374`).
 It supersedes the held historical `681c872…` and `f3e135d…` identities without
 rewriting them. Publication or unrelated Compass commits still cannot silently
-advance the accepted receipt.
+advance the accepted receipt. The repository-owned adoption record binds this
+authority identity to consumer commit
+`7cea9e467406917b55d1c654f529b9bd638b8361`, tree
+`5684879449b67b180f9a077f8a6834c07f56ba37`, hosted CI run `31475565675`
+attempt 1, and receipt SHA-256
+`cb02eeebbd93d99d712a6f33d0357916283667643a996e0f556032a35587369c`.
 
 Shared dependency-update automation for the owner's repositories.
 

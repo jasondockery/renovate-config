@@ -383,6 +383,22 @@ issued receipt binding, and receipt source must match the canonical repository
 recorded by Compass policy; a caller-created self-signed bundle is invalid. A
 truly inapplicable relationship records why.
 
+A source-code defect creates a source-wide `historical-not-adoptable` hold keyed
+by repository, source commit, source tree, and source fingerprint. Every receipt
+for that exact source is rejected, including a fresh receipt the registry has
+never observed. The hold repository must equal the canonical repository of its
+authority in the normative policy; valid syntax from another repository cannot
+disable the hold. Known seven-dimensional identities remain immutable observed
+evidence beneath the source hold; the required observation array may be empty
+when no receipt exists yet, while every known distinct receipt is retained and
+exact duplicate observations are rejected. An artifact- or receipt-local defect
+may
+instead create an exact seven-dimensional hold with explicit
+`artifact-receipt` scope, which does not hold other receipts for the same source.
+The canonical validator enforces both scopes against containing projections and
+consumer authority identities. A mechanically green successor that omits or
+mis-scopes a required supersession hold is diagnostic rather than issuable.
+
 Until the consumer reaches `adopted` with complete successful hosted proof, call
 the record a **consumer reconciliation record**, not adoption evidence. Adoption
 evidence begins from a provider-proven prior record at `pending-adoption`. That
@@ -401,7 +417,9 @@ archive digest; those values belong to the post-run reconciliation. The
 canonical validator retrieves these records and bytes through the authenticated
 provider API, bounds response sizes and deadlines, and fails closed offline.
 One absolute deadline covers the complete provider validation rather than
-resetting for each request or page.
+resetting for each request or page. Within one invocation, it authenticates
+each unique exact hosted-evidence bundle once, then validates every candidate's
+independent transition and receipt binding against that authenticated result.
 Local or committed receipt bytes are diagnostic only. Compass's observational
 consumer ledger is neither projected policy nor a consumer reconciliation
 record or adoption evidence.

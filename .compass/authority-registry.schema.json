@@ -4,25 +4,42 @@
   "title": "Compass Shift to Authority registry",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema", "schemaVersion", "authority", "candidates", "heldAuthorityIdentities"],
+  "required": ["schema", "schemaVersion", "authority", "candidates", "heldAuthoritySources", "heldAuthorityIdentities"],
   "properties": {
     "schema": { "const": "compass.shift-to-authority-registry" },
-    "schemaVersion": { "const": 2 },
+    "schemaVersion": { "const": 3 },
     "authority": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
     "candidates": {
       "type": "array",
       "minItems": 1,
       "items": { "$ref": "#/$defs/candidate" }
     },
-    "heldAuthorityIdentities": {
+    "heldAuthoritySources": {
       "type": "array",
-      "minItems": 1,
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["identity", "disposition", "reason"],
+        "required": ["source", "disposition", "reason", "observedExactIdentities"],
+        "properties": {
+          "source": { "$ref": "#/$defs/authoritySource" },
+          "disposition": { "const": "historical-not-adoptable" },
+          "reason": { "$ref": "#/$defs/nonEmptyString" },
+          "observedExactIdentities": {
+            "type": "array",
+            "items": { "$ref": "#/$defs/exactIdentity" }
+          }
+        }
+      }
+    },
+    "heldAuthorityIdentities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["identity", "scope", "disposition", "reason"],
         "properties": {
           "identity": { "$ref": "#/$defs/exactIdentity" },
+          "scope": { "const": "artifact-receipt" },
           "disposition": { "const": "historical-not-adoptable" },
           "reason": { "$ref": "#/$defs/nonEmptyString" }
         }
@@ -33,6 +50,7 @@
     "nonEmptyString": { "type": "string", "minLength": 1 },
     "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
     "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "repository": { "type": "string", "pattern": "^(?!\\.\\.?/)(?![^/]+/\\.\\.?$)[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" },
     "candidateId": { "type": "string", "pattern": "^sta-[a-z0-9]+(?:-[a-z0-9]+)*$" },
     "exactIdentity": {
       "type": "object",
@@ -46,6 +64,17 @@
         "artifactBytes": { "type": "integer", "minimum": 1 },
         "validationReceiptSha256": { "$ref": "#/$defs/sha256" },
         "artifactReceiptSha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "authoritySource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "sourceCommit", "sourceTree", "sourceFingerprintSha256"],
+      "properties": {
+        "repository": { "$ref": "#/$defs/repository" },
+        "sourceCommit": { "$ref": "#/$defs/commit" },
+        "sourceTree": { "$ref": "#/$defs/commit" },
+        "sourceFingerprintSha256": { "$ref": "#/$defs/sha256" }
       }
     },
     "sourceIdentity": {

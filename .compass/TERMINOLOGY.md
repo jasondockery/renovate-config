@@ -122,7 +122,8 @@ domain-specific states.
   reconciliation and, only after complete adopted proof, adoption evidence.
 - **Authority registry** — the authority-owned candidate record containing
   stable IDs, evidence, current authority state, ordered transition history,
-  receipt-bound issuance, and historical adoption holds; it contains no shared
+  receipt-bound issuance, source-wide holds for defective source bytes, exact
+  artifact-local holds, and observed receipt evidence; it contains no shared
   consumer state.
 - **Consumer reconciliation record** — a consumer-owned record that binds one
   candidate to its direct, via-authority, or truly inapplicable relationship,

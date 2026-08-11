@@ -11,7 +11,9 @@ Read `.compass/COMPASS.md`, `.compass/TERMINOLOGY.md`,
 `.compass/authority-registry.json` for the canonical local copy. The projected
 `.compass/consumer-reconciliation.schema.json` defines the consumer record;
 `tools/compass-consumer-reconciliation.json` is this repository's direct
-adoption evidence, not a projected Compass file. Load
+consumer reconciliation record, not a projected Compass file. It becomes
+adoption evidence only after a non-held Compass successor and its complete
+hosted proof are cross-bound by the canonical Compass validator. Load
 `skills/shift-to-authority/SKILL.md` for substantial engineering reviews,
 field-failure reviews, cross-repository coordination, and release, projection,
 or adoption handoffs. Load `skills/ai-backend-change/SKILL.md` for AI model,

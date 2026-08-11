@@ -34,13 +34,13 @@
         }
       ],
       "authorityIdentity": {
-        "sourceCommit": "857644af0fcafff2605ff2b42325c497fe98dc24",
-        "sourceTree": "5592df2170c78f0461bcd695a9545f19f88d918b",
-        "sourceFingerprintSha256": "a1be91471edb9144f91283cb612ff8b8d5fdc20b7d6c3901a534dc757851e2cc",
-        "artifactSha256": "6efc7010c9bbb75ae4b7d965994376bd7203623c20aca6183bca50c48f76c691",
-        "artifactBytes": 272855,
-        "validationReceiptSha256": "d7434a2c68fbfbfc9cb3c72f762a869f2a5e6c12af9d85f1ba9f4576704eef0e",
-        "artifactReceiptSha256": "e72415d80de38c69fdf83c15889def5577bd51eeb5901cc9fa1817cbe6df9785"
+        "sourceCommit": "dcedfeda65c57cb918776989e9108c2a2497a102",
+        "sourceTree": "ff0d55bbc8fce808185a2fabe62f8f46b9b876f2",
+        "sourceFingerprintSha256": "54682153aea3a3dd2d8daad29d672614562fd3fd5ea3606ed3d142a7d6a1bafa",
+        "artifactSha256": "0c6ff7dc7f03420b52256deb749a735d381dba9093a6fc9c2e2603e96413172b",
+        "artifactBytes": 287047,
+        "validationReceiptSha256": "0d837deb91233c9b00d8a3e0b36da2eb732d62d12c3a7d9350969b9ba6457511",
+        "artifactReceiptSha256": "7c0cd3fb965628b9db96a635bdd11e71e6d559fb5adbfa9b94adabcb128f3399"
       },
       "adoptionContract": {
         "provider": "github-actions",
@@ -70,13 +70,49 @@
         }
       ],
       "authorityIdentity": {
-        "sourceCommit": "857644af0fcafff2605ff2b42325c497fe98dc24",
-        "sourceTree": "5592df2170c78f0461bcd695a9545f19f88d918b",
-        "sourceFingerprintSha256": "a1be91471edb9144f91283cb612ff8b8d5fdc20b7d6c3901a534dc757851e2cc",
-        "artifactSha256": "6efc7010c9bbb75ae4b7d965994376bd7203623c20aca6183bca50c48f76c691",
-        "artifactBytes": 272855,
-        "validationReceiptSha256": "d7434a2c68fbfbfc9cb3c72f762a869f2a5e6c12af9d85f1ba9f4576704eef0e",
-        "artifactReceiptSha256": "e72415d80de38c69fdf83c15889def5577bd51eeb5901cc9fa1817cbe6df9785"
+        "sourceCommit": "dcedfeda65c57cb918776989e9108c2a2497a102",
+        "sourceTree": "ff0d55bbc8fce808185a2fabe62f8f46b9b876f2",
+        "sourceFingerprintSha256": "54682153aea3a3dd2d8daad29d672614562fd3fd5ea3606ed3d142a7d6a1bafa",
+        "artifactSha256": "0c6ff7dc7f03420b52256deb749a735d381dba9093a6fc9c2e2603e96413172b",
+        "artifactBytes": 287047,
+        "validationReceiptSha256": "0d837deb91233c9b00d8a3e0b36da2eb732d62d12c3a7d9350969b9ba6457511",
+        "artifactReceiptSha256": "7c0cd3fb965628b9db96a635bdd11e71e6d559fb5adbfa9b94adabcb128f3399"
+      },
+      "adoptionContract": {
+        "provider": "github-actions",
+        "repository": "jasondockery/renovate-config",
+        "workflow": ".github/workflows/ci.yml",
+        "requiredGate": "ci-gate",
+        "evidence": {
+          "kind": "artifact",
+          "nameTemplate": "renovate-config-ci-receipt-{runId}-{attempt}",
+          "path": "compass-hosted-adoption-receipt.json"
+        }
+      }
+    },
+    {
+      "candidateId": "sta-compass-operable-developer-tools",
+      "relationship": "direct",
+      "consumerState": "pending-adoption",
+      "localReconciliation": "complete",
+      "transitionHistory": [
+        {
+          "sequence": 1,
+          "state": "awaiting-issue"
+        },
+        {
+          "sequence": 2,
+          "state": "pending-adoption"
+        }
+      ],
+      "authorityIdentity": {
+        "sourceCommit": "dcedfeda65c57cb918776989e9108c2a2497a102",
+        "sourceTree": "ff0d55bbc8fce808185a2fabe62f8f46b9b876f2",
+        "sourceFingerprintSha256": "54682153aea3a3dd2d8daad29d672614562fd3fd5ea3606ed3d142a7d6a1bafa",
+        "artifactSha256": "0c6ff7dc7f03420b52256deb749a735d381dba9093a6fc9c2e2603e96413172b",
+        "artifactBytes": 287047,
+        "validationReceiptSha256": "0d837deb91233c9b00d8a3e0b36da2eb732d62d12c3a7d9350969b9ba6457511",
+        "artifactReceiptSha256": "7c0cd3fb965628b9db96a635bdd11e71e6d559fb5adbfa9b94adabcb128f3399"
       },
       "adoptionContract": {
         "provider": "github-actions",

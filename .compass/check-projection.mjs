@@ -10,6 +10,7 @@ export const COMPASS_SKILL_NAMES = Object.freeze([
   'accessible-product-development',
   'ai-backend-change',
   'dependency-change',
+  'developer-tool-change',
   'field-failure-backpressure',
   'inclusive-content-design',
   'inclusive-product-foundation',

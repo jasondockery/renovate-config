@@ -132,6 +132,45 @@ capability conformance.
 their schemas, adapters, commands, templates, provisioning, hardware support,
 workload choices, consent, and deployed acceptance.
 
+## Operable developer tools
+
+A developer tool is adopted only when its intended workflows, material
+defaults, supported-platform configuration, discoverability, safe interaction
+and recovery controls, effective installed behavior, and limitations are
+intentionally reconciled and proven. Executable presence alone is insufficient.
+Use an explicit per-tool mapping from intended behaviors to recovery, platform
+applicability, configuration ownership, and effective evidence IDs; broad
+inventory groups cannot establish adoption.
+
+Review upstream defaults for the exact pinned version. Record the review date,
+source evidence, every material default's deliberate disposition, and the
+upgrade trigger that invalidates the review. Never presume that an upstream
+default fits the intended workflow. User-owned configuration is merged or
+migrated, or its conflict is reported; it is never silently overwritten. Safe
+target inspection covers every parent path component, not only the final file.
+
+Discovery remains purpose-aware. Browsers and file managers expose
+developer-relevant project state, interactive pickers can find relevant
+dotfiles, and search has an obvious hidden-aware mode while ordinarily
+respecting ignore rules. Hidden-aware discovery excludes version-control
+internals, caches, ignored outputs, and binary data unless the user explicitly
+requests them. Broader discovery never silently broadens a destructive
+operation.
+
+Effective proof executes the installed user-facing surface on every claimed
+supported platform. Template text, package inventory, and an equivalent raw
+command do not prove the configured interaction. Acceptance isolates home and
+configuration state and cleans it on success, failure, and signals. Rollback
+and removal are race-safe, affect only authority-owned configuration, and
+preserve user-owned files and parent paths.
+
+`skills/developer-tool-change/SKILL.md` supplies the procedure. Groundwork owns
+concrete developer-environment packages, configuration, and platform
+acceptance; Roost owns generated-repository tools, templates, and parity; each
+product owns specialized workflow acceptance. Compass does not choose a tool,
+package manager, shell, configuration grammar, template system, container
+runner, or filesystem transaction design.
+
 ## Native hot paths with stable interfaces
 
 Prefer native implementations for measured developer-tooling hot paths while

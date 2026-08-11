@@ -156,6 +156,18 @@ domain-specific states.
   retired`: discovery, evidenced evaluation, owner acceptance, deliberate
   default use, then removal. It is distinct from the Shift to Authority
   lifecycle.
+- **Operable developer tool** — an exact installed tool whose intended
+  workflows, reviewed material defaults, supported-platform configuration,
+  discoverable controls, effective user-facing behavior, recovery,
+  limitations, rollback, and ownership-scoped removal have been proven;
+  executable presence alone is insufficient.
+- **Material default disposition** — a deliberate keep, change, or inapplicable
+  decision for an upstream behavior at an exact pinned version, bound to dated
+  source evidence and an upgrade invalidation trigger.
+- **Effective installed proof** — execution of the configured user-facing
+  surface in isolated user and configuration state on each claimed platform;
+  package inventory, template text, or an equivalent raw command is not a
+  substitute.
 
 - **Field failure** — a defect first observed outside the normal local proof
   boundary, such as hosted CI, another platform, a generated consumer, a

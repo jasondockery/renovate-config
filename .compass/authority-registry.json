@@ -180,6 +180,93 @@
           }
         }
       ]
+    },
+    {
+      "id": "sta-compass-operable-developer-tools",
+      "invariant": "A developer tool is adopted only when intended workflows, material defaults, supported-platform configuration, discoverability, safe interaction and recovery, effective installed behavior, and limitations are intentionally reconciled and proven; executable presence alone is insufficient.",
+      "origin": {
+        "repository": "jasondockery/groundwork",
+        "identity": {
+          "kind": "source",
+          "repository": "jasondockery/groundwork",
+          "commit": "0576e214a79f1ca401bd23574ce0cd48acad39e8"
+        }
+      },
+      "evidence": [
+        {
+          "id": "owner-operable-tools-review-f3e135d",
+          "type": "cross-repository-review",
+          "repository": "jasondockery/compass",
+          "sourceCommit": "f3e135dd81b4b9c0f0706936bdc6c9a329ef68f8",
+          "summary": "Owner review accepted the installed-versus-operable invariant after a Groundwork field report showed that executable inventory and broad group prose can conceal unusable developer workflows."
+        },
+        {
+          "id": "groundwork-operability-corroboration-0576e21",
+          "type": "consumer-field-review",
+          "repository": "jasondockery/groundwork",
+          "sourceCommit": "0576e214a79f1ca401bd23574ce0cd48acad39e8",
+          "summary": "A later Groundwork review corroborated per-tool behavior mapping, pinned-default invalidation, executed surfaces, parent-path ownership safety, isolated acceptance, signal cleanup, race-safe removal, and separation of discovery from destructive behavior."
+        }
+      ],
+      "affectedScope": [
+        "compass-doctrine-and-review",
+        "groundwork-developer-environments",
+        "roost-generated-repository-tooling",
+        "future-developer-environments-and-utilities"
+      ],
+      "localRepairStatus": "pending",
+      "authorityReconciliation": "complete",
+      "incorporationStatus": "complete",
+      "proposedAuthority": "compass",
+      "ownershipReason": "The installed-versus-operable adoption invariant is stable across tools, platforms, repositories, frameworks, and providers.",
+      "consumerOwnedRemainder": "Groundwork owns concrete packages, configuration mechanisms, and platform acceptance; Roost owns generated repository tools, templates, and parity; products own specialized developer workflow acceptance.",
+      "candidateState": "issued",
+      "authorityIdentity": {
+        "kind": "containing-projection-receipt",
+        "path": ".compass/receipt.json",
+        "schema": "compass.artifact-receipt",
+        "repository": "jasondockery/compass"
+      },
+      "supersedes": null,
+      "transitionHistory": [
+        {
+          "sequence": 1,
+          "state": "local",
+          "identity": {
+            "kind": "source",
+            "repository": "jasondockery/groundwork",
+            "commit": "0576e214a79f1ca401bd23574ce0cd48acad39e8"
+          }
+        },
+        {
+          "sequence": 2,
+          "state": "nominated",
+          "identity": {
+            "kind": "source",
+            "repository": "jasondockery/groundwork",
+            "commit": "0576e214a79f1ca401bd23574ce0cd48acad39e8"
+          }
+        },
+        {
+          "sequence": 3,
+          "state": "accepted",
+          "identity": {
+            "kind": "source",
+            "repository": "jasondockery/compass",
+            "commit": "f3e135dd81b4b9c0f0706936bdc6c9a329ef68f8"
+          }
+        },
+        {
+          "sequence": 4,
+          "state": "issued",
+          "identity": {
+            "kind": "containing-projection-receipt",
+            "path": ".compass/receipt.json",
+            "schema": "compass.artifact-receipt",
+            "repository": "jasondockery/compass"
+          }
+        }
+      ]
     }
   ],
   "heldAuthorityIdentities": [

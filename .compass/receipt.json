@@ -3,23 +3,23 @@
   "schemaVersion": 1,
   "source": {
     "repository": "jasondockery/compass",
-    "commit": "857644af0fcafff2605ff2b42325c497fe98dc24",
-    "tree": "5592df2170c78f0461bcd695a9545f19f88d918b",
-    "fingerprintSha256": "a1be91471edb9144f91283cb612ff8b8d5fdc20b7d6c3901a534dc757851e2cc",
+    "commit": "dcedfeda65c57cb918776989e9108c2a2497a102",
+    "tree": "ff0d55bbc8fce808185a2fabe62f8f46b9b876f2",
+    "fingerprintSha256": "54682153aea3a3dd2d8daad29d672614562fd3fd5ea3606ed3d142a7d6a1bafa",
     "dirty": false
   },
-  "artifactSha256": "6efc7010c9bbb75ae4b7d965994376bd7203623c20aca6183bca50c48f76c691",
-  "artifactBytes": 272855,
+  "artifactSha256": "0c6ff7dc7f03420b52256deb749a735d381dba9093a6fc9c2e2603e96413172b",
+  "artifactBytes": 287047,
   "includedFiles": [
     {
       "path": "COMPASS.md",
-      "sha256": "403c3f7ed32affae8e5aa6898fc67bcd1c798150cd59bbacd1a8ae12cc5750c9",
-      "bytes": 21529
+      "sha256": "dc035a56e1af23633a02490182c00247a4f124cee474fb2138d85ad729de3fba",
+      "bytes": 23813
     },
     {
       "path": "TERMINOLOGY.md",
-      "sha256": "81e5a3874dcbb092ec3bb2c6b5072146c29384c1ad648a8ab41a57b31bc91744",
-      "bytes": 10861
+      "sha256": "faf4c50d8e65be84a90ab8ce5cb923c9c9b260aaf1957beadb2b4735982a620d",
+      "bytes": 11650
     },
     {
       "path": "ai-workload-policy.json",
@@ -33,8 +33,8 @@
     },
     {
       "path": "authority-registry.json",
-      "sha256": "c632b2bc0c9e1443a2d468a64eea5deb6b1c7f23720cc14e842d419168577ec7",
-      "bytes": 9540
+      "sha256": "a77f35b59f86e4ccab3e30a41b0b6b89ab6b3f203210ba83b85379953af75755",
+      "bytes": 13347
     },
     {
       "path": "authority-registry.schema.json",
@@ -58,8 +58,8 @@
     },
     {
       "path": "scripts/check-projection.mjs",
-      "sha256": "2f40c3326691626751f636bc0e6f302558f4dea6ca48b911a5c0d62efb2916ac",
-      "bytes": 16251
+      "sha256": "7f1586e587dd6ef8120f40cfc31227103628f228be1ea90ff1da7ca296031351",
+      "bytes": 16278
     },
     {
       "path": "scripts/validate-json-schema.mjs",
@@ -95,6 +95,16 @@
       "path": "skills/dependency-change/agents/openai.yaml",
       "sha256": "cc3d6c19528616c3d78293fd4f756d957a276b252c76b04ded243c4e66c95196",
       "bytes": 206
+    },
+    {
+      "path": "skills/developer-tool-change/SKILL.md",
+      "sha256": "ec297f228885038b88cf4877afce6d9d5d51267c0d0a4c1dad471448766ced4e",
+      "bytes": 3147
+    },
+    {
+      "path": "skills/developer-tool-change/agents/openai.yaml",
+      "sha256": "86b857ab82114f67ed526230e65ea7ba23bfc4d98a1531fdf271ab0b324906ed",
+      "bytes": 284
     },
     {
       "path": "skills/field-failure-backpressure/SKILL.md",
@@ -189,7 +199,7 @@
   ],
   "validation": {
     "result": "passed",
-    "receiptSha256": "d7434a2c68fbfbfc9cb3c72f762a869f2a5e6c12af9d85f1ba9f4576704eef0e",
+    "receiptSha256": "0d837deb91233c9b00d8a3e0b36da2eb732d62d12c3a7d9350969b9ba6457511",
     "command": "scripts/validate-compass"
   }
 }

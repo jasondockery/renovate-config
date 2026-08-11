@@ -10,15 +10,15 @@ its provenance without a sibling checkout or network access. Renovate-specific
 policy, workflows, acceptance, and release procedures remain local.
 
 The accepted projected-contract source is
-`ef18a2f81a5c6ca14b681e7352b5302ff93f8527` (tree
-`dc969c5df71c6a823d222599726e268bb14cdd2f`, fingerprint
-`19ea84993a68a3d087504ed7103abea1ba94968141111402c7df344426306bd4`,
-artifact `7581b219652f3f1650f405361c03cbfb4c7f659c646f030fec538481225e3a15`,
+`95a501c1ef104985beb734ffcc437885ef5644e2` (tree
+`e1de10d8c7287692af928084cef9e93941cbac48`, fingerprint
+`0500da9da37455db3dc231ee50a57a4f69f18576b3d68ab2cd79e956e714e81e`,
+artifact `420ee28c2b3c2ae034414b7156c3a83fff782c4bc28f077b3dfee605010834aa`,
 and receipt-file SHA-256
-`4913b76945e6927cae61aa364f274cdb45ea1fbac399dcb3e87599b9e9e64813`).
-This explicit V2 adoption supersedes the earlier `94c7770…` projection;
-publication or unrelated Compass commits still cannot silently advance the
-accepted receipt.
+`05ab1099bb163c528a12af00bc7bfbaf55a0a25f375a88849fad2d9f22059507`).
+This constrained provider-closure successor supersedes the accepted
+`ef18a2f…` projection without rewriting it; publication or unrelated Compass
+commits still cannot silently advance the accepted receipt.
 
 Shared dependency-update automation for the owner's repositories.
 

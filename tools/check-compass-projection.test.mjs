@@ -31,12 +31,12 @@ test('Compass projection matches its exact artifact receipt', () => {
   assert.deepEqual(checkCompassProjection(repositoryRoot), [])
 })
 
-test('renovate-config binds its accepted Compass V2 identity across all seven dimensions', () => {
+test('renovate-config binds its accepted Compass provider-closure identity across all seven dimensions', () => {
   const receiptBytes = fs.readFileSync(path.join(repositoryRoot, '.compass/receipt.json'))
   const receipt = JSON.parse(receiptBytes)
   const receiptSha256 = createHash('sha256').update(receiptBytes).digest('hex')
   assert.deepEqual(checkAcceptedCompassIdentity(receipt, receiptSha256), [])
-  assert.equal(ACCEPTED_COMPASS_IDENTITY.commit, 'ef18a2f81a5c6ca14b681e7352b5302ff93f8527')
+  assert.equal(ACCEPTED_COMPASS_IDENTITY.commit, '95a501c1ef104985beb734ffcc437885ef5644e2')
   assert.equal(ACCEPTED_COMPASS_IDENTITY.receiptSha256, receiptSha256)
 
   const cases = [

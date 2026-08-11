@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://compass.invalid/schemas/consumer-reconciliation.schema.json",
+  "title": "Compass consumer-owned Shift to Authority reconciliation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "schemaVersion", "consumer", "records"],
+  "properties": {
+    "schema": { "const": "compass.consumer-reconciliation" },
+    "schemaVersion": { "const": 1 },
+    "consumer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "repository"],
+      "properties": {
+        "name": { "$ref": "#/$defs/name" },
+        "repository": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "records": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/reconciliation" }
+    }
+  },
+  "$defs": {
+    "nonEmptyString": { "type": "string", "minLength": 1 },
+    "name": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+    "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "candidateId": { "type": "string", "pattern": "^sta-[a-z0-9]+(?:-[a-z0-9]+)*$" },
+    "exactIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceCommit", "sourceTree", "sourceFingerprintSha256", "artifactSha256", "artifactBytes", "validationReceiptSha256", "artifactReceiptSha256"],
+      "properties": {
+        "sourceCommit": { "$ref": "#/$defs/commit" },
+        "sourceTree": { "$ref": "#/$defs/commit" },
+        "sourceFingerprintSha256": { "$ref": "#/$defs/sha256" },
+        "artifactSha256": { "$ref": "#/$defs/sha256" },
+        "artifactBytes": { "type": "integer", "minimum": 1 },
+        "validationReceiptSha256": { "$ref": "#/$defs/sha256" },
+        "artifactReceiptSha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "viaAuthority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "identity"],
+      "properties": {
+        "name": { "$ref": "#/$defs/name" },
+        "identity": { "$ref": "#/$defs/exactIdentity" }
+      }
+    },
+    "consumerProof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commit", "tree", "receiptSha256", "hostedRun"],
+      "properties": {
+        "commit": { "$ref": "#/$defs/commit" },
+        "tree": { "$ref": "#/$defs/commit" },
+        "receiptSha256": { "$ref": "#/$defs/sha256" },
+        "hostedRun": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["provider", "runId", "attempt", "headSha"],
+          "properties": {
+            "provider": { "const": "github-actions" },
+            "runId": { "type": "integer", "minimum": 1 },
+            "attempt": { "type": "integer", "minimum": 1 },
+            "headSha": { "$ref": "#/$defs/commit" }
+          }
+        }
+      }
+    },
+    "deferredDisposition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reason", "approvingOwner", "exactScope", "reviewOrExpirationDate", "conformanceClaim"],
+      "properties": {
+        "reason": { "$ref": "#/$defs/nonEmptyString" },
+        "approvingOwner": { "$ref": "#/$defs/nonEmptyString" },
+        "exactScope": { "$ref": "#/$defs/nonEmptyString" },
+        "reviewOrExpirationDate": { "$ref": "#/$defs/nonEmptyString" },
+        "conformanceClaim": { "const": false }
+      }
+    },
+    "reconciliation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidateId", "relationship", "consumerState", "localReconciliation"],
+      "properties": {
+        "candidateId": { "$ref": "#/$defs/candidateId" },
+        "relationship": { "enum": ["direct", "via-authority", "not-applicable"] },
+        "consumerState": { "enum": ["awaiting-issue", "pending-adoption", "adopted", "deferred", "not-applicable"] },
+        "localReconciliation": { "enum": ["pending", "complete", "not-required"] },
+        "authorityIdentity": { "$ref": "#/$defs/exactIdentity" },
+        "viaAuthority": { "$ref": "#/$defs/viaAuthority" },
+        "consumerProof": { "$ref": "#/$defs/consumerProof" },
+        "deferredDisposition": { "$ref": "#/$defs/deferredDisposition" },
+        "notApplicableReason": { "$ref": "#/$defs/nonEmptyString" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "relationship": { "const": "direct" } }, "required": ["relationship"] },
+          "then": { "required": ["authorityIdentity"], "not": { "anyOf": [{ "required": ["viaAuthority"] }, { "required": ["notApplicableReason"] }] } }
+        },
+        {
+          "if": { "properties": { "relationship": { "const": "via-authority" } }, "required": ["relationship"] },
+          "then": { "required": ["viaAuthority"], "not": { "anyOf": [{ "required": ["authorityIdentity"] }, { "required": ["notApplicableReason"] }] } }
+        },
+        {
+          "if": { "properties": { "relationship": { "const": "not-applicable" } }, "required": ["relationship"] },
+          "then": {
+            "required": ["notApplicableReason"],
+            "properties": { "consumerState": { "const": "not-applicable" }, "localReconciliation": { "const": "not-required" } },
+            "not": { "anyOf": [{ "required": ["authorityIdentity"] }, { "required": ["viaAuthority"] }, { "required": ["consumerProof"] }, { "required": ["deferredDisposition"] }] }
+          }
+        },
+        {
+          "if": { "properties": { "consumerState": { "const": "adopted" } }, "required": ["consumerState"] },
+          "then": { "required": ["consumerProof"], "properties": { "localReconciliation": { "const": "complete" } } },
+          "else": { "not": { "required": ["consumerProof"] } }
+        },
+        {
+          "if": { "properties": { "consumerState": { "const": "deferred" } }, "required": ["consumerState"] },
+          "then": { "required": ["deferredDisposition"] },
+          "else": { "not": { "required": ["deferredDisposition"] } }
+        }
+      ]
+    }
+  }
+}

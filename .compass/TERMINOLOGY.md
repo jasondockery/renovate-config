@@ -112,6 +112,38 @@ domain-specific states.
 - **Rollback path** — a retained, tested way to restore the reference
   implementation when equivalence, performance, distribution, or field
   evidence fails.
+- **Shift to Authority** — the principle of moving a recurring standard,
+  contract, implementation, or proof requirement from consumers to the
+  canonical owner best positioned to maintain it. Its normative structured
+  contract is `authority-policy.json`.
+- **Shift to Authority lifecycle** — `local → nominated → accepted → issued →
+  adopted`: local repair, an authority nomination, authority approval and
+  incorporation, an immutable identity and formal handoff, then consumer-owned
+  adoption proof and local reconciliation.
+- **Authority registry** — the authority-owned candidate record containing
+  stable IDs, evidence, current authority state, ordered transition history,
+  receipt-bound issuance, and historical adoption holds; it contains no shared
+  consumer state.
+- **Consumer reconciliation record** — a consumer-owned record that binds one
+  candidate to its direct, via-authority, or truly inapplicable relationship,
+  local reconciliation, exact authority identity when applicable, disposition,
+  and adoption proof.
+- **AI workload** — a stable named product job whose explicit capability
+  contract remains independent of a model, inference backend, or adapter.
+- **Inference backend** — the location, runtime, or service that performs model
+  inference; locality and data boundary are part of its observable selection.
+- **AI model identity** — the exact identifier and immutable revision available
+  for a model, plus the artifact or hosted provenance required by
+  `ai-workload-policy.json`; a mutable alias is not accepted identity.
+- **AI adapter** — an optional connector between an AI workload contract and a
+  backend or model; provider or protocol compatibility does not establish
+  capability conformance.
+- **AI selection** — the backend and model assigned to a named workload,
+  environment, and hardware class, including its explicit fallback policy.
+- **AI selection lifecycle** — `discovered → candidate → accepted → default →
+  retired`: discovery, evidenced evaluation, owner acceptance, deliberate
+  default use, then removal. It is distinct from the Shift to Authority
+  lifecycle.
 
 - **Field failure** — a defect first observed outside the normal local proof
   boundary, such as hosted CI, another platform, a generated consumer, a

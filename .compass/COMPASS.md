@@ -82,6 +82,56 @@ selection, operation, failure, replacement, removal, unselected-provider
 authority and behavior, and governed dependency closure. Similar names or a
 hypothetical second provider are not evidence of neutrality.
 
+## Replaceable AI workload implementations
+
+AI models and inference backends are replaceable implementations of named
+product workloads. Product code targets an explicit workload and capability
+contract, not vendor or model SDK identity and not a universal
+lowest-common-denominator client. Required text, streaming, structured-output,
+tool, embedding, modality, context, cancellation, timeout, offline, and health
+behavior is explicit; an unsupported requirement fails planning or startup
+instead of silently degrading.
+
+Selections name the backend and exact model for a workload, environment, and
+hardware class where needed. Mutable aliases are not accepted identity.
+Fallback defaults to none. Moving from local to hosted inference or between
+processors requires explicit product policy, applicable privacy review,
+observable effective selection, and fail-closed boundaries. A refresh,
+temporary outage, or unavailable capability never authorizes silent data
+transfer or a weaker model path.
+
+An unselected adapter, backend, or model contributes zero dependency,
+configuration, credential, workflow, download, runtime, persistent, or network
+footprint. Bind downloadable selections to the exact model revision, artifact
+or weights digest, quantization, license, model card and provenance, runtime and
+adapter identity, platform and architecture, and evaluation receipt. Bind
+hosted selections to the strongest immutable provider, model, deployment, and
+API identity available and disclose remaining mutability.
+
+Never download large weights automatically. Explicit selection discloses disk,
+RAM, VRAM, and network estimates plus complete removal behavior. Discovery may
+nominate but never promote. The selection lifecycle is `discovered → candidate
+→ accepted → default → retired`, separate from the Shift to Authority
+lifecycle. Acceptance and default promotion occur per workload after
+owner-reviewed representative platform and workload evidence. Different
+workloads may legitimately retain different models and backends.
+
+Evaluation covers task success and quality, tool reliability, structured
+output, streaming, cancellation and errors, latency p50 and p95, memory, CPU,
+GPU, cost, privacy, transfer and retention, license, advisories, provenance,
+offline behavior, rollback, and complete removal. User-facing settings and
+diagnostics reveal the exact workload, model, backend, locality or data
+boundary, status, and fallback policy through one repository-owned registry and
+message authority. Credentials, personal and product data, prompts, outputs,
+tool arguments, logs, retention, processors, and telemetry remain governed by
+privacy and security doctrine. Provider or protocol compatibility is not
+capability conformance.
+
+`ai-workload-policy.json` is the normative structured source for this contract;
+`skills/ai-backend-change/SKILL.md` supplies the procedure. Products retain
+their schemas, adapters, commands, templates, provisioning, hardware support,
+workload choices, consent, and deployed acceptance.
+
 ## Native hot paths with stable interfaces
 
 Prefer native implementations for measured developer-tooling hot paths while
@@ -252,6 +302,36 @@ Branch, ruleset, review, required-check, and bypass decisions are owner
 authority and are never inferred from technical access. Each repository owns
 its autonomy model, including whether an authorized agent may commit and push
 or must stop at a review boundary.
+
+## Shift to Authority
+
+Move a recurring standard, contract, implementation, or proof requirement from
+consumers to the canonical owner best positioned to maintain it. The concern
+must be reusable and stable within that authority's declared scope. Compass
+candidates remain product-, framework-, provider-, and deployment-independent;
+other authorities may intentionally own those mechanics.
+
+A local repair proceeds immediately but must not establish a competing shared
+authority. Consumer movement remains prohibited until an immutable authority
+identity and formal handoff are issued. Adoption includes consumer-owned proof
+and reconciliation of provisional duplicated policy.
+
+`authority-policy.json` is the normative structured definition of the Shift to
+Authority lifecycle, states, relationships, ownership scopes, required review
+classes, and new-authority prerequisites. `authority-registry.json` separately
+owns current candidate state, evidence, ordered transitions, issuance bindings,
+and historical adoption holds. The projected JSON Schemas and dependency-free
+validator define strict authority and consumer-owned reconciliation records.
+`skills/shift-to-authority/SKILL.md` loads and executes those contracts rather
+than duplicating them. Other documents summarize or link to those authorities.
+
+Authority issuance and consumer adoption are separate facts. An issued Compass
+candidate binds the containing artifact receipt's exact seven-dimensional
+identity. Every direct consumer owns its own reconciliation record, exact
+authority identity, local status, and adoption proof. A downstream relationship
+binds its upstream authority; a truly inapplicable relationship records why.
+Compass's observational consumer ledger is neither projected policy nor local
+consumer proof.
 
 ## Shared by authority, specialized by ownership
 

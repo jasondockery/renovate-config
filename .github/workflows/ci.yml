@@ -298,7 +298,7 @@ jobs:
       - name: Check workflow security (SARIF upload)
         id: zizmor_sarif
         continue-on-error: true
-        uses: zizmorcore/zizmor-action@192e21d79ab29983730a13d1382995c2307fbcaa # v0.5.7
+        uses: zizmorcore/zizmor-action@3dc1ecc9bcb9e94e9b2c709687979e1298497054 # v0.6.2
         with:
           persona: pedantic
           advanced-security: true
@@ -306,7 +306,7 @@ jobs:
       - name: Check workflow security (gate)
         id: zizmor_gate
         continue-on-error: true
-        uses: zizmorcore/zizmor-action@192e21d79ab29983730a13d1382995c2307fbcaa # v0.5.7
+        uses: zizmorcore/zizmor-action@3dc1ecc9bcb9e94e9b2c709687979e1298497054 # v0.6.2
         with:
           persona: pedantic
           advanced-security: false

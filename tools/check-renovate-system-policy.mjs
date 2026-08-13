@@ -7,7 +7,8 @@ import { isMainModule } from './is-main.mjs'
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const EXPECTED_CRON = '17 1 * * *'
-const EXPECTED_REPOSITORIES = 'jasondockery/renovate-config,jasondockery/roost,jasondockery/groundwork'
+const REPOSITORY_SLUG = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\/[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$/u
+const REPOSITORY_NAME = /^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$/u
 
 function read(root, relativePath) {
   return fs.readFileSync(path.join(root, relativePath), 'utf8')
@@ -22,12 +23,67 @@ function readJson(root, relativePath, problems) {
   }
 }
 
+function parseRepositoryList(raw, label, problems, pattern) {
+  if (typeof raw !== 'string' || raw.length === 0 || raw.trim() !== raw) {
+    problems.push(`${label} must be one nonempty comma-separated repository list.`)
+    return []
+  }
+  const values = raw.split(',').map((value) => value.trim())
+  if (values.some((value) => !pattern.test(value))) {
+    problems.push(`${label} contains a malformed repository entry.`)
+  }
+  if (new Set(values).size !== values.length) {
+    problems.push(`${label} contains a duplicate repository entry.`)
+  }
+  return values
+}
+
+function requireExactRepositoryOrder(actual, expected, label, problems) {
+  if (JSON.stringify(actual) === JSON.stringify(expected)) return
+  const missing = expected.filter((value) => !actual.includes(value))
+  const extra = actual.filter((value) => !expected.includes(value))
+  const sameMembers = missing.length === 0 && extra.length === 0 && actual.length === expected.length
+  const detail = [
+    missing.length > 0 ? `missing ${missing.join(', ')}` : '',
+    extra.length > 0 ? `extra ${extra.join(', ')}` : '',
+    sameMembers ? 'repository order differs' : '',
+  ].filter(Boolean).join('; ')
+  problems.push(`${label} must exactly match compatibility-targets.json in order${detail ? `: ${detail}` : ''}.`)
+}
+
+function workflowStepBlocks(workflow) {
+  const starts = [...workflow.matchAll(/^ {6}- [^\n]+$/gmu)].map((match) => match.index)
+  return starts.map((start, index) => workflow.slice(start, starts[index + 1] ?? workflow.length))
+}
+
+function checkTokenRepositoryScopes(workflow, relativePath, expectedOwner, expectedNames, problems) {
+  const tokenSteps = workflowStepBlocks(workflow).filter((step) =>
+    /^\s+uses:\s+actions\/create-github-app-token@[^\s#]+(?:\s+#.*)?$/mu.test(step)
+  )
+  if (tokenSteps.length === 0) {
+    problems.push(`${relativePath} must contain at least one create-github-app-token step.`)
+    return
+  }
+  for (const [index, step] of tokenSteps.entries()) {
+    const name = /^ {6}- name:\s*(.+)$/mu.exec(step)?.[1] ?? `token step ${index + 1}`
+    const label = `${relativePath} ${name}`
+    const owner = /^\s+owner:\s*([^\s#]+).*$/mu.exec(step)?.[1]
+    if (owner !== expectedOwner) {
+      problems.push(`${label} owner must match compatibility-targets.json owner ${expectedOwner}.`)
+    }
+    const rawRepositories = /^\s+repositories:\s*([^#\n]+?)(?:\s+#.*)?$/mu.exec(step)?.[1]?.trim()
+    const repositories = parseRepositoryList(rawRepositories, `${label} repositories`, problems, REPOSITORY_NAME)
+    requireExactRepositoryOrder(repositories, expectedNames, `${label} repositories`, problems)
+  }
+}
+
 export function collectRenovateSystemPolicyProblems(root = repositoryRoot) {
   const problems = []
   const preset = readJson(root, 'default.json', problems)
   const packageManifest = readJson(root, 'package.json', problems)
   let workflow = ''
   let compatibilityWorkflow = ''
+  let securityHygieneWorkflow = ''
   let thesis = ''
   let agentInstructions = ''
   let acceptance = ''
@@ -38,10 +94,47 @@ export function collectRenovateSystemPolicyProblems(root = repositoryRoot) {
   }
   try {
     compatibilityWorkflow = read(root, '.github/workflows/renovate-compatibility.yml')
+    securityHygieneWorkflow = read(root, '.github/workflows/security-hygiene.yml')
     acceptance = read(root, 'specs/renovate-system-acceptance.md')
   } catch (error) {
-    problems.push(`compatibility workflow and acceptance spec must be readable: ${error instanceof Error ? error.message : String(error)}`)
+    problems.push(`compatibility, hygiene, and acceptance contracts must be readable: ${error instanceof Error ? error.message : String(error)}`)
   }
+
+  const compatibilityTargets = readJson(root, 'compatibility-targets.json', problems)
+  const targetEntries = Array.isArray(compatibilityTargets?.targets) ? compatibilityTargets.targets : []
+  const targetShapeValid = targetEntries.length === 3 && targetEntries.every((target) =>
+    target !== null && typeof target === 'object' &&
+    typeof target.repository === 'string' && typeof target.directory === 'string' &&
+    Array.isArray(target.ignoredPaths) && target.ignoredPaths.every((entry) => typeof entry === 'string')
+  )
+  const targetDirectories = targetEntries.flatMap((target) =>
+    target !== null && typeof target === 'object' && typeof target.directory === 'string'
+      ? [target.directory]
+      : []
+  )
+  if (
+    compatibilityTargets?.schemaVersion !== 1 ||
+    !['manual-only', 'scheduled'].includes(compatibilityTargets?.activation) ||
+    !targetShapeValid || new Set(targetDirectories).size !== targetDirectories.length ||
+    targetDirectories.filter((directory) => directory === '.').length !== 1
+  ) {
+    problems.push('compatibility-targets.json must be the canonical ordered inventory of exactly three unique checkout targets, including this repository.')
+  }
+  const targetRepositories = targetEntries.flatMap((target) =>
+    target !== null && typeof target === 'object' && typeof target.repository === 'string'
+      ? [target.repository]
+      : []
+  )
+  if (
+    targetRepositories.some((repository) => typeof repository !== 'string' || !REPOSITORY_SLUG.test(repository)) ||
+    new Set(targetRepositories).size !== targetRepositories.length
+  ) {
+    problems.push('compatibility-targets.json repositories must be unique lowercase owner/name slugs.')
+  }
+  const targetOwners = [...new Set(targetRepositories.map((repository) => repository.split('/')[0]))]
+  const targetOwner = targetOwners.length === 1 ? targetOwners[0] : ''
+  if (!targetOwner) problems.push('compatibility-targets.json repositories must share one GitHub owner.')
+  const targetNames = targetRepositories.map((repository) => repository.split('/')[1])
   try {
     thesis = read(root, 'AI_THESIS.md')
     agentInstructions = read(root, 'AGENTS.md')
@@ -83,9 +176,9 @@ export function collectRenovateSystemPolicyProblems(root = repositoryRoot) {
       JSON.stringify(security.schedule) !== JSON.stringify(['at any time']) ||
       security.minimumReleaseAge !== null || security.prHourlyLimit !== 0 ||
       security.prConcurrentLimit !== 0 || security.prCreation !== 'immediate' ||
-      security.automerge !== true || security.platformAutomerge !== true
+      security.automerge !== false || security.platformAutomerge !== false
     ) {
-      problems.push('the active preset must preserve the reviewed vulnerability-alert schedule, age, rate-limit, and automerge bypass.')
+      problems.push('the active preset must preserve immediate vulnerability PRs with age/rate bypass and required human merge review.')
     }
   }
 
@@ -97,10 +190,20 @@ export function collectRenovateSystemPolicyProblems(root = repositoryRoot) {
     if (!/^\s{2}workflow_dispatch:\s*$/mu.test(workflow)) {
       problems.push('Renovate must retain manual workflow_dispatch support.')
     }
-    const repositories = /^\s+RENOVATE_REPOSITORIES:\s*(\S+)\s*$/mu.exec(workflow)?.[1]
-    if (repositories !== EXPECTED_REPOSITORIES) {
-      problems.push('Renovate must target exactly the three chartered consumer repositories.')
-    }
+    const rawRepositories = /^\s+RENOVATE_REPOSITORIES:\s*(\S+)\s*$/mu.exec(workflow)?.[1]
+    const repositories = parseRepositoryList(
+      rawRepositories,
+      '.github/workflows/renovate.yml RENOVATE_REPOSITORIES',
+      problems,
+      REPOSITORY_SLUG
+    )
+    requireExactRepositoryOrder(
+      repositories,
+      targetRepositories,
+      '.github/workflows/renovate.yml RENOVATE_REPOSITORIES',
+      problems
+    )
+    checkTokenRepositoryScopes(workflow, '.github/workflows/renovate.yml', targetOwner, targetNames, problems)
     if (!/cancel-in-progress:\s*false/u.test(workflow)) {
       problems.push('Renovate concurrency must keep cancel-in-progress false.')
     }
@@ -129,19 +232,26 @@ export function collectRenovateSystemPolicyProblems(root = repositoryRoot) {
     problems.push('the active five-day policy, reviewed fixture, proof, and exact renovate:policy command must remain complete.')
   }
 
-  const compatibilityTargets = readJson(root, 'compatibility-targets.json', problems)
-  const expectedCompatibilityTargets = [
-    ['jasondockery/renovate-config', '.'],
-    ['jasondockery/roost', '../roost'],
-    ['jasondockery/groundwork', '../groundwork'],
-  ]
-  if (
-    compatibilityTargets?.schemaVersion !== 1 ||
-    !['manual-only', 'scheduled'].includes(compatibilityTargets?.activation) ||
-    JSON.stringify((compatibilityTargets?.targets ?? []).map(({ repository, directory }) => [repository, directory])) !==
-      JSON.stringify(expectedCompatibilityTargets)
-  ) {
-    problems.push('compatibility-targets.json must name the exact three checkout directories.')
+  const compatibilityTokenNames = targetEntries
+    .filter((target) => target !== null && typeof target === 'object' && target.directory !== '.')
+    .flatMap((target) => typeof target.repository === 'string' ? [target.repository.split('/')[1]] : [])
+  if (compatibilityWorkflow) {
+    checkTokenRepositoryScopes(
+      compatibilityWorkflow,
+      '.github/workflows/renovate-compatibility.yml',
+      targetOwner,
+      compatibilityTokenNames,
+      problems
+    )
+  }
+  if (securityHygieneWorkflow) {
+    checkTokenRepositoryScopes(
+      securityHygieneWorkflow,
+      '.github/workflows/security-hygiene.yml',
+      targetOwner,
+      targetNames,
+      problems
+    )
   }
   const hasCompatibilitySchedule = /^\s{2}schedule:\s*$/mu.test(compatibilityWorkflow)
   if (

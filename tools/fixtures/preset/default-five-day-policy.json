@@ -4,7 +4,7 @@
     "Owner dependency updates: Renovate owns version PRs; Dependabot owns security alerts. This preset holds only policy that must stay identical across owner repos.",
     "config:best-practices enables digest/SHA pinning maintenance; consuming repos keep repo-specific duplicate-pin and package-rule notes locally.",
     "rebaseWhen=behind-base-branch matches strict status checks: branches must be current before merge, so Renovate needs to rebase stale PRs automatically.",
-    "vulnerabilityAlerts explicitly bypasses the routine schedule, rate limits, and release-age floor; security updates are evaluated on the next daily run.",
+    "vulnerabilityAlerts explicitly bypasses the routine schedule, rate limits, and release-age floor; security updates are evaluated on the next daily run but always require human merge review.",
     "Routine version updates are evaluated for branch and PR creation on every daily run after their maturity floor; bounded PR limits control noise without adding a second weekly calendar delay.",
     "Normal major, minor, and patch releases use a strict 5-day floor where their datasource supplies release timestamps. pnpm independently enforces a timestamp-exact 4-day floor during resolution.",
     "config:best-practices includes a 3-day npm rule. The later npm package rule below deliberately raises effective normal npm updates to 5 days without claiming support for pins, lockfile maintenance, replacements, or digests."
@@ -33,7 +33,7 @@
     "prHourlyLimit": 0,
     "prConcurrentLimit": 0,
     "prCreation": "immediate",
-    "automerge": true,
-    "platformAutomerge": true
+    "automerge": false,
+    "platformAutomerge": false
   }
 }

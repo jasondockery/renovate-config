@@ -22,7 +22,7 @@ test('accepts only the exact owner-reviewed active policy', () => {
     (value) => { value.extends.push('group:allNonMajor') },
     (value) => { value.prHourlyLimit = 99 },
     (value) => { value.packageRules.push({ matchManagers: ['npm'], enabled: false }) },
-    (value) => { value.vulnerabilityAlerts.automerge = false },
+    (value) => { value.vulnerabilityAlerts.automerge = true },
   ]) {
     const changed = structuredClone(reviewed)
     mutate(changed)
@@ -31,11 +31,11 @@ test('accepts only the exact owner-reviewed active policy', () => {
 })
 
 // The degradations the required integration lane exists to catch. Each is a
-// realistic way the effective five-day floor or the security bypass could be
-// weakened, and each must stop the lane at its first gate rather than reach a
-// green receipt. `checkEffectivePolicy` calls this before it resolves anything
-// against the runtime, so these are provable offline.
-test('rejects a weakened effective age, filter, or security bypass', () => {
+// realistic way the effective five-day floor, security timing, or human merge
+// boundary could drift, and each must stop the lane at its first gate rather
+// than reach a green receipt. `checkEffectivePolicy` calls this before it
+// resolves anything against the runtime, so these are provable offline.
+test('rejects weakened age/filter policy or expanded security merge authority', () => {
   const degradations = {
     'later npm rule below five days': (value) => {
       value.packageRules.at(-1).minimumReleaseAge = '3 days'
@@ -53,6 +53,12 @@ test('rejects a weakened effective age, filter, or security bypass', () => {
     },
     'security updates losing their rate-limit bypass': (value) => {
       value.vulnerabilityAlerts.prConcurrentLimit = 5
+    },
+    'security updates gaining Renovate merge authority': (value) => {
+      value.vulnerabilityAlerts.automerge = true
+    },
+    'security updates gaining platform merge authority': (value) => {
+      value.vulnerabilityAlerts.platformAutomerge = true
     },
     'routine updates regaining a weekly calendar gate': (value) => {
       value.extends.push('schedule:weekly')

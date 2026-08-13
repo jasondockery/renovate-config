@@ -349,10 +349,11 @@ preset's release version. The preset itself ships as immutable GitHub Releases
 with SemVer tags that carry no `v` prefix, and consumers pin an exact tag such as
 `github>jasondockery/renovate-config#1.0.0`.
 
-The initial pinning bootstrap is in progress. The owner-approved 2026-08-04
-exception activated the reviewed five-day policy before the first immutable
-preset release; `.preset-bootstrap-freeze` now protects that exact accepted
-state. See `ROADMAP.md` for the ordered owner gates and `CONTRIBUTING.md` for
+The initial pinning bootstrap is in progress. Owner-approved exceptions now bind
+the reviewed five-day policy, daily mature-update creation, and immediate
+human-reviewed security PR behavior before the first immutable preset release;
+`.preset-bootstrap-freeze` protects that exact accepted state. See `ROADMAP.md`
+for the ordered owner gates and `CONTRIBUTING.md` for
 the executable `release:controls:check`, `release:preflight`, and
 `release:verify` procedure. The reviewed policy remains captured in
 `tools/fixtures/preset/default-five-day-policy.json` and documented in
@@ -400,9 +401,9 @@ artifacts, and one durable issue ("Security hygiene report", label
 visibility and fails closed before checkout or token mint unless it is private.
 Ownership split:
 GitHub detects and tracks findings; Renovate proposes dependency-update PRs.
-The accepted frozen security block requests immediate creation and automerge
-and explicitly bypasses normal age, schedule, and routine-rate fields for the
-next daily run. Workflow and token
+The accepted frozen security block requests immediate creation, requires human
+merge review, and explicitly bypasses normal age, schedule, and routine-rate
+fields for the next daily run. Workflow and token
 findings are repository code, fixed in the repository that owns them. The
 report only keeps everything visible — it never dismisses or remediates.
 

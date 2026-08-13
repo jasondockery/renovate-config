@@ -2,11 +2,11 @@
 
 Design status: **approved**
 
-Activation status: **active through the owner-approved 2026-08-04 age-policy
-change and 2026-08-09 daily-creation change**
+Activation status: **active through the owner-approved 2026-08-04 age-policy,
+2026-08-09 daily-creation, and 2026-08-13 human-security-merge changes**
 
-Scope: `default.json` effective release-age, routine creation cadence, and
-vulnerability-alert policy only
+Scope: `default.json` effective release-age, routine creation cadence,
+vulnerability-alert timing, and vulnerability-alert merge authority only
 Activation condition: **achieved**; the isolated policy commit and freeze
 checksum change were owner-authorized and passed the exact-boundary proof
 Remaining exit condition: every consumer uses an immutable released preset
@@ -36,6 +36,12 @@ routine updates now advance on the next daily run while `prConcurrentLimit`
 and `prHourlyLimit` remain bounded. The lockfile-maintenance rule inherited
 from `config:best-practices` remains weekly.
 
+The owner-approved 2026-08-13 exception retains immediate vulnerability PR
+creation and the schedule, age, and routine-rate bypass while setting both
+`automerge` and `platformAutomerge` to `false`. A human must review and merge
+the maturity-bypassed fix. The supporting decision record is
+`docs/vulnerability-alert-automerge-decision.md`.
+
 ## Activation, risk, and rollback
 
 Consumers still follow this repository's default branch. Accepting the
@@ -48,9 +54,12 @@ The owner explicitly authorized each reviewed fixture change to `default.json`
 and the corresponding `.preset-bootstrap-freeze` update. The marker remains:
 its new checksum prevents any unreviewed effective change while consumers still
 follow the default branch. `pnpm renovate:policy` strict-validates the active
-preset and proves its resolved daily-creation, five-day, and security
-boundaries with the pinned runtime.
+preset and proves its resolved daily-creation, five-day, inherited
+bump/rollback, immediate-security, and human-merge boundaries with the pinned
+runtime.
 
-The durable rollback is the previous `default.json`. The long-term fix remains
+The durable rollback for the 2026-08-13 choice is the prior security block with
+both automerge fields enabled; restoring it would again be a major, explicitly
+owner-reviewed policy change. The long-term fix remains
 versioned preset distribution so every consumer change is reviewable and has a
 stable rollback target.

@@ -9,10 +9,12 @@ verified, never aspirationally.
 > **Freeze remains in effect until every consumer is pinned.** Until then all three
 > consumers still resolve this repository's default branch, so a merge that
 > changes `default.json` behavior changes their dependency policy immediately
-> and silently. The owner authorized one exact exception on 2026-08-04: activate
-> the reviewed strict five-day npm override and vulnerability-alert bypass.
-> The updated checksum binds that policy. No further effective preset change is
-> authorized during the bootstrap sequence below.
+> and silently. The owner authorized exact exceptions for the reviewed strict
+> five-day npm override and vulnerability-alert bypass (2026-08-04), daily
+> mature-update creation (2026-08-09), and immediate security PRs with required
+> human merge review (2026-08-13). The updated checksum binds that policy. No
+> further effective preset change is authorized during the bootstrap sequence
+> below.
 >
 > The executable reviewed fixture demonstrates why the exception was necessary:
 > `config:best-practices` contributes a later three-day npm rule, so the frozen
@@ -215,6 +217,9 @@ policy to obtain green.
 - [ ] Evaluate a pinned actionlint gate, including the ShellCheck checks needed
       for masked command-substitution failures. Keep it complementary to
       Zizmor, not a replacement.
+- [ ] Migrate the pinned Renovate runtime to v44 in a separate pull request.
+      Accept real v44 structured-log fixtures and preserve fail-closed receipt
+      parsing; do not combine the runtime migration with shared preset policy.
 - [ ] Select and pin a dependency-free JavaScript linter/formatter invocation.
       Track its version through one canonical file and Renovate custom manager,
       then add it to `pnpm validate` without creating install artifacts.

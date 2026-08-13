@@ -18,6 +18,7 @@ const required = [
   'compatibility-targets.json',
   '.github/workflows/renovate.yml',
   '.github/workflows/renovate-compatibility.yml',
+  '.github/workflows/security-hygiene.yml',
   'specs/renovate-system-acceptance.md',
   'playbooks/x-renovate-system-acceptance.md',
   'specs/preset-freeze-exception.md',
@@ -49,6 +50,16 @@ function mutateJson(root, relativePath, mutate) {
   const value = JSON.parse(fs.readFileSync(path.join(root, relativePath), 'utf8'))
   mutate(value)
   fs.writeFileSync(path.join(root, relativePath), `${JSON.stringify(value, null, 2)}\n`)
+}
+
+function replaceStepRepositories(root, relativePath, stepName, repositories) {
+  const file = path.join(root, relativePath)
+  const source = fs.readFileSync(file, 'utf8')
+  const escapedName = stepName.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')
+  const pattern = new RegExp(`( {6}- name: ${escapedName}\\n[\\s\\S]*?^ {10}repositories:) [^\\n]+`, 'mu')
+  const changed = source.replace(pattern, `$1 ${repositories}`)
+  assert.notEqual(changed, source, `${stepName} repositories fixture must be replaced`)
+  fs.writeFileSync(file, changed)
 }
 
 test('accepts the complete checked-in system policy', () => {
@@ -85,13 +96,13 @@ test('rejects schedule, activation, scope, security, and manager-coverage drift'
     const root = fixture(subcontext)
     const file = path.join(root, '.github/workflows/renovate.yml')
     fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace(',jasondockery/groundwork', ''))
-    assert.match(collectRenovateSystemPolicyProblems(root).join('\n'), /exactly the three chartered/)
+    assert.match(collectRenovateSystemPolicyProblems(root).join('\n'), /must exactly match compatibility-targets\.json/)
   })
 
   await context.test('latest-head compatibility scope', (subcontext) => {
     const root = fixture(subcontext)
     mutateJson(root, 'compatibility-targets.json', (manifest) => { manifest.targets.pop() })
-    assert.match(collectRenovateSystemPolicyProblems(root).join('\n'), /exact three checkout directories/)
+    assert.match(collectRenovateSystemPolicyProblems(root).join('\n'), /canonical ordered inventory of exactly three/)
   })
 
   await context.test('manual-only compatibility activation', (subcontext) => {
@@ -120,10 +131,69 @@ test('rejects schedule, activation, scope, security, and manager-coverage drift'
     assert.match(collectRenovateSystemPolicyProblems(root).join('\n'), /active preset/)
   })
 
+  await context.test('security merge authority', (subcontext) => {
+    const root = fixture(subcontext)
+    mutateJson(root, 'default.json', (preset) => { preset.vulnerabilityAlerts.automerge = true })
+    assert.match(collectRenovateSystemPolicyProblems(root).join('\n'), /required human merge review/)
+  })
+
   await context.test('built-in manager narrowing', (subcontext) => {
     const root = fixture(subcontext)
     mutateJson(root, 'default.json', (preset) => { preset.enabledManagers = ['npm'] })
     assert.match(collectRenovateSystemPolicyProblems(root).join('\n'), /must not silently narrow/)
+  })
+})
+
+test('binds every GitHub App repository scope to compatibility-targets.json', async (context) => {
+  const runnerFile = '.github/workflows/renovate.yml'
+  const canonicalSlugs = 'jasondockery/renovate-config,jasondockery/roost,jasondockery/groundwork'
+  const canonicalNames = 'renovate-config,roost,groundwork'
+  const runnerScopeMutations = {
+    missing: 'jasondockery/renovate-config,jasondockery/roost',
+    extra: `${canonicalSlugs},jasondockery/unmanaged`,
+    duplicate: `${canonicalSlugs},jasondockery/roost`,
+    reordered: 'jasondockery/roost,jasondockery/renovate-config,jasondockery/groundwork',
+    malformed: 'jasondockery/renovate-config,NOT-A-SLUG,jasondockery/groundwork',
+  }
+
+  for (const [label, repositories] of Object.entries(runnerScopeMutations)) {
+    await context.test(`runner environment rejects ${label} scope`, (subcontext) => {
+      const root = fixture(subcontext)
+      const file = path.join(root, runnerFile)
+      const source = fs.readFileSync(file, 'utf8')
+      fs.writeFileSync(file, source.replace(canonicalSlugs, repositories))
+      assert.match(
+        collectRenovateSystemPolicyProblems(root).join('\n'),
+        /RENOVATE_REPOSITORIES.*(?:malformed|duplicate|exactly match)/
+      )
+    })
+  }
+
+  const tokenCases = [
+    [runnerFile, 'Mint runner token (GitHub App)', 'roost,groundwork', /Mint runner token/],
+    [runnerFile, 'Mint runner token (GitHub App)', `${canonicalNames},unmanaged`, /Mint runner token/],
+    [runnerFile, 'Mint runner token (GitHub App)', `${canonicalNames},roost`, /duplicate repository/],
+    [runnerFile, 'Mint runner token (GitHub App)', 'roost,renovate-config,groundwork', /repository order differs/],
+    [runnerFile, 'Mint runner token (GitHub App)', 'renovate-config,INVALID,groundwork', /malformed repository/],
+    ['.github/workflows/renovate-compatibility.yml', 'Mint read-only consumer token', 'groundwork,roost', /repository order differs/],
+    ['.github/workflows/security-hygiene.yml', 'Mint alerts token (GitHub App)', 'renovate-config,roost', /Mint alerts token/],
+    ['.github/workflows/security-hygiene.yml', 'Mint code-scanning token (GitHub App)', 'renovate-config,groundwork,roost', /repository order differs/],
+    ['.github/workflows/security-hygiene.yml', 'Mint secret-scanning token (GitHub App)', `${canonicalNames},unmanaged`, /Mint secret-scanning token/],
+  ]
+  for (const [relativePath, stepName, repositories, expected] of tokenCases) {
+    await context.test(`${stepName} rejects scope drift`, (subcontext) => {
+      const root = fixture(subcontext)
+      replaceStepRepositories(root, relativePath, stepName, repositories)
+      assert.match(collectRenovateSystemPolicyProblems(root).join('\n'), expected)
+    })
+  }
+
+  await context.test('token owner must match the canonical inventory owner', (subcontext) => {
+    const root = fixture(subcontext)
+    const file = path.join(root, runnerFile)
+    const source = fs.readFileSync(file, 'utf8')
+    fs.writeFileSync(file, source.replace('          owner: jasondockery\n', '          owner: other-owner\n'))
+    assert.match(collectRenovateSystemPolicyProblems(root).join('\n'), /owner must match compatibility-targets\.json/)
   })
 })
 

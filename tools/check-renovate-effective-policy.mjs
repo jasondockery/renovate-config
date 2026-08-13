@@ -153,6 +153,8 @@ export async function checkEffectivePolicy({
   assert.equal(effectiveVulnerability.prHourlyLimit, 0)
   assert.equal(effectiveVulnerability.prConcurrentLimit, 0)
   assert.equal(effectiveVulnerability.prCreation, 'immediate')
+  assert.equal(effectiveVulnerability.automerge, false, 'vulnerability updates must require human merge review')
+  assert.equal(effectiveVulnerability.platformAutomerge, false, 'the platform must not merge vulnerability updates')
   const vulnerabilityJustUnder = await policyResult(
     filterInternalChecks,
     semver,
@@ -161,13 +163,30 @@ export async function checkEffectivePolicy({
   )
   assert.equal(vulnerabilityJustUnder.pendingChecks, false, 'vulnerability updates must bypass the normal age floor')
 
+  // `config:best-practices` assigns three days to these uncommon npm update
+  // types. The later owner rule intentionally matches only major/minor/patch,
+  // so pin the inherited behavior instead of implying that the five-day claim
+  // covers every update type.
+  for (const updateType of ['bump', 'rollback']) {
+    const inherited = await applyPackageRules(
+      dependency(resolved, { updateType }),
+      `${updateType}-inherited-age-proof`
+    )
+    assert.equal(
+      inherited.minimumReleaseAge,
+      '3 days',
+      `${updateType} updates must retain the reviewed inherited three-day policy`
+    )
+    assert.equal(inherited.internalChecksFilter, 'strict')
+  }
+
   const lockfile = await applyPackageRules(dependency(resolved, {
     updateType: 'lockFileMaintenance',
     isLockFileMaintenance: true,
   }), 'lockfile-proof')
   assert.equal(lockfile.minimumReleaseAge, null, 'Renovate lockfile maintenance must not claim release-age enforcement')
 
-  output.log(`ok: Renovate ${expectedVersion} resolved daily mature updates, five-day normal age, security bypass, and weekly lockfile maintenance`)
+  output.log(`ok: Renovate ${expectedVersion} resolved daily mature updates, five-day normal age, inherited bump/rollback age, human-reviewed security bypass, and weekly lockfile maintenance`)
   return { ok: true, version: expectedVersion }
 }
 

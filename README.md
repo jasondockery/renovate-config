@@ -20,9 +20,15 @@ This adoption explicitly replaces the tracked `.agents/skills` and
 inside this repository to the canonical `skills/` directory. Regular,
 route-only adapter files now preserve the same complete 16-skill repository
 inventory, including all 14 skills bound by the Compass receipt and the two
-Renovate-specific extensions. `pnpm compass:skills:sync` creates missing exact
-adapters but refuses symlinked surfaces, modified routes, and stale or orphaned
-entries; `pnpm check:compass` verifies the resulting inventory.
+Renovate-specific extensions. The guarded one-time
+`pnpm compass:skills:migrate` operation accepts both legacy symlinks together
+only when each target is exactly `../skills` and resolves to this repository's
+canonical directory; unexpected, external, or one-sided sources fail before
+mutation. The canonical Compass projector then installs receipt-managed
+adapters. `pnpm compass:skills:sync` preflights all three surfaces before
+creating missing consumer-owned adapters and derives every managed adapter's
+exact expectation from its receipt entry. `pnpm check:compass` rejects modified
+routes and partial, duplicate, stale, or orphaned inventories.
 
 The projected contract source is the maintenance successor
 `8ccfcff351dfb8c652f8eba75b77980b602bf4c8` (tree

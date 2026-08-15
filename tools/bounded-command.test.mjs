@@ -4,6 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import process from 'node:process'
 import test from 'node:test'
+import { spawn } from 'node:child_process'
 import {
   normalizeBoundedCommandResult,
   runCommandLane,
@@ -28,6 +29,25 @@ function supervisorFixture(context, source) {
   const file = path.join(directory, 'supervisor.mjs')
   fs.writeFileSync(file, source)
   return file
+}
+
+function processExists(pid) {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch (error) {
+    if (error?.code === 'ESRCH') return false
+    throw error
+  }
+}
+
+async function waitForProcessExit(pid) {
+  const deadline = Date.now() + 2000
+  while (Date.now() < deadline) {
+    if (!processExists(pid)) return
+    await new Promise((resolve) => setTimeout(resolve, 20))
+  }
+  assert.fail(`process ${pid} did not exit`)
 }
 
 test('normalization never lets incomplete process evidence retain exit zero', () => {
@@ -102,6 +122,38 @@ test('a real hanging command reaches the authoritative timeout status', async ()
     assert.equal(result.exitCode, 124)
     assert.equal(result.timedOut, true)
     assert.equal(result.closureConfirmed, true)
+  } finally {
+    clearTimeout(timeout)
+  }
+})
+
+test('bounded cleanup preserves an unrelated concurrent process group', async (context) => {
+  if (process.platform === 'win32') return
+  const unrelated = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], {
+    detached: true,
+    stdio: 'ignore',
+  })
+  assert.ok(unrelated.pid)
+  context.after(async () => {
+    if (!processExists(unrelated.pid)) return
+    try {
+      process.kill(-unrelated.pid, 'SIGKILL')
+    } catch (error) {
+      if (error?.code !== 'ESRCH') throw error
+    }
+    await waitForProcessExit(unrelated.pid)
+  })
+
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort({ type: 'timeout' }), 50)
+  try {
+    const result = await silentLane({
+      arguments_: ['-e', 'setInterval(() => {}, 1000)'],
+      signal: controller.signal,
+    })
+    assert.equal(result.exitCode, 124)
+    assert.equal(result.closureConfirmed, true)
+    assert.equal(processExists(unrelated.pid), true)
   } finally {
     clearTimeout(timeout)
   }

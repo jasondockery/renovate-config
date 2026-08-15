@@ -70,6 +70,15 @@ cancels both persistent process-group supervisors with bounded TERM/KILL
 cleanup; each supervisor stays alive until command status and descendant
 closure are resolved.
 
+Verification correctness does not depend on another repository stopping its
+development servers or processes. Local command lanes own distinct process
+groups and cleanup only those groups. Hosted runner support files live beneath
+one randomized run-and-attempt-scoped directory with captured filesystem
+identity and exact-file cleanup; the private Renovate log uses a separate
+randomized identity-bound directory. This repository does not require a fixed
+network port for canonical verification. Shared-host serialization may control
+CPU, memory, or I/O pressure, but it is not a correctness boundary.
+
 For a machine-readable local handoff, add
 `--report /absolute/path/outside/the/repository.json`. That JSON remains
 non-reusable evidence for the exact observed local tree.

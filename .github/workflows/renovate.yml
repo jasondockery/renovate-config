@@ -61,9 +61,11 @@ jobs:
           [ "$finished" -ge "$STARTED" ] || { echo "::error::Checkout timing moved backwards"; exit 1; }
           echo "seconds=$(( finished - STARTED ))" >> "$GITHUB_OUTPUT"
 
-      # Keep host and container paths distinct. The runner owns the randomized
-      # host directory, while the container sees only the fixed private mount.
-      - name: Prepare private Renovate log directory
+      # Keep host and container paths distinct. The runner owns randomized,
+      # run-scoped directories, while the container sees only the fixed private
+      # log mount. No other repository or concurrent runner may share these
+      # mutable files.
+      - name: Prepare private Renovate runtime
         id: renovate-log
         shell: bash
         run: |
@@ -77,27 +79,39 @@ jobs:
           [ -d "$RUNNER_TEMP" ] && [ ! -L "$RUNNER_TEMP" ] \
             || { echo "::error::GitHub runner temporary directory is not a real directory"; exit 1; }
           log_dir="$(mktemp -d "$RUNNER_TEMP/renovate-run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.XXXXXX")"
+          runtime_dir="$(mktemp -d "$RUNNER_TEMP/renovate-runtime-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.XXXXXX")"
           chmod 0700 "$log_dir"
+          chmod 0700 "$runtime_dir"
           log_directory_identity="$(stat -Lc '%d:%i' "$log_dir")"
+          runtime_directory_identity="$(stat -Lc '%d:%i' "$runtime_dir")"
           case "$log_directory_identity" in
             *[!0-9:]* | :* | *: | *:*:*) echo "::error::Renovate log directory identity is invalid"; exit 1 ;;
           esac
+          case "$runtime_directory_identity" in
+            *[!0-9:]* | :* | *: | *:*:*) echo "::error::Renovate runtime directory identity is invalid"; exit 1 ;;
+          esac
+          printf 'runtime-directory=%s\n' "$runtime_dir" >> "$GITHUB_OUTPUT"
+          printf 'runtime-identity=%s\n' "$runtime_directory_identity" >> "$GITHUB_OUTPUT"
           [ -f runner.json ] && [ ! -L runner.json ] \
             || { echo "::error::Renovate runner configuration is not a regular file"; exit 1; }
-          config_copy="$RUNNER_TEMP/renovate-runner.json"
+          config_copy="$runtime_dir/runner.json"
           cp -- runner.json "$config_copy"
           chmod 0444 "$config_copy"
           [ -f tools/renovate-container-entrypoint.sh ] && [ ! -L tools/renovate-container-entrypoint.sh ] \
             || { echo "::error::Renovate container entrypoint is not a regular file"; exit 1; }
-          entrypoint_copy="$RUNNER_TEMP/renovate-container-entrypoint.sh"
+          entrypoint_copy="$runtime_dir/container-entrypoint.sh"
           cp -- tools/renovate-container-entrypoint.sh "$entrypoint_copy"
           chmod 0555 "$entrypoint_copy"
+          phase_file="$runtime_dir/phases.tsv"
+          summary_file="$runtime_dir/summary.md"
           printf 'LOG_FILE=/renovate-log/renovate.jsonl\n' >> "$GITHUB_ENV"
           printf 'directory=%s\n' "$log_dir" >> "$GITHUB_OUTPUT"
           printf 'host-log=%s/renovate.jsonl\n' "$log_dir" >> "$GITHUB_OUTPUT"
           printf 'identity=%s\n' "$log_directory_identity" >> "$GITHUB_OUTPUT"
           printf 'configuration-file=%s\n' "$config_copy" >> "$GITHUB_OUTPUT"
           printf 'entrypoint=%s\n' "$entrypoint_copy" >> "$GITHUB_OUTPUT"
+          printf 'phase-file=%s\n' "$phase_file" >> "$GITHUB_OUTPUT"
+          printf 'summary-file=%s\n' "$summary_file" >> "$GITHUB_OUTPUT"
 
       - name: Begin Node setup timing
         id: node-start
@@ -249,6 +263,10 @@ jobs:
           RENOVATE_LOG_DIR: ${{ steps.renovate-log.outputs.directory }}
           RENOVATE_LOG_FILE: ${{ steps.renovate-log.outputs.host-log }}
           RENOVATE_LOG_DIR_IDENTITY: ${{ steps.renovate-log.outputs.identity }}
+          RENOVATE_RUNTIME_DIR: ${{ steps.renovate-log.outputs.runtime-directory }}
+          RENOVATE_RUNTIME_DIR_IDENTITY: ${{ steps.renovate-log.outputs.runtime-identity }}
+          RENOVATE_PHASE_FILE: ${{ steps.renovate-log.outputs.phase-file }}
+          RENOVATE_SUMMARY_FILE: ${{ steps.renovate-log.outputs.summary-file }}
         run: |
           # Name the real failure. Without this, a failed checkout or setup
           # step reaches the receipt producer with an empty log directory and
@@ -257,6 +275,18 @@ jobs:
             echo "::error title=Renovate setup did not complete::The private log directory was never prepared, so no run receipt can be produced. Repair the failing checkout, Node, or runtime step above and rerun Renovate."
             exit 1
           fi
+          if [ -z "$RENOVATE_RUNTIME_DIR" ] || [ -z "$RENOVATE_RUNTIME_DIR_IDENTITY" ] \
+            || [ -z "$RENOVATE_PHASE_FILE" ] || [ -z "$RENOVATE_SUMMARY_FILE" ]; then
+            echo "::error title=Renovate runtime setup did not complete::The run-scoped receipt paths were not prepared. Repair the setup step and rerun Renovate."
+            exit 1
+          fi
+          [ -d "$RENOVATE_RUNTIME_DIR" ] && [ ! -L "$RENOVATE_RUNTIME_DIR" ] \
+            || { echo "::error::Renovate runtime directory is not a real directory"; exit 1; }
+          [ "$(stat -Lc '%d:%i' "$RENOVATE_RUNTIME_DIR")" = "$RENOVATE_RUNTIME_DIR_IDENTITY" ] \
+            || { echo "::error::Renovate runtime directory identity changed"; exit 1; }
+          [ "$RENOVATE_PHASE_FILE" = "$RENOVATE_RUNTIME_DIR/phases.tsv" ] \
+            && [ "$RENOVATE_SUMMARY_FILE" = "$RENOVATE_RUNTIME_DIR/summary.md" ] \
+            || { echo "::error::Renovate receipt paths escaped the run-scoped directory"; exit 1; }
           phase_result() {
             case "$1" in
               success) printf passed ;;
@@ -280,7 +310,7 @@ jobs:
               "$([ "$TOKEN_OUTCOME" = skipped ] && printf 'runtime resolution did not pass' || true)"
             phase_row 'Renovate execution' "$RENOVATE_SECONDS" "$RENOVATE_OUTCOME" \
               "$([ "$RENOVATE_OUTCOME" = skipped ] && printf 'GitHub App token mint did not pass' || true)"
-          } > "$RUNNER_TEMP/renovate-phases.tsv"
+          } > "$RENOVATE_PHASE_FILE"
           receipt_status=0
           node tools/renovate-run-receipt.mjs \
             --log "$RENOVATE_LOG_FILE" \
@@ -289,15 +319,15 @@ jobs:
             --repositories "$RENOVATE_REPOSITORIES" \
             --token-outcome "$TOKEN_OUTCOME" \
             --outcome "$RENOVATE_OUTCOME" \
-            --phase-file "$RUNNER_TEMP/renovate-phases.tsv" \
+            --phase-file "$RENOVATE_PHASE_FILE" \
             --version "${RENOVATE_VERSION:-unresolved}" \
             --log-level "$LOG_LEVEL" \
             --started-epoch "$JOB_STARTED_EPOCH" \
             --finished-epoch "$(date +%s)" \
             --output renovate-run-receipt.json \
-            --summary "$RUNNER_TEMP/renovate-summary.md" || receipt_status=$?
-          [ ! -f "$RUNNER_TEMP/renovate-summary.md" ] \
-            || cat "$RUNNER_TEMP/renovate-summary.md" >> "$GITHUB_STEP_SUMMARY" \
+            --summary "$RENOVATE_SUMMARY_FILE" || receipt_status=$?
+          [ ! -f "$RENOVATE_SUMMARY_FILE" ] \
+            || cat "$RENOVATE_SUMMARY_FILE" >> "$GITHUB_STEP_SUMMARY" \
             || echo "::warning title=Job summary unavailable::The authoritative Renovate receipt was written, but its Markdown view could not be appended."
           # The receipt producer is the only cleanup authority: it revalidates
           # the captured directory identity before unlink and rmdir. The shell
@@ -314,6 +344,38 @@ jobs:
             echo "::error title=Renovate run failed::Re-dispatch with log_level=debug and inspect the structured repository failures before changing configuration or credentials."
           fi
           exit "$receipt_status"
+
+      - name: Clean private Renovate runtime
+        if: always()
+        shell: bash
+        env:
+          RENOVATE_RUNTIME_DIR: ${{ steps.renovate-log.outputs.runtime-directory }}
+          RENOVATE_RUNTIME_DIR_IDENTITY: ${{ steps.renovate-log.outputs.runtime-identity }}
+          RENOVATE_CONFIG_COPY: ${{ steps.renovate-log.outputs.configuration-file }}
+          RENOVATE_ENTRYPOINT_COPY: ${{ steps.renovate-log.outputs.entrypoint }}
+          RENOVATE_PHASE_FILE: ${{ steps.renovate-log.outputs.phase-file }}
+          RENOVATE_SUMMARY_FILE: ${{ steps.renovate-log.outputs.summary-file }}
+        run: |
+          set -euo pipefail
+          [ -n "$RENOVATE_RUNTIME_DIR" ] && [ -n "$RENOVATE_RUNTIME_DIR_IDENTITY" ] \
+            || { echo "::error::Renovate runtime cleanup has no captured directory identity"; exit 1; }
+          [ -d "$RENOVATE_RUNTIME_DIR" ] && [ ! -L "$RENOVATE_RUNTIME_DIR" ] \
+            || { echo "::error::Renovate runtime cleanup target is not a real directory"; exit 1; }
+          [ "$(stat -Lc '%d:%i' "$RENOVATE_RUNTIME_DIR")" = "$RENOVATE_RUNTIME_DIR_IDENTITY" ] \
+            || { echo "::error::Renovate runtime cleanup target identity changed"; exit 1; }
+          [ "$RENOVATE_CONFIG_COPY" = "$RENOVATE_RUNTIME_DIR/runner.json" ] \
+            && [ "$RENOVATE_ENTRYPOINT_COPY" = "$RENOVATE_RUNTIME_DIR/container-entrypoint.sh" ] \
+            && [ "$RENOVATE_PHASE_FILE" = "$RENOVATE_RUNTIME_DIR/phases.tsv" ] \
+            && [ "$RENOVATE_SUMMARY_FILE" = "$RENOVATE_RUNTIME_DIR/summary.md" ] \
+            || { echo "::error::Renovate runtime cleanup paths escaped the captured directory"; exit 1; }
+          for file in "$RENOVATE_CONFIG_COPY" "$RENOVATE_ENTRYPOINT_COPY" "$RENOVATE_PHASE_FILE" "$RENOVATE_SUMMARY_FILE"; do
+            if [ -e "$file" ] || [ -L "$file" ]; then
+              [ -f "$file" ] && [ ! -L "$file" ] \
+                || { echo "::error::Renovate runtime cleanup found a non-regular managed path"; exit 1; }
+              rm -f -- "$file"
+            fi
+          done
+          rmdir -- "$RENOVATE_RUNTIME_DIR"
 
       - name: Upload sanitized run receipt
         if: always()

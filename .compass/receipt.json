@@ -3,23 +3,38 @@
   "schemaVersion": 1,
   "source": {
     "repository": "jasondockery/compass",
-    "commit": "0b6911dbf66240fe7dfeee2808e1d51663dcdfaa",
-    "tree": "f6a218049ee60667101ca4f5b56767002dc6acf3",
-    "fingerprintSha256": "d0ef4a00ff39bd0b3829527a788fd1c640799cd78505fc9ff08c73741a5c114d",
+    "commit": "8ccfcff351dfb8c652f8eba75b77980b602bf4c8",
+    "tree": "d813b73cd6326a8d89d186a1cac85deac6cb6f77",
+    "fingerprintSha256": "e38e516d7107dd676b87ec877f56fb1572b7ccb03f44041ad0753eb2ca06b4fa",
     "dirty": false
   },
-  "artifactSha256": "63fa100f36c5392d6a8536363cc31bbb9c6cd8c74eb159ba80ecd8fc7d706541",
-  "artifactBytes": 314639,
+  "artifactSha256": "9d698caaf6f579f42381d45b7fc2cf421ee6436d81eb84680bbbd53ba3a121ba",
+  "artifactBytes": 336889,
   "includedFiles": [
     {
+      "path": ".agents/skills/reviewable-agent-workspaces/SKILL.md",
+      "sha256": "3ead92f66c1be8e4fe8f12e9597a69a5454f15e7cb9ee30ae5ff7dfdc5e499c1",
+      "bytes": 331
+    },
+    {
+      "path": ".claude/skills/reviewable-agent-workspaces/SKILL.md",
+      "sha256": "3ead92f66c1be8e4fe8f12e9597a69a5454f15e7cb9ee30ae5ff7dfdc5e499c1",
+      "bytes": 331
+    },
+    {
+      "path": ".codex/skills/reviewable-agent-workspaces/SKILL.md",
+      "sha256": "3ead92f66c1be8e4fe8f12e9597a69a5454f15e7cb9ee30ae5ff7dfdc5e499c1",
+      "bytes": 331
+    },
+    {
       "path": "COMPASS.md",
-      "sha256": "55779b4428fa97f3334d2033c52be753a77b503972997e9e90db787d048cc94f",
-      "bytes": 25105
+      "sha256": "023130bfe3202fb69467cf411b9fd7dffc7f13b74a4e3febe648b1b439c67629",
+      "bytes": 27116
     },
     {
       "path": "TERMINOLOGY.md",
-      "sha256": "9bbec854fa16d24ef3ed4d794341dea37c33405afeb7d8df6be67821194ac8c2",
-      "bytes": 11726
+      "sha256": "9b2d251c1c08e84560d0881a7f2e9ef4ed379c8ee2b2286122c8c43c0d405432",
+      "bytes": 12402
     },
     {
       "path": "ai-workload-policy.json",
@@ -33,8 +48,8 @@
     },
     {
       "path": "authority-registry.json",
-      "sha256": "be79f7da94fb36e5ee3336dace054275433e7525a194778b8469db656df5ed6b",
-      "bytes": 25250
+      "sha256": "e2efaf9ba7f2209c668f862ec86f9b5eec4a9a45996f01edc35b3b8e6a4511e7",
+      "bytes": 28377
     },
     {
       "path": "authority-registry.schema.json",
@@ -53,18 +68,18 @@
     },
     {
       "path": "scripts/check-authority-record.mjs",
-      "sha256": "6bda6069a477d011e6e4004021355323fc6ea1dd0e0d8d55fa10e8d192fb7224",
-      "bytes": 67854
+      "sha256": "89e96c408120013124777e3eac4fd878a53e2f910f9045af364dc6ff91bd8665",
+      "bytes": 69620
     },
     {
       "path": "scripts/check-projection.mjs",
-      "sha256": "7f1586e587dd6ef8120f40cfc31227103628f228be1ea90ff1da7ca296031351",
-      "bytes": 16278
+      "sha256": "af177a4dc234c9afc4739b5ceb0475949a9295d8f60089afa31676527167ce5c",
+      "bytes": 16760
     },
     {
       "path": "scripts/validate-json-schema.mjs",
-      "sha256": "69ddb3f450c90699ea5722db01e970cedeea082695bba93033dbcc40347da714",
-      "bytes": 4144
+      "sha256": "048b9b4c76775050fa24ede11bdae590bdb1718e0021f6eef6e55b045025e4ea",
+      "bytes": 6982
     },
     {
       "path": "skills/accessible-product-development/SKILL.md",
@@ -167,6 +182,16 @@
       "bytes": 204
     },
     {
+      "path": "skills/reviewable-agent-workspaces/SKILL.md",
+      "sha256": "fc0b7af89a565733c8c6f751c101d08bedb5b72bc62acec813a744a0ccbbcfa5",
+      "bytes": 3445
+    },
+    {
+      "path": "skills/reviewable-agent-workspaces/agents/openai.yaml",
+      "sha256": "16544e60b45676c02231bfa502377a63bb3d0471f90fc10b4c3bcb0fbc38f85b",
+      "bytes": 267
+    },
+    {
       "path": "skills/secure-by-design/SKILL.md",
       "sha256": "031c59c6fbcd6209d6d07fa5ae46e800b14ad6540c3af6e3ab750bc6df57d8fe",
       "bytes": 2316
@@ -178,8 +203,8 @@
     },
     {
       "path": "skills/shift-to-authority/SKILL.md",
-      "sha256": "c682fbd09c30afc2276a2e5719a760ee13a104df8afebdbf92784681f0624a7c",
-      "bytes": 8426
+      "sha256": "fd73379eeeb56dfcc284f498ed405f87f240863dc3456ab845e4309e34b8e743",
+      "bytes": 8710
     },
     {
       "path": "skills/shift-to-authority/agents/openai.yaml",
@@ -199,7 +224,7 @@
   ],
   "validation": {
     "result": "passed",
-    "receiptSha256": "3501e8944be9ecba1133fdfd0a56e036fdd3b5d0613f322dec10e73f391c28bb",
+    "receiptSha256": "ba01f6bee5dc23af1be5f47a4b0529cdc270143b9d83a5d0d94a3edee80d260a",
     "command": "scripts/validate-compass"
   }
 }

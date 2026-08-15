@@ -1,0 +1,4 @@
+interface:
+  display_name: "Reviewable agent workspaces"
+  short_description: "Keep agent implementation visible and reviewable"
+  default_prompt: "Use $reviewable-agent-workspaces to declare and preserve a visible implementation workspace and human review surface."

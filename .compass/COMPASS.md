@@ -342,6 +342,38 @@ authority and are never inferred from technical access. Each repository owns
 its autonomy model, including whether an authorized agent may commit and push
 or must stop at a review boundary.
 
+## Reviewable agent workspaces
+
+Implementation work begins by declaring the repository, exact base SHA,
+branch, absolute implementation root, and human review surface. Local
+interactive implementation remains in the workspace attached to the user's
+task or editor. The implementation root does not silently move.
+
+One writable agent owns each worktree. Parallel writers use one named branch
+and worktree each only when the workspace is explicitly registered or opened as
+reviewable, or when a visible branch or draft pull request is the declared
+review surface. A remote agent may commit first only under that declared
+branch-or-review-surface contract. Before commit, the complete task diff—not
+only its staged subset—is visible in the declared review surface.
+
+A dirty or occupied workspace is reported with its exact paths. It is never
+stashed, overwritten, reset, relocated, or hidden without authority. Progress
+reports preserve review location by naming repository path, branch, base SHA,
+current commit, and review surface.
+
+`/tmp`, `/private/tmp`, caches, and detached worktrees are proof-only: use them
+for exact-SHA validation, packing, reconstruction, consumer fixtures,
+corruption tests, and idempotence tests. A proof worktree is clean,
+identity-bound, source-read-only for the proof, and disposable; it is not an
+implementation root. Cleanup requires commit reachability from the retained
+review surface and proof that no staged, unstaged, or untracked implementation
+byte will be lost.
+
+`skills/reviewable-agent-workspaces/SKILL.md` supplies the procedure. Compass
+owns the vendor-neutral workspace, visibility, identity, and cleanup contract.
+Consumers own tool-specific workspace registration, editor integration,
+branch-publication, and local review mechanics.
+
 ## Shift to Authority
 
 Move a recurring standard, contract, implementation, or proof requirement from
@@ -433,6 +465,9 @@ for its own domain, but it does not independently redefine the shared rule.
 
 Derived projected bytes are intentional: they make each checkout complete and
 offline-capable. Their receipt and drift check preserve Compass as the authority.
+Artifact projection and replacement recovery are supported on macOS and Linux.
+Other platforms fail before target or lease mutation because dependency-free
+Node cannot provide the required no-follow lease-open guarantee there.
 
 ## Skill authority and discovery
 

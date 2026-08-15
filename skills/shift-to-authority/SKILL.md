@@ -142,6 +142,10 @@ and does not claim direct Compass adoption. A caller-created self-signed
 intermediary is invalid. A truly inapplicable relationship gives an exact
 reason. Deferred work requires the schema's owner-bound disposition and never
 claims adoption or conformance.
+Each repeated `--upstream-projection-root` adds one unique intermediary in
+command order. The canonical validator resolves governed roots before rejecting
+canonical duplicates, rejects symlink aliases, and accepts at most eight, so
+intermediary validation remains explicitly bounded.
 
 The projected JSON Schemas validate portable structure. The projected
 executable is the normative semantic validator for transition order, sequence,

@@ -38,9 +38,14 @@ normal local proof, and `skills/performance-sensitive-change/SKILL.md` before
 performance-sensitive work. These generated skills remain byte-bound to
 `.compass/receipt.json`; renovate-config-specific extensions stay in this file,
 `specs/`, and the local Renovate skills.
-The complete receipt-bound shared-skill inventory is discoverable through both
-`.agents/skills` and `.claude/skills`; those adapters resolve to the same
-canonical `skills/` tree and are checked mechanically.
+The complete receipt-bound shared-skill inventory and repository-local skill
+extensions are discoverable through
+regular adapter files in `.agents/skills`, `.claude/skills`, and
+`.codex/skills`. Every adapter routes to the same repository-local canonical
+`skills/` entrypoint and is checked mechanically. Load
+`skills/reviewable-agent-workspaces/SKILL.md` before creating a worktree,
+moving implementation outside the initial workspace, starting parallel
+writers, or selecting a review surface.
 
 **Toolchain versions are write-once, derive-everywhere.** Node changes only in `.node-version`; pnpm changes only in `package.json#packageManager`. Load `skills/toolchain-authority/SKILL.md`, run `pnpm toolchain:sync`, then `pnpm check:toolchain`. A new version consumer requires an explicit classification and regression test.
 

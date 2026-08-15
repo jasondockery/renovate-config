@@ -15,16 +15,30 @@ explicit canonical provider-bound adoption command and requires an Actions-,
 Checks-, and Contents-read GitHub token. Renovate-specific policy, workflows,
 acceptance, and release procedures remain local.
 
-The projected contract source is the repository-bound source-hold successor
-`0b6911dbf66240fe7dfeee2808e1d51663dcdfaa` (tree
-`f6a218049ee60667101ca4f5b56767002dc6acf3`, fingerprint
-`d0ef4a00ff39bd0b3829527a788fd1c640799cd78505fc9ff08c73741a5c114d`,
-artifact `63fa100f36c5392d6a8536363cc31bbb9c6cd8c74eb159ba80ecd8fc7d706541`
-at 314639 bytes, validation-receipt SHA-256
-`3501e8944be9ecba1133fdfd0a56e036fdd3b5d0613f322dec10e73f391c28bb`,
+This adoption explicitly replaces the tracked `.agents/skills` and
+`.claude/skills` symlinks. Both previously targeted `../skills` and resolved
+inside this repository to the canonical `skills/` directory. Regular,
+route-only adapter files now preserve the same complete 16-skill repository
+inventory, including all 14 skills bound by the Compass receipt and the two
+Renovate-specific extensions. `pnpm compass:skills:sync` creates missing exact
+adapters but refuses symlinked surfaces, modified routes, and stale or orphaned
+entries; `pnpm check:compass` verifies the resulting inventory.
+
+The projected contract source is the maintenance successor
+`8ccfcff351dfb8c652f8eba75b77980b602bf4c8` (tree
+`d813b73cd6326a8d89d186a1cac85deac6cb6f77`, fingerprint
+`e38e516d7107dd676b87ec877f56fb1572b7ccb03f44041ad0753eb2ca06b4fa`,
+artifact `9d698caaf6f579f42381d45b7fc2cf421ee6436d81eb84680bbbd53ba3a121ba`
+at 336889 bytes, validation-receipt SHA-256
+`ba01f6bee5dc23af1be5f47a4b0529cdc270143b9d83a5d0d94a3edee80d260a`,
 and receipt-file SHA-256
-`bf2be1851c006a2a7276ccb521ffa5862f97e5b51be5f08c27352fa32105c5d5`).
-Its three issued candidate records are adopted through pending consumer commit
+`df4f1bc09d4ae697b00f5dbf2685076f6006ea35dede5f4c1eb2386ea1f38647`).
+Its four issued candidate records are pending adoption. Exact local projection
+and reconciliation do not establish hosted adoption; the later evidence-only
+transition must authenticate the successful consumer gate and receipt.
+
+The immediately preceding source `0b6911dbf66240fe7dfeee2808e1d51663dcdfaa`
+was adopted through pending consumer commit
 `5ee6f465dc7d47e41a56dbd04b4de4d60aa1d27c` (tree
 `5a38e591fa140474524ab2df67c60a090fbc0f39`) and successful hosted `ci-gate`
 run `31495794224`, attempt 1. Provider artifact

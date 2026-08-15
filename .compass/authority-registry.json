@@ -267,6 +267,86 @@
           }
         }
       ]
+    },
+    {
+      "id": "sta-compass-reviewable-agent-workspaces",
+      "invariant": "Agent implementation remains in an explicitly declared, visible, human-reviewable workspace with one writer, stable identity, complete diff visibility, proof-only temporary roots, and lossless cleanup.",
+      "origin": {
+        "repository": "jasondockery/compass",
+        "identity": {
+          "kind": "source",
+          "repository": "jasondockery/compass",
+          "commit": "f45222d0d6fd7651675e627c9f9f51a5eb25e77a"
+        }
+      },
+      "evidence": [
+        {
+          "id": "owner-reviewable-workspaces-review-f45222d",
+          "type": "cross-repository-review",
+          "repository": "jasondockery/compass",
+          "sourceCommit": "f45222d0d6fd7651675e627c9f9f51a5eb25e77a",
+          "summary": "Owner review accepted a vendor-neutral contract after hidden or relocated implementation work made cross-agent progress difficult to inspect and safely reconcile."
+        }
+      ],
+      "affectedScope": [
+        "compass-doctrine-and-procedure",
+        "direct-consumer-agent-workspaces",
+        "generated-consumer-review-surfaces",
+        "future-agent-tools"
+      ],
+      "localRepairStatus": "not-required",
+      "authorityReconciliation": "complete",
+      "incorporationStatus": "complete",
+      "proposedAuthority": "compass",
+      "ownershipReason": "Workspace identity, review visibility, one-writer ownership, proof-root separation, and lossless cleanup are generic across repositories, products, providers, editors, and agent tools.",
+      "consumerOwnedRemainder": "Each consumer owns workspace and tool integration, editor registration, branch publication, and local human-review mechanics.",
+      "candidateState": "issued",
+      "authorityIdentity": {
+        "kind": "containing-projection-receipt",
+        "path": ".compass/receipt.json",
+        "schema": "compass.artifact-receipt",
+        "repository": "jasondockery/compass"
+      },
+      "supersedes": null,
+      "transitionHistory": [
+        {
+          "sequence": 1,
+          "state": "local",
+          "identity": {
+            "kind": "source",
+            "repository": "jasondockery/compass",
+            "commit": "f45222d0d6fd7651675e627c9f9f51a5eb25e77a"
+          }
+        },
+        {
+          "sequence": 2,
+          "state": "nominated",
+          "identity": {
+            "kind": "source",
+            "repository": "jasondockery/compass",
+            "commit": "f45222d0d6fd7651675e627c9f9f51a5eb25e77a"
+          }
+        },
+        {
+          "sequence": 3,
+          "state": "accepted",
+          "identity": {
+            "kind": "source",
+            "repository": "jasondockery/compass",
+            "commit": "f45222d0d6fd7651675e627c9f9f51a5eb25e77a"
+          }
+        },
+        {
+          "sequence": 4,
+          "state": "issued",
+          "identity": {
+            "kind": "containing-projection-receipt",
+            "path": ".compass/receipt.json",
+            "schema": "compass.artifact-receipt",
+            "repository": "jasondockery/compass"
+          }
+        }
+      ]
     }
   ],
   "heldAuthoritySources": [

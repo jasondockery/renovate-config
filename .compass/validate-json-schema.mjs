@@ -1,5 +1,16 @@
 import { isDeepStrictEqual } from 'node:util'
 
+export const SUPPORTED_JSON_SCHEMA_DIALECT = 'https://json-schema.org/draft/2020-12/schema'
+export const SUPPORTED_JSON_SCHEMA_KEYWORDS = Object.freeze([
+  '$schema', '$id', '$defs', '$ref', '$comment',
+  'title', 'description', 'default', 'examples', 'deprecated', 'readOnly', 'writeOnly',
+  'type', 'const', 'enum', 'minimum', 'minLength', 'pattern', 'minItems', 'items',
+  'required', 'properties', 'additionalProperties', 'allOf', 'anyOf', 'oneOf', 'not',
+  'if', 'then', 'else',
+])
+
+const supportedKeywords = new Set(SUPPORTED_JSON_SCHEMA_KEYWORDS)
+
 function resolveReference(root, reference) {
   if (!reference.startsWith('#/')) throw new Error(`unsupported JSON Schema reference: ${reference}`)
   return reference.slice(2).split('/').reduce((value, segment) => value?.[segment.replaceAll('~1', '/').replaceAll('~0', '~')], root)
@@ -20,8 +31,58 @@ function matchesType(value, type) {
   return false
 }
 
-export function validateJsonSchema(instance, schema) {
+function pointerSegment(value) {
+  return String(value).replaceAll('~', '~0').replaceAll('/', '~1')
+}
+
+function validateSchemaDocument(schema) {
   const problems = []
+  const visitSchema = (current, location, root = false) => {
+    if (!current || typeof current !== 'object' || Array.isArray(current)) {
+      problems.push(`${location} uses an unsupported boolean or non-object schema`)
+      return
+    }
+    for (const keyword of Object.keys(current)) {
+      if (!supportedKeywords.has(keyword)) problems.push(`${location} uses unsupported schema keyword ${keyword}`)
+      if (!root && ['$schema', '$id'].includes(keyword)) problems.push(`${location} uses root-only schema keyword ${keyword}`)
+    }
+    for (const container of ['$defs', 'properties']) {
+      const entries = current[container]
+      if (entries === undefined) continue
+      if (!entries || typeof entries !== 'object' || Array.isArray(entries)) {
+        problems.push(`${location}/${pointerSegment(container)} is not a schema map`)
+        continue
+      }
+      for (const [name, child] of Object.entries(entries)) {
+        visitSchema(child, `${location}/${pointerSegment(container)}/${pointerSegment(name)}`)
+      }
+    }
+    for (const keyword of ['items', 'not', 'if', 'then', 'else']) {
+      if (current[keyword] === undefined) continue
+      visitSchema(current[keyword], `${location}/${pointerSegment(keyword)}`)
+    }
+    if (current.additionalProperties !== undefined && typeof current.additionalProperties !== 'boolean') {
+      problems.push(`${location}/additionalProperties must be boolean in the supported schema subset`)
+    }
+    for (const keyword of ['allOf', 'anyOf', 'oneOf']) {
+      if (current[keyword] === undefined) continue
+      if (!Array.isArray(current[keyword])) {
+        problems.push(`${location}/${pointerSegment(keyword)} is not a schema array`)
+        continue
+      }
+      current[keyword].forEach((child, index) => visitSchema(child, `${location}/${pointerSegment(keyword)}/${index}`))
+    }
+  }
+  if (schema?.$schema !== SUPPORTED_JSON_SCHEMA_DIALECT) {
+    problems.push(`#/$schema must declare ${SUPPORTED_JSON_SCHEMA_DIALECT}`)
+  }
+  visitSchema(schema, '#', true)
+  return problems
+}
+
+export function validateJsonSchema(instance, schema) {
+  const problems = validateSchemaDocument(schema)
+  if (problems.length > 0) return problems
   const visit = (value, current, location) => {
     if (!current || typeof current !== 'object' || Array.isArray(current)) {
       problems.push(`${location} has an invalid schema`)
@@ -29,9 +90,8 @@ export function validateJsonSchema(instance, schema) {
     }
     if (current.$ref) {
       const resolved = resolveReference(schema, current.$ref)
-      if (!resolved) problems.push(`${location} references a missing schema`)
+      if (resolved === undefined) problems.push(`${location} references a missing schema`)
       else visit(value, resolved, location)
-      return
     }
     if (Object.hasOwn(current, 'const') && !isDeepStrictEqual(value, current.const)) problems.push(`${location} does not equal its const`)
     if (Array.isArray(current.enum) && !current.enum.some((candidate) => isDeepStrictEqual(value, candidate))) problems.push(`${location} is outside its enum`)

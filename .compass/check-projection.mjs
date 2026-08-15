@@ -17,9 +17,15 @@ export const COMPASS_SKILL_NAMES = Object.freeze([
   'internationalization-first',
   'performance-sensitive-change',
   'privacy-by-design',
+  'reviewable-agent-workspaces',
   'secure-by-design',
   'shift-to-authority',
   'verification-selection',
+])
+export const COMPASS_DISCOVERY_ADAPTER_PATHS = Object.freeze([
+  '.agents/skills/reviewable-agent-workspaces/SKILL.md',
+  '.claude/skills/reviewable-agent-workspaces/SKILL.md',
+  '.codex/skills/reviewable-agent-workspaces/SKILL.md',
 ])
 export const COMPASS_SHAREABLE_PATHS = Object.freeze([
   'COMPASS.md',
@@ -33,6 +39,7 @@ export const COMPASS_SHAREABLE_PATHS = Object.freeze([
   'scripts/check-authority-record.mjs',
   'scripts/check-projection.mjs',
   'scripts/validate-json-schema.mjs',
+  ...COMPASS_DISCOVERY_ADAPTER_PATHS,
   ...COMPASS_SKILL_NAMES.flatMap((name) => [
     `skills/${name}/SKILL.md`,
     `skills/${name}/agents/openai.yaml`,
@@ -224,6 +231,9 @@ function validateManagedNamespaces(root, problems) {
     const relativeDirectory = `skills/${name}`
     if (!inspectExactDirectory(root, relativeDirectory, ['SKILL.md', 'agents'], problems)) return false
     if (!inspectExactDirectory(root, `${relativeDirectory}/agents`, ['openai.yaml'], problems)) return false
+  }
+  for (const adapterPath of COMPASS_DISCOVERY_ADAPTER_PATHS) {
+    if (!inspectExactDirectory(root, path.posix.dirname(adapterPath), ['SKILL.md'], problems)) return false
   }
   return true
 }

@@ -169,6 +169,16 @@ domain-specific states.
   surface in isolated user and configuration state on each claimed platform;
   package inventory, template text, or an equivalent raw command is not a
   substitute.
+- **Reviewable implementation workspace** — the declared repository root,
+  exact base, branch, current commit, writer ownership, and human review surface
+  in which implementation bytes remain visible. Temporary, cached, or detached
+  proof roots are not implementation workspaces.
+- **Human review surface** — the visible workspace diff, named branch, or draft
+  review request declared before editing as the place where a person can inspect
+  the complete implementation change.
+- **Proof worktree** — a clean, immutable-source, identity-bound, disposable
+  checkout used only for validation, packing, reconstruction, fixtures,
+  corruption, or idempotence evidence.
 
 - **Field failure** — a defect first observed outside the normal local proof
   boundary, such as hosted CI, another platform, a generated consumer, a

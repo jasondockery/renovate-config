@@ -11,6 +11,7 @@
     "toolchain:sync": "node tools/sync-toolchain.mjs",
     "check:toolchain": "node tools/check-toolchain.mjs",
     "check:compass": "node tools/check-compass-projection.mjs",
+    "compass:skills:sync": "node tools/sync-compass-skill-adapters.mjs --write",
     "compass:adoption:check": "node .compass/check-authority-record.mjs --projection-root . --consumer-root . --reconciliation-path tools/compass-consumer-reconciliation.json",
     "check:outdated": "node tools/show-outdated.mjs",
     "check:github-config": "node tools/github-external-config.mjs",

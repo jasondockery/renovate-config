@@ -20,6 +20,7 @@ const MAX_RECORD_BYTES = 1024 * 1024
 const MAX_PROVIDER_JSON_BYTES = 2 * 1024 * 1024
 const MAX_PROVIDER_ARCHIVE_BYTES = 64 * 1024 * 1024
 const PROVIDER_DEADLINE_MS = 15_000
+export const MAX_UPSTREAM_PROJECTION_ROOTS = 8
 const GITHUB_ACTIONS_APP_ID = 15368
 const GITHUB_ACTIONS_APP_SLUG = 'github-actions'
 const GITHUB_ACTIONS_APP_OWNER = 'github'
@@ -629,7 +630,7 @@ async function githubApi(token, pathname, { binaryRedirect = false, allowPaginat
       redirect: 'manual',
       signal,
       headers: {
-        accept: binaryRedirect ? 'application/vnd.github+json' : 'application/vnd.github+json',
+        accept: 'application/vnd.github+json',
         authorization: `Bearer ${token}`,
         'x-github-api-version': '2026-03-10',
         'user-agent': 'compass-authority-adoption-validator',
@@ -810,6 +811,12 @@ export async function validateAuthorityBundle({
   providerToken = process.env.GH_TOKEN || process.env.GITHUB_TOKEN,
   providerDeadlineMs = PROVIDER_DEADLINE_MS,
 }) {
+  let canonicalUpstreamRoots
+  try {
+    canonicalUpstreamRoots = canonicalizeUpstreamProjectionRoots(upstreamProjectionRoots)
+  } catch (error) {
+    return [error instanceof Error ? error.message : String(error)]
+  }
   const authority = loadAuthorityProjection(projectionRoot, { canonicalCompass: true })
   const problems = [...authority.problems]
   if (!authority.policy || !authority.registry || !authority.identity) return problems
@@ -824,7 +831,7 @@ export async function validateAuthorityBundle({
   problems.push(...validateJsonSchema(consumer, authority.consumerSchema).map((problem) => `consumer reconciliation schema: ${problem}`))
   problems.push(...validateConsumerReconciliation(consumer, authority.policy))
   const candidates = new Map((authority.registry.candidates ?? []).map((candidate) => [candidate.id, candidate]))
-  const upstream = upstreamProjectionRoots.map((root) => {
+  const upstream = canonicalUpstreamRoots.map((root) => {
     const discovered = loadAuthorityProjection(root)
     const authorityName = discovered.registry?.authority
     const expectedRepository = authority.policy.authorities?.[authorityName]?.repository
@@ -870,6 +877,23 @@ export async function validateAuthorityBundle({
     }
   }
   return problems
+}
+
+export function canonicalizeUpstreamProjectionRoots(roots, resolver = (root) => resolveGovernedRoot(root, 'upstream projection root')) {
+  if (!Array.isArray(roots)) throw new Error('upstream projection roots must be an array')
+  if (roots.length > MAX_UPSTREAM_PROJECTION_ROOTS) {
+    throw new Error(`at most ${MAX_UPSTREAM_PROJECTION_ROOTS} upstream projection roots are supported`)
+  }
+  const seen = new Set()
+  const canonical = []
+  for (const root of roots) {
+    if (!nonEmpty(root)) throw new Error('upstream projection roots must be non-empty strings')
+    const resolved = resolver(root)
+    if (seen.has(resolved)) throw new Error(`duplicate canonical upstream projection root: ${resolved}`)
+    seen.add(resolved)
+    canonical.push(resolved)
+  }
+  return canonical
 }
 
 export function renderReviewTemplate(policy) {
@@ -946,21 +970,43 @@ function parseJsonDocument(file) {
   return { value: JSON.parse(text), bytes, path: absolute }
 }
 
-function parseArguments(arguments_) {
+const CLI_VALUE_FIELDS = new Map([
+  ['--projection-root', 'projectionRoot'],
+  ['--consumer-root', 'consumerRoot'],
+  ['--reconciliation-path', 'reconciliationPath'],
+])
+
+export function parseArguments(arguments_) {
   const options = { upstreamProjectionRoots: [] }
+  const seenSingletons = new Set()
   for (let index = 0; index < arguments_.length; index += 1) {
     const key = arguments_[index]
-    if (!['--projection-root', '--consumer-root', '--reconciliation-path', '--upstream-projection-root', '--print-review-template'].includes(key)) throw new Error('unsupported argument')
-    if (key === '--print-review-template') { options.printReviewTemplate = true; continue }
-    if (!arguments_[index + 1]) throw new Error(`missing value for ${key}`)
-    if (key === '--upstream-projection-root') options.upstreamProjectionRoots.push(arguments_[index + 1])
-    else options[key.slice(2).replaceAll('-', '')] = arguments_[index + 1]
+    if (key === '--print-review-template') {
+      if (seenSingletons.has(key)) throw new Error(`duplicate singleton argument: ${key}`)
+      seenSingletons.add(key)
+      options.printReviewTemplate = true
+      continue
+    }
+    if (key !== '--upstream-projection-root' && !CLI_VALUE_FIELDS.has(key)) throw new Error(`unsupported argument: ${key}`)
+    const value = arguments_[index + 1]
+    if (!value || value.startsWith('--')) throw new Error(`missing value for ${key}`)
+    if (key === '--upstream-projection-root') {
+      if (options.upstreamProjectionRoots.includes(value)) throw new Error(`duplicate upstream projection root: ${value}`)
+      if (options.upstreamProjectionRoots.length >= MAX_UPSTREAM_PROJECTION_ROOTS) {
+        throw new Error(`at most ${MAX_UPSTREAM_PROJECTION_ROOTS} upstream projection roots are supported`)
+      }
+      options.upstreamProjectionRoots.push(value)
+    } else {
+      if (seenSingletons.has(key)) throw new Error(`duplicate singleton argument: ${key}`)
+      seenSingletons.add(key)
+      options[CLI_VALUE_FIELDS.get(key)] = value
+    }
     index += 1
   }
-  if (!options.projectionroot) throw new Error('missing --projection-root')
-  if (options.printReviewTemplate && (options.consumerroot || options.reconciliationpath || options.upstreamProjectionRoots.length > 0)) throw new Error('template mode cannot validate consumer records')
-  if (!options.printReviewTemplate && !options.consumerroot) throw new Error('missing --consumer-root')
-  if (!options.printReviewTemplate && !options.reconciliationpath) throw new Error('missing --reconciliation-path')
+  if (!options.projectionRoot) throw new Error('missing --projection-root')
+  if (options.printReviewTemplate && (options.consumerRoot || options.reconciliationPath || options.upstreamProjectionRoots.length > 0)) throw new Error('template mode cannot validate consumer records')
+  if (!options.printReviewTemplate && !options.consumerRoot) throw new Error('missing --consumer-root')
+  if (!options.printReviewTemplate && !options.reconciliationPath) throw new Error('missing --reconciliation-path')
   return options
 }
 
@@ -972,18 +1018,18 @@ if (isMainModule()) {
   try {
     const options = parseArguments(process.argv.slice(2))
     if (options.printReviewTemplate) {
-      const authority = loadAuthorityProjection(options.projectionroot, { canonicalCompass: true })
+      const authority = loadAuthorityProjection(options.projectionRoot, { canonicalCompass: true })
       if (authority.problems.length > 0) throw new Error(authority.problems.join('; '))
       process.stdout.write(renderReviewTemplate(authority.policy))
     } else {
       const problems = await validateAuthorityBundle({
-        projectionRoot: options.projectionroot,
-        consumerRoot: options.consumerroot,
-        reconciliationPath: options.reconciliationpath,
+        projectionRoot: options.projectionRoot,
+        consumerRoot: options.consumerRoot,
+        reconciliationPath: options.reconciliationPath,
         upstreamProjectionRoots: options.upstreamProjectionRoots,
       })
       if (problems.length > 0) throw new Error(problems.join('; '))
-      console.log(`Authority bundle valid: ${path.join(path.resolve(options.consumerroot), options.reconciliationpath)}`)
+      console.log(`Authority bundle valid: ${path.join(path.resolve(options.consumerRoot), options.reconciliationPath)}`)
     }
   } catch (error) {
     console.error(`check-authority-record: ${error instanceof Error ? error.message : String(error)}`)

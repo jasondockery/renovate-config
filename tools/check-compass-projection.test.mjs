@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -12,6 +13,7 @@ import {
 import {
   COMPASS_SKILL_DISCOVERY_SURFACES,
   inspectSkillDiscoveryAdapters,
+  migrateLegacySkillDiscoverySymlinks,
   projectedSkillNames,
   renderSkillAdapter,
   writeSkillDiscoveryAdapters,
@@ -62,7 +64,11 @@ function fileManifest(root) {
       else manifest.push([child, fs.readFileSync(path.join(root, child), 'utf8')])
     }
   }
-  for (const surface of COMPASS_SKILL_DISCOVERY_SURFACES) visit(surface)
+  for (const surface of COMPASS_SKILL_DISCOVERY_SURFACES) {
+    const metadata = fs.lstatSync(path.join(root, surface))
+    if (metadata.isSymbolicLink()) manifest.push([surface, 'symlink', fs.readlinkSync(path.join(root, surface))])
+    else visit(surface)
+  }
   return manifest.sort(([left], [right]) => left.localeCompare(right))
 }
 
@@ -195,7 +201,7 @@ test('skill discovery is derived from the receipt and rejects partial projection
   )
 })
 
-test('legacy symlink migration preserves the complete inventory and is idempotent', () => {
+test('guarded legacy symlink migration preserves the complete inventory and is idempotent', () => {
   const root = fixture({ copyAdapters: false })
   const receipt = JSON.parse(fs.readFileSync(path.join(root, '.compass/receipt.json'), 'utf8'))
   const issued = projectedSkillNames(receipt)
@@ -207,13 +213,20 @@ test('legacy symlink migration preserves the complete inventory and is idempoten
     assert.equal(fs.readlinkSync(path.join(root, adapterRoot, 'skills')), '../skills')
     assert.equal(fs.realpathSync(path.join(root, adapterRoot, 'skills')), fs.realpathSync(path.join(root, 'skills')))
     assert.deepEqual(fs.readdirSync(path.join(root, adapterRoot, 'skills')).filter((name) => expected.includes(name)).sort(), expected)
-    fs.rmSync(path.join(root, adapterRoot, 'skills'))
-    fs.mkdirSync(path.join(root, adapterRoot, 'skills'))
   }
   fs.writeFileSync(path.join(root, '.agents/unrelated.txt'), 'preserve agents sibling\n')
   fs.writeFileSync(path.join(root, '.claude/settings.local.json'), '{"preserve":true}\n')
   fs.writeFileSync(path.join(root, '.codex/unrelated.txt'), 'preserve codex sibling\n')
+  assert.deepEqual(migrateLegacySkillDiscoverySymlinks(root), [
+    { surface: '.agents/skills', target: '../skills' },
+    { surface: '.claude/skills', target: '../skills' },
+  ])
   fs.mkdirSync(path.join(root, '.codex/skills'))
+  for (const entry of receipt.includedFiles.filter(({ path: receiptPath }) => /^(?:\.agents|\.claude|\.codex)\/skills\/[^/]+\/SKILL\.md$/u.test(receiptPath))) {
+    const destination = path.join(root, entry.path)
+    fs.mkdirSync(path.dirname(destination), { recursive: true })
+    fs.copyFileSync(path.join(repositoryRoot, entry.path), destination)
+  }
 
   const first = writeSkillDiscoveryAdapters(root, receipt)
   assert.deepEqual(first.inventories['.agents/skills'], expected)
@@ -229,17 +242,41 @@ test('legacy symlink migration preserves the complete inventory and is idempoten
   assert.deepEqual(fileManifest(root), firstManifest)
 })
 
-test('skill adapter migration rejects hostile symlinks, stale adapters, and modified routes', () => {
-  const symlinkRoot = fixture()
-  fs.rmSync(path.join(symlinkRoot, '.agents/skills'), { recursive: true })
-  fs.symlinkSync(fs.realpathSync(os.tmpdir()), path.join(symlinkRoot, '.agents/skills'))
+test('skill adapter migration rejects hostile and one-sided symlinks before mutation', () => {
+  const symlinkRoot = fixture({ copyAdapters: false })
+  fs.mkdirSync(path.join(symlinkRoot, '.agents'))
+  fs.mkdirSync(path.join(symlinkRoot, '.claude'))
+  fs.symlinkSync('../skills', path.join(symlinkRoot, '.agents/skills'))
+  fs.symlinkSync(fs.realpathSync(os.tmpdir()), path.join(symlinkRoot, '.claude/skills'))
+  const beforeAgents = fs.readlinkSync(path.join(symlinkRoot, '.agents/skills'))
+  const beforeClaude = fs.readlinkSync(path.join(symlinkRoot, '.claude/skills'))
   assert.throws(
-    () => writeSkillDiscoveryAdapters(
-      symlinkRoot,
-      JSON.parse(fs.readFileSync(path.join(symlinkRoot, '.compass/receipt.json'), 'utf8'))
-    ),
-    /explicitly migrated regular directory/u
+    () => migrateLegacySkillDiscoverySymlinks(symlinkRoot),
+    /unexpected legacy target|does not resolve/u
   )
+  assert.equal(fs.readlinkSync(path.join(symlinkRoot, '.agents/skills')), beforeAgents)
+  assert.equal(fs.readlinkSync(path.join(symlinkRoot, '.claude/skills')), beforeClaude)
+
+  fs.rmSync(path.join(symlinkRoot, '.claude/skills'))
+  fs.mkdirSync(path.join(symlinkRoot, '.claude/skills'))
+  assert.throws(() => migrateLegacySkillDiscoverySymlinks(symlinkRoot), /expected legacy symlink/u)
+  assert.equal(fs.readlinkSync(path.join(symlinkRoot, '.agents/skills')), '../skills')
+})
+
+test('adapter synchronization preflights the final surface before any write', () => {
+  const root = fixture()
+  fs.rmSync(path.join(root, '.agents/skills/live-renovate-acceptance'), { recursive: true })
+  fs.writeFileSync(
+    path.join(root, '.codex/skills/toolchain-authority/SKILL.md'),
+    renderSkillAdapter('privacy-by-design')
+  )
+  const before = fileManifest(root)
+  const receipt = JSON.parse(fs.readFileSync(path.join(root, '.compass/receipt.json'), 'utf8'))
+  assert.throws(() => writeSkillDiscoveryAdapters(root, receipt), /does not route exactly/u)
+  assert.deepEqual(fileManifest(root), before)
+})
+
+test('skill adapter inspection rejects stale adapters and modified routes', () => {
 
   const staleRoot = fixture()
   fs.mkdirSync(path.join(staleRoot, '.claude/skills/stale-skill'))
@@ -261,6 +298,32 @@ test('skill adapter migration rejects hostile symlinks, stale adapters, and modi
     ).problems.join('\n'),
     /does not route exactly/u
   )
+
+  const managedRoot = fixture()
+  fs.appendFileSync(
+    path.join(managedRoot, '.claude/skills/reviewable-agent-workspaces/SKILL.md'),
+    '\nmanaged drift\n'
+  )
+  assert.match(
+    inspectSkillDiscoveryAdapters(
+      managedRoot,
+      JSON.parse(fs.readFileSync(path.join(managedRoot, '.compass/receipt.json'), 'utf8'))
+    ).problems.join('\n'),
+    /does not match its receipt-bound bytes/u
+  )
+
+  const retiedRoot = fixture()
+  const retiedReceipt = JSON.parse(fs.readFileSync(path.join(retiedRoot, '.compass/receipt.json'), 'utf8'))
+  const managedPath = '.claude/skills/reviewable-agent-workspaces/SKILL.md'
+  const wrongRoute = Buffer.from(renderSkillAdapter('privacy-by-design'))
+  fs.writeFileSync(path.join(retiedRoot, managedPath), wrongRoute)
+  const managedEntry = retiedReceipt.includedFiles.find(({ path: receiptPath }) => receiptPath === managedPath)
+  managedEntry.bytes = wrongRoute.length
+  managedEntry.sha256 = createHash('sha256').update(wrongRoute).digest('hex')
+  assert.match(
+    inspectSkillDiscoveryAdapters(retiedRoot, retiedReceipt).problems.join('\n'),
+    /does not route to its named canonical entrypoint/u
+  )
 })
 
 test('duplicate receipt skill entries fail closed', () => {
@@ -268,4 +331,11 @@ test('duplicate receipt skill entries fail closed', () => {
   const receipt = JSON.parse(fs.readFileSync(path.join(root, '.compass/receipt.json'), 'utf8'))
   receipt.includedFiles.push({ path: 'skills/dependency-change/SKILL.md' })
   assert.match(inspectSkillDiscoveryAdapters(root, receipt).problems.join('\n'), /duplicate projected/u)
+})
+
+test('receipt-managed adapter expectations are generic rather than skill-specific', () => {
+  const source = fs.readFileSync(path.join(repositoryRoot, 'tools/sync-compass-skill-adapters.mjs'), 'utf8')
+  assert.match(source, /ADAPTER_RECEIPT_PATH/u)
+  assert.match(source, /validateManagedAdapter/u)
+  assert.doesNotMatch(source, /expectedReviewableAdapter/u)
 })

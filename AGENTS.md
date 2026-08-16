@@ -38,6 +38,12 @@ normal local proof, and `skills/performance-sensitive-change/SKILL.md` before
 performance-sensitive work. These generated skills remain byte-bound to
 `.compass/receipt.json`; renovate-config-specific extensions stay in this file,
 `specs/`, and the local Renovate skills.
+Load `skills/reviewable-agent-workspaces/SKILL.md` before selecting or changing
+an implementation workspace, worktree writer, review surface, ownership
+handoff, or proof-only temporary checkout. Load
+`skills/concurrent-agent-runtimes/SKILL.md` before starting or diagnosing
+processes, services, endpoints, containers, sockets, temporary state, or other
+runtime resources shared with concurrent repositories and agents.
 The complete receipt-bound shared-skill inventory is discoverable through both
 `.agents/skills` and `.claude/skills`; those adapters resolve to the same
 canonical `skills/` tree and are checked mechanically.

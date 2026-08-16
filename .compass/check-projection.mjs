@@ -7,6 +7,21 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
 export const COMPASS_REPOSITORY = 'jasondockery/compass'
+export const COMPASS_PROOF_IDENTITY_DIMENSIONS = Object.freeze([
+  Object.freeze({ name: 'contentIdentity', requiredFields: Object.freeze(['repository', 'sourceTree', 'toolchainSha256', 'commandContractSha256', 'environmentSha256', 'inputSetSha256']) }),
+  Object.freeze({ name: 'provenanceIdentity', requiredFields: Object.freeze(['repository', 'sourceCommit', 'sourceTree', 'reference']) }),
+  Object.freeze({ name: 'platformIdentity', requiredFields: Object.freeze(['os', 'architecture', 'platformInputsSha256']) }),
+  Object.freeze({ name: 'artifactIdentity', requiredFields: Object.freeze(['sha256', 'bytes', 'sourceCommit', 'sourceTree', 'buildContractSha256']) }),
+  Object.freeze({ name: 'deploymentIdentity', requiredFields: Object.freeze(['environment', 'deploymentId', 'sourceCommit', 'sourceTree', 'artifactSha256']) }),
+])
+export const COMPASS_PROOF_CLAIM_CONTRACTS = Object.freeze([
+  Object.freeze({ claim: 'tree-verification', requiredIdentities: Object.freeze(['contentIdentity', 'platformIdentity']), acceptedEvidenceKinds: Object.freeze(['local-full', 'hosted-full']) }),
+  Object.freeze({ claim: 'provenance-verification', requiredIdentities: Object.freeze(['provenanceIdentity']), acceptedEvidenceKinds: Object.freeze(['provenance-check']) }),
+  Object.freeze({ claim: 'platform-release', requiredIdentities: Object.freeze(['contentIdentity', 'provenanceIdentity', 'platformIdentity']), acceptedEvidenceKinds: Object.freeze(['hosted-full']) }),
+  Object.freeze({ claim: 'artifact-generation', requiredIdentities: Object.freeze(['contentIdentity', 'provenanceIdentity', 'platformIdentity', 'artifactIdentity']), acceptedEvidenceKinds: Object.freeze(['artifact-build']) }),
+  Object.freeze({ claim: 'deployment-acceptance', requiredIdentities: Object.freeze(['provenanceIdentity', 'platformIdentity', 'artifactIdentity', 'deploymentIdentity']), acceptedEvidenceKinds: Object.freeze(['deployment-check']) }),
+])
+export const COMPASS_HEAVY_PROOF_REPORT_FIELDS = Object.freeze(['claim', 'evidenceIdentity', 'reusableEvidence', 'missingEvidence', 'whyCheaperCheckInsufficient'])
 export const COMPASS_SKILL_NAMES = Object.freeze([
   'accessible-product-development',
   'ai-backend-change',
@@ -38,12 +53,12 @@ export const COMPASS_AGENT_ROUTING_SKILLS = Object.freeze([
   Object.freeze({ name: 'inclusive-content-design', canonicalSkillPath: 'skills/inclusive-content-design/SKILL.md', canonicalSkillSha256: '6dee58a6e49c45cbbf3eebdde1b794d38b6d1c62f0922a8e878ad1f62a059e0b' }),
   Object.freeze({ name: 'inclusive-product-foundation', canonicalSkillPath: 'skills/inclusive-product-foundation/SKILL.md', canonicalSkillSha256: '3bc3f64694a6f2dcca1723c88e337ebaa91ac92f5df3e96aaa5b1436a40c8590' }),
   Object.freeze({ name: 'internationalization-first', canonicalSkillPath: 'skills/internationalization-first/SKILL.md', canonicalSkillSha256: '8d3916165311db1afd23fe01567decd4c14da5e8bded0de66d5889c67017c99f' }),
-  Object.freeze({ name: 'performance-sensitive-change', canonicalSkillPath: 'skills/performance-sensitive-change/SKILL.md', canonicalSkillSha256: '955ecb5dc73c8798e59763d4bd43eaa3170169b3cb9659b9550fabce1c25b07c' }),
+  Object.freeze({ name: 'performance-sensitive-change', canonicalSkillPath: 'skills/performance-sensitive-change/SKILL.md', canonicalSkillSha256: '7ba39bdba1a07077e367d81e167de7db1ad4cc5e74226c43e70345e7f349802a' }),
   Object.freeze({ name: 'privacy-by-design', canonicalSkillPath: 'skills/privacy-by-design/SKILL.md', canonicalSkillSha256: '86939dc78d5410c163cd540e514534ca2240558fc0736ab20a47f5c05d73f493' }),
   Object.freeze({ name: 'reviewable-agent-workspaces', canonicalSkillPath: 'skills/reviewable-agent-workspaces/SKILL.md', canonicalSkillSha256: 'cc663ed8100e3049a4f1d4f7261dcb429ece04bf22ec4224a2341f9a7d757edb' }),
   Object.freeze({ name: 'secure-by-design', canonicalSkillPath: 'skills/secure-by-design/SKILL.md', canonicalSkillSha256: '031c59c6fbcd6209d6d07fa5ae46e800b14ad6540c3af6e3ab750bc6df57d8fe' }),
   Object.freeze({ name: 'shift-to-authority', canonicalSkillPath: 'skills/shift-to-authority/SKILL.md', canonicalSkillSha256: '4a28d226a46510671f2692e2e66e7c25499bfc8d36f5f41c2282fc13d5413af8' }),
-  Object.freeze({ name: 'verification-selection', canonicalSkillPath: 'skills/verification-selection/SKILL.md', canonicalSkillSha256: '807d8664a7407ab6d549f913c6b5352467b788ba66065555f7b26034465a48f0' }),
+  Object.freeze({ name: 'verification-selection', canonicalSkillPath: 'skills/verification-selection/SKILL.md', canonicalSkillSha256: '04f06cd97b173a7ab0e5df6c52c77e92f40a1f42ca3da901b89d8a386a9bc0b0' }),
 ])
 export const COMPASS_AGENT_ROUTING_AUTHORITY = COMPASS_AGENT_ROUTING_AUTHORITIES[1]
 export const COMPASS_AGENT_ROUTED_SKILLS = COMPASS_SKILL_NAMES
@@ -83,6 +98,8 @@ export const COMPASS_SHAREABLE_PATHS = Object.freeze([
   'consumer-hosted-adoption-receipt.schema.json',
   'consumer-reconciliation.schema.json',
   'managed-retirements.json',
+  'proof-evidence-policy.json',
+  'proof-selection.schema.json',
   'reviewable-workspace-handoff.schema.json',
   'scripts/check-authority-record.mjs',
   'scripts/check-projection.mjs',
@@ -126,6 +143,164 @@ function safeRelativePath(value) {
 function hasExactKeys(value, expected) {
   return value !== null && typeof value === 'object' && !Array.isArray(value) &&
     JSON.stringify(Object.keys(value).sort()) === JSON.stringify([...expected].sort())
+}
+
+function nonEmptyString(value) {
+  return typeof value === 'string' && value.length > 0
+}
+
+function canonicalJson(value) {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`
+  if (value !== null && typeof value === 'object') {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(',')}}`
+  }
+  return JSON.stringify(value)
+}
+
+export function validateProofEvidencePolicy(policy, problems = []) {
+  const initialProblemCount = problems.length
+  const topLevelKeys = ['authority', 'claimContracts', 'heavyProofReportFields', 'identityDimensions', 'invalidationRule', 'schema', 'schemaVersion']
+  if (!hasExactKeys(policy, topLevelKeys) || policy.schema !== 'compass.proof-evidence-policy' || policy.schemaVersion !== 1 || policy.authority !== 'verification-selection') {
+    problems.push('proof evidence policy identity is invalid')
+    return false
+  }
+  if (!Array.isArray(policy.identityDimensions) || policy.identityDimensions.length !== COMPASS_PROOF_IDENTITY_DIMENSIONS.length) {
+    problems.push('proof evidence identity dimension inventory is invalid')
+  } else {
+    for (let index = 0; index < COMPASS_PROOF_IDENTITY_DIMENSIONS.length; index += 1) {
+      const actual = policy.identityDimensions[index]
+      const expected = COMPASS_PROOF_IDENTITY_DIMENSIONS[index]
+      if (!hasExactKeys(actual, ['meaning', 'name', 'requiredFields']) || actual.name !== expected.name || !nonEmptyString(actual.meaning) || JSON.stringify(actual.requiredFields) !== JSON.stringify(expected.requiredFields)) {
+        problems.push(`proof evidence identity dimension is invalid at index ${index}`)
+      }
+    }
+  }
+  if (!Array.isArray(policy.claimContracts) || policy.claimContracts.length !== COMPASS_PROOF_CLAIM_CONTRACTS.length) {
+    problems.push('proof evidence claim contract inventory is invalid')
+  } else {
+    for (let index = 0; index < COMPASS_PROOF_CLAIM_CONTRACTS.length; index += 1) {
+      const actual = policy.claimContracts[index]
+      const expected = COMPASS_PROOF_CLAIM_CONTRACTS[index]
+      if (!hasExactKeys(actual, ['acceptedEvidenceKinds', 'claim', 'note', 'requiredIdentities', 'reuseRule']) ||
+          actual.claim !== expected.claim || actual.reuseRule !== 'exact-required-identities' || !nonEmptyString(actual.note) ||
+          JSON.stringify(actual.requiredIdentities) !== JSON.stringify(expected.requiredIdentities) ||
+          JSON.stringify(actual.acceptedEvidenceKinds) !== JSON.stringify(expected.acceptedEvidenceKinds)) {
+        problems.push(`proof evidence claim contract is invalid at index ${index}`)
+      }
+    }
+  }
+  if (JSON.stringify(policy.heavyProofReportFields) !== JSON.stringify(COMPASS_HEAVY_PROOF_REPORT_FIELDS)) problems.push('heavy proof report field inventory is invalid')
+  if (policy.invalidationRule !== 'A changed actual input invalidates only evidence whose policy-required identity includes that changed dimension.') problems.push('proof evidence invalidation rule is invalid')
+  return problems.length === initialProblemCount
+}
+
+function validSha256(value) {
+  return typeof value === 'string' && SHA256.test(value)
+}
+
+function validCommit(value) {
+  return typeof value === 'string' && COMMIT.test(value)
+}
+
+function validateEvidenceIdentity(identity, contract, label, problems, allowedMissingIdentities = new Set()) {
+  const identityNames = COMPASS_PROOF_IDENTITY_DIMENSIONS.map(({ name }) => name)
+  if (!hasExactKeys(identity, identityNames)) {
+    problems.push(`${label} must separate exactly the five proof identity dimensions`)
+    return false
+  }
+  const required = new Set(contract.requiredIdentities)
+  for (const dimension of COMPASS_PROOF_IDENTITY_DIMENSIONS) {
+    const value = identity[dimension.name]
+    if (!required.has(dimension.name)) {
+      if (value !== null) problems.push(`${label} ${dimension.name} must be null because the claim does not depend on it`)
+      continue
+    }
+    if (value === null && allowedMissingIdentities.has(dimension.name)) continue
+    if (!hasExactKeys(value, dimension.requiredFields)) {
+      problems.push(`${label} ${dimension.name} is missing or structurally invalid`)
+      continue
+    }
+    for (const field of dimension.requiredFields) {
+      if (field === 'bytes') {
+        if (!Number.isSafeInteger(value[field]) || value[field] < 1) problems.push(`${label} ${dimension.name}.${field} is invalid`)
+      } else if (field === 'sourceCommit' || field === 'sourceTree') {
+        if (!validCommit(value[field])) problems.push(`${label} ${dimension.name}.${field} is invalid`)
+      } else if (field.endsWith('Sha256') || field === 'sha256') {
+        if (!validSha256(value[field])) problems.push(`${label} ${dimension.name}.${field} is invalid`)
+      } else if (field === 'reference') {
+        if (!hasExactKeys(value.reference, ['kind', 'name', 'resolvedCommit']) || !['commit', 'branch', 'tag'].includes(value.reference?.kind) || !nonEmptyString(value.reference?.name) || !validCommit(value.reference?.resolvedCommit)) problems.push(`${label} provenanceIdentity.reference is invalid`)
+      } else if (field === 'repository') {
+        if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/u.test(value[field])) problems.push(`${label} ${dimension.name}.${field} is invalid`)
+      } else if (!nonEmptyString(value[field])) problems.push(`${label} ${dimension.name}.${field} is invalid`)
+    }
+  }
+  const content = identity.contentIdentity
+  const provenance = identity.provenanceIdentity
+  const artifact = identity.artifactIdentity
+  const deployment = identity.deploymentIdentity
+  if (provenance && provenance.reference?.resolvedCommit !== provenance.sourceCommit) problems.push(`${label} provenance reference does not resolve to its source commit`)
+  if (content && provenance && (content.repository !== provenance.repository || content.sourceTree !== provenance.sourceTree)) problems.push(`${label} content and provenance identities do not bind the same repository tree`)
+  if (artifact && provenance && (artifact.sourceCommit !== provenance.sourceCommit || artifact.sourceTree !== provenance.sourceTree)) problems.push(`${label} artifact and provenance identities do not bind the same source`)
+  if (deployment && provenance && (deployment.sourceCommit !== provenance.sourceCommit || deployment.sourceTree !== provenance.sourceTree)) problems.push(`${label} deployment and provenance identities do not bind the same source`)
+  if (deployment && artifact && deployment.artifactSha256 !== artifact.sha256) problems.push(`${label} deployment does not bind the selected artifact digest`)
+  return true
+}
+
+export function assessProofEvidenceReuse(currentIdentity, priorIdentity, requiredIdentities) {
+  return requiredIdentities.filter((name) => canonicalJson(currentIdentity?.[name]) !== canonicalJson(priorIdentity?.[name]))
+}
+
+export function validateProofSelection(record, policy, problems = []) {
+  const initialProblemCount = problems.length
+  if (!validateProofEvidencePolicy(policy, problems)) return false
+  if (!hasExactKeys(record, ['claim', 'evidenceIdentity', 'missingEvidence', 'reusableEvidence', 'schema', 'schemaVersion', 'selectedEvidence', 'whyCheaperCheckInsufficient']) || record.schema !== 'compass.proof-selection' || record.schemaVersion !== 1) {
+    problems.push('proof selection record identity is invalid')
+    return false
+  }
+  if (!hasExactKeys(record.claim, ['kind', 'statement']) || !nonEmptyString(record.claim?.statement)) problems.push('proof selection claim is invalid')
+  const contract = policy.claimContracts.find(({ claim }) => claim === record.claim?.kind)
+  if (!contract) {
+    problems.push('proof selection claim is not governed by policy')
+    return false
+  }
+  if (!hasExactKeys(record.selectedEvidence, ['command', 'kind', 'result']) || !contract.acceptedEvidenceKinds.includes(record.selectedEvidence?.kind) || !nonEmptyString(record.selectedEvidence?.command) || !['planned', 'passed', 'failed'].includes(record.selectedEvidence?.result)) problems.push('selected proof kind, command, or result is invalid for the claim')
+  const allowedMissingIdentities = new Set()
+  if (record.selectedEvidence?.result === 'planned' && Array.isArray(record.missingEvidence)) {
+    for (const missing of record.missingEvidence) {
+      if (missing?.claim === record.claim.kind && contract.requiredIdentities.includes(missing.identity)) allowedMissingIdentities.add(missing.identity)
+    }
+  }
+  validateEvidenceIdentity(record.evidenceIdentity, contract, 'selected evidence identity', problems, allowedMissingIdentities)
+  if (record.claim.kind === 'platform-release' && (record.selectedEvidence?.kind !== 'hosted-full' || record.evidenceIdentity?.provenanceIdentity?.reference?.kind !== 'branch')) problems.push('platform release requires hosted Full bound to a landed branch commit')
+  if (!Array.isArray(record.reusableEvidence)) problems.push('reusable evidence must be an array')
+  else {
+    const ids = new Set()
+    for (const [index, evidence] of record.reusableEvidence.entries()) {
+      const label = `reusable evidence ${index}`
+      const evidenceContract = policy.claimContracts.find(({ claim }) => claim === evidence?.claim)
+      if (!hasExactKeys(evidence, ['claim', 'evidenceId', 'evidenceIdentity', 'kind', 'result']) || !nonEmptyString(evidence.evidenceId) || ids.has(evidence.evidenceId) || evidence.result !== 'passed' || !evidenceContract?.acceptedEvidenceKinds.includes(evidence.kind)) {
+        problems.push(`${label} identity, claim, kind, or result is invalid`)
+        continue
+      }
+      ids.add(evidence.evidenceId)
+      validateEvidenceIdentity(evidence.evidenceIdentity, evidenceContract, label, problems)
+      const differences = assessProofEvidenceReuse(record.evidenceIdentity, evidence.evidenceIdentity, evidenceContract.requiredIdentities)
+      if (differences.length > 0) problems.push(`${label} cannot be reused because ${differences.join(', ')} changed`)
+    }
+  }
+  if (!Array.isArray(record.missingEvidence)) problems.push('missing evidence must be an array')
+  else {
+    const seen = new Set()
+    for (const [index, missing] of record.missingEvidence.entries()) {
+      const key = canonicalJson(missing)
+      const missingContract = policy.claimContracts.find(({ claim }) => claim === missing?.claim)
+      if (!hasExactKeys(missing, ['claim', 'identity', 'reason']) || !missingContract?.requiredIdentities.includes(missing.identity) || !nonEmptyString(missing.reason) || seen.has(key)) problems.push(`missing evidence ${index} is invalid, unrelated, or duplicated`)
+      seen.add(key)
+    }
+  }
+  if (record.selectedEvidence?.result === 'passed' && record.missingEvidence?.length > 0) problems.push('passed proof selection cannot retain missing evidence')
+  if (!nonEmptyString(record.whyCheaperCheckInsufficient)) problems.push('heavy proof selection must explain why a cheaper check is insufficient')
+  return problems.length === initialProblemCount
 }
 
 export function validateAgentRoutingInventory(inventory, problems = []) {
@@ -646,7 +821,7 @@ function validateProjectedAgentRouting(filesBySourcePath, problems) {
 }
 
 export function compassProjectionPath(sourcePath) {
-  if (['COMPASS.md', 'TERMINOLOGY.md', 'agent-routing-surfaces.json', 'ai-workload-policy.json', 'authority-policy.json', 'authority-registry.json', 'authority-registry.schema.json', 'consumer-hosted-adoption-receipt.schema.json', 'consumer-reconciliation.schema.json', 'managed-retirements.json', 'reviewable-workspace-handoff.schema.json'].includes(sourcePath)) {
+  if (['COMPASS.md', 'TERMINOLOGY.md', 'agent-routing-surfaces.json', 'ai-workload-policy.json', 'authority-policy.json', 'authority-registry.json', 'authority-registry.schema.json', 'consumer-hosted-adoption-receipt.schema.json', 'consumer-reconciliation.schema.json', 'managed-retirements.json', 'proof-evidence-policy.json', 'proof-selection.schema.json', 'reviewable-workspace-handoff.schema.json'].includes(sourcePath)) {
     return `.compass/${sourcePath}`
   }
   if (sourcePath === 'scripts/check-authority-record.mjs') return '.compass/check-authority-record.mjs'
@@ -792,7 +967,7 @@ function validateManagedNamespaces(root, problems) {
   if (!inspectExactDirectory(
     root,
     '.compass',
-    ['COMPASS.md', 'TERMINOLOGY.md', 'agent-routing-surfaces.json', 'ai-workload-policy.json', 'authority-policy.json', 'authority-registry.json', 'authority-registry.schema.json', 'check-authority-record.mjs', 'check-projection.mjs', 'consumer-hosted-adoption-receipt.schema.json', 'consumer-reconciliation.schema.json', 'managed-retirements.json', 'receipt.json', 'reviewable-workspace-handoff.schema.json', 'validate-json-schema.mjs'],
+    ['COMPASS.md', 'TERMINOLOGY.md', 'agent-routing-surfaces.json', 'ai-workload-policy.json', 'authority-policy.json', 'authority-registry.json', 'authority-registry.schema.json', 'check-authority-record.mjs', 'check-projection.mjs', 'consumer-hosted-adoption-receipt.schema.json', 'consumer-reconciliation.schema.json', 'managed-retirements.json', 'proof-evidence-policy.json', 'proof-selection.schema.json', 'receipt.json', 'reviewable-workspace-handoff.schema.json', 'validate-json-schema.mjs'],
     problems
   )) return false
 
@@ -963,6 +1138,13 @@ export function inspectCompassProjection(root = defaultConsumerRoot, {
     if (!retirementBytes) problems.push('receipt-bound managed retirement manifest is missing')
     else {
       try { validateManagedRetirementManifest(JSON.parse(retirementBytes.toString('utf8')), problems) } catch { problems.push('receipt-bound managed retirement manifest is malformed') }
+    }
+  }
+  if (shareablePaths.includes('proof-evidence-policy.json')) {
+    const policyBytes = filesBySourcePath.get('proof-evidence-policy.json')
+    if (!policyBytes) problems.push('receipt-bound proof evidence policy is missing')
+    else {
+      try { validateProofEvidencePolicy(JSON.parse(policyBytes.toString('utf8')), problems) } catch { problems.push('receipt-bound proof evidence policy is malformed') }
     }
   }
 

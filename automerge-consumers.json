@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 2,
+  "preset": {
+    "name": "low-risk-automerge",
+    "reference": "github>jasondockery/renovate-config:low-risk-automerge#1.0.0",
+    "releaseTag": "1.0.0",
+    "state": "held-pending-release-and-consumer-proof",
+    "sourceCommit": null,
+    "sourceTree": null,
+    "policySha256": "33ac6a136c01e0bad4ee49a89c6ae6c14a5a20a6e67661b83abd5c661e433606",
+    "resolvedConfigSha256": "28c03c130febe54a351a17e1afd3506d7c31dff21293b46c8dbb6b88971e0a50"
+  },
+  "activationRequirements": [
+    "immutable-preset-release",
+    "exact-required-check-inventory",
+    "ruleset-or-branch-protection-identity",
+    "renovate-path-trigger-proof",
+    "current-head-enforcement",
+    "pristine-renovate-branch-integrity-check",
+    "artifact-error-status-observed",
+    "resolved-policy-proof",
+    "generated-consumer-equivalence-when-applicable",
+    "one-consumer-at-a-time-live-pr-receipt",
+    "documented-rollback"
+  ],
+  "consumers": [
+    {
+      "repository": "jasondockery/renovate-config",
+      "state": "human-merge",
+      "requiredCheckNames": [],
+      "rulesetOrProtectionId": null,
+      "renovatePathsTriggerRequiredChecks": false,
+      "currentHeadEnforced": false,
+      "generatedConsumerCheck": "not-applicable",
+      "pristineBranchIntegrityCheck": null,
+      "artifactErrorStatusCheck": null,
+      "livePrReceipt": null,
+      "rollback": null,
+      "blockingReason": "Exact required-check, protection, pristine-branch, live-PR, and rollback evidence has not been accepted."
+    },
+    {
+      "repository": "jasondockery/roost",
+      "state": "human-merge",
+      "requiredCheckNames": [],
+      "rulesetOrProtectionId": null,
+      "renovatePathsTriggerRequiredChecks": false,
+      "currentHeadEnforced": false,
+      "generatedConsumerCheck": null,
+      "pristineBranchIntegrityCheck": null,
+      "artifactErrorStatusCheck": null,
+      "livePrReceipt": null,
+      "rollback": null,
+      "blockingReason": "Exact required-check, protection, generated-consumer, pristine-branch, live-PR, and rollback evidence has not been accepted."
+    },
+    {
+      "repository": "jasondockery/groundwork",
+      "state": "human-merge",
+      "requiredCheckNames": [],
+      "rulesetOrProtectionId": null,
+      "renovatePathsTriggerRequiredChecks": false,
+      "currentHeadEnforced": false,
+      "generatedConsumerCheck": "not-applicable",
+      "pristineBranchIntegrityCheck": null,
+      "artifactErrorStatusCheck": null,
+      "livePrReceipt": null,
+      "rollback": null,
+      "blockingReason": "Exact required-check, protection, pristine-branch, live-PR, and rollback evidence has not been accepted."
+    }
+  ]
+}

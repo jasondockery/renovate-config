@@ -3,10 +3,14 @@
 Design status: **approved**
 
 Activation status: **active through the owner-approved 2026-08-04 age-policy,
-2026-08-09 daily-creation, and 2026-08-13 human-security-merge changes**
+2026-08-09 daily-creation, and 2026-08-13 human-security-merge changes; the
+2026-08-15 selective-automerge revision remains a held review candidate pending
+corrected exact proof and separate release/merge authorization**
 
-Scope: `default.json` effective release-age, routine creation cadence,
-vulnerability-alert timing, and vulnerability-alert merge authority only
+Scope: `default.json` effective release-age, routine creation cadence, and
+vulnerability-alert behavior; plus the separate standalone
+`low-risk-automerge` candidate's bounded stable npm `devDependencies`
+patch/minor authority. Lockfile maintenance remains human-reviewed.
 Activation condition: **achieved**; the isolated policy commit and freeze
 checksum change were owner-authorized and passed the exact-boundary proof
 Remaining exit condition: every consumer uses an immutable released preset
@@ -42,6 +46,17 @@ creation and the schedule, age, and routine-rate bypass while setting both
 the maturity-bypassed fix. The supporting decision record is
 `docs/vulnerability-alert-automerge-decision.md`.
 
+The held 2026-08-15 candidate is now a standalone named preset with a
+fourteen-day floor. It gives Renovate (not GitHub platform automerge) authority
+to merge stable npm `devDependencies` patch/minor PRs only after the consumer's
+exact required-check inventory and pristine-branch integrity check succeed on
+the current head. Majors, `0.x`,
+lockfile maintenance, Actions, runtimes, and Renovate/runner
+infrastructure, deployment and other trust-boundary packages remain outside
+the shared eligible set or are disabled by later consumer rules. Security PRs
+retain the separate human-review rule above. AI review is supplemental and
+cannot authorize a merge; see `docs/ai-review-merge-authority.md`.
+
 ## Activation, risk, and rollback
 
 Consumers still follow this repository's default branch. Accepting the
@@ -50,8 +65,11 @@ reference. The benefit is that the effective behavior matches the documented
 supply-chain floor; the risk is the same unversioned propagation the freeze was
 created to prevent.
 
-The owner explicitly authorized each reviewed fixture change to `default.json`
-and the corresponding `.preset-bootstrap-freeze` update. The marker remains:
+The owner explicitly authorized each active fixture change to `default.json`
+and the corresponding `.preset-bootstrap-freeze` update. The separate
+selective-automerge bytes
+must not reach `main` until their final proof and separately authorized
+release/merge choreography are complete. The marker remains:
 its new checksum prevents any unreviewed effective change while consumers still
 follow the default branch. `pnpm renovate:policy` strict-validates the active
 preset and proves its resolved daily-creation, five-day, inherited

@@ -13,6 +13,9 @@ const required = [
   'CLAUDE.md',
   'specs/verification.md',
   'default.json',
+  'renovate.json',
+  'low-risk-automerge.json',
+  'automerge-consumers.json',
   'package.json',
   'dependency-coverage.json',
   'compatibility-targets.json',
@@ -21,6 +24,8 @@ const required = [
   '.github/workflows/security-hygiene.yml',
   'specs/renovate-system-acceptance.md',
   'playbooks/x-renovate-system-acceptance.md',
+  'docs/ai-review-merge-authority.md',
+  'docs/dependency-merge-policy.md',
   'specs/preset-freeze-exception.md',
   'tools/fixtures/github/renovate-pr-author.json',
   'tools/fixtures/github/renovate-dashboard-problems.json',
@@ -30,6 +35,7 @@ const required = [
   'tools/check-renovate-effective-policy.mjs',
   'tools/check-renovate-effective-policy.test.mjs',
   'tools/fixtures/preset/default-five-day-policy.json',
+  'tools/fixtures/preset/low-risk-automerge.json',
   'tools/validate-renovate-effective-policy.mjs',
   'skills/live-renovate-acceptance/SKILL.md',
   'skills/live-renovate-acceptance/agents/openai.yaml',
@@ -70,6 +76,12 @@ test('rejects an incomplete active-policy proof surface', (context) => {
   const root = fixture(context)
   fs.rmSync(path.join(root, 'tools/fixtures/preset/default-five-day-policy.json'))
   assert.match(collectRenovateSystemPolicyProblems(root).join('\n'), /active five-day policy/)
+})
+
+test('rejects weakened AI-review merge authority', (context) => {
+  const root = fixture(context)
+  fs.writeFileSync(path.join(root, 'docs/ai-review-merge-authority.md'), '# AI review\n\nCopilot approves merges.\n')
+  assert.match(collectRenovateSystemPolicyProblems(root).join('\n'), /AI review guidance must remain advisory/)
 })
 
 test('rejects schedule, activation, scope, security, and manager-coverage drift', async (context) => {
@@ -137,6 +149,63 @@ test('rejects schedule, activation, scope, security, and manager-coverage drift'
     assert.match(collectRenovateSystemPolicyProblems(root).join('\n'), /required human merge review/)
   })
 
+  await context.test('routine automerge scope', (subcontext) => {
+    const root = fixture(subcontext)
+    mutateJson(root, 'low-risk-automerge.json', (preset) => {
+      const rule = preset.packageRules.find((entry) => entry.automerge === true && entry.matchDatasources)
+      delete rule.matchDatasources
+    })
+    assert.match(collectRenovateSystemPolicyProblems(root).join('\n'), /must exactly match its owner-reviewed fixture|must limit automerge/)
+  })
+
+  await context.test('routine automerge ownership', (subcontext) => {
+    const root = fixture(subcontext)
+    mutateJson(root, 'low-risk-automerge.json', (preset) => {
+      const rule = preset.packageRules.find((entry) => entry.automerge === true && entry.matchDatasources)
+      rule.platformAutomerge = true
+    })
+    assert.match(collectRenovateSystemPolicyProblems(root).join('\n'), /must exactly match its owner-reviewed fixture|must limit automerge/)
+  })
+
+  await context.test('routine automerge cannot ignore checks', (subcontext) => {
+    const root = fixture(subcontext)
+    mutateJson(root, 'low-risk-automerge.json', (preset) => {
+      const rule = preset.packageRules.find((entry) => entry.automerge === true && entry.matchDatasources)
+      rule.ignoreTests = true
+    })
+    assert.match(collectRenovateSystemPolicyProblems(root).join('\n'), /must exactly match its owner-reviewed fixture|must limit automerge/)
+  })
+
+  await context.test('unexpected automerge authority', (subcontext) => {
+    const root = fixture(subcontext)
+    mutateJson(root, 'low-risk-automerge.json', (preset) => {
+      preset.packageRules.push({ matchUpdateTypes: ['digest'], automerge: true })
+    })
+    assert.match(collectRenovateSystemPolicyProblems(root).join('\n'), /must exactly match its owner-reviewed fixture|must limit automerge/)
+  })
+
+  await context.test('default preset never gains automerge authority', (subcontext) => {
+    const root = fixture(subcontext)
+    mutateJson(root, 'default.json', (preset) => {
+      preset.packageRules.push({ matchUpdateTypes: ['patch'], automerge: true })
+    })
+    assert.match(collectRenovateSystemPolicyProblems(root).join('\n'), /human-merge by default/)
+  })
+
+  await context.test('major merge authority', (subcontext) => {
+    const root = fixture(subcontext)
+    mutateJson(root, 'default.json', (preset) => {
+      const rule = preset.packageRules.find((entry) =>
+        JSON.stringify(entry.matchUpdateTypes) === JSON.stringify(['major'])
+      )
+      rule.automerge = true
+    })
+    assert.match(
+      collectRenovateSystemPolicyProblems(root).join('\n'),
+      /human-merge by default|major updates outside automatic merge authority/
+    )
+  })
+
   await context.test('built-in manager narrowing', (subcontext) => {
     const root = fixture(subcontext)
     mutateJson(root, 'default.json', (preset) => { preset.enabledManagers = ['npm'] })
@@ -195,6 +264,33 @@ test('binds every GitHub App repository scope to compatibility-targets.json', as
     fs.writeFileSync(file, source.replace('          owner: jasondockery\n', '          owner: other-owner\n'))
     assert.match(collectRenovateSystemPolicyProblems(root).join('\n'), /owner must match compatibility-targets\.json/)
   })
+})
+
+test('keeps selective automerge held until immutable identity and exact consumer gates exist', async (context) => {
+  const mutations = {
+    'unpinned preset reference': (registry) => {
+      registry.preset.reference = 'github>jasondockery/renovate-config:low-risk-automerge'
+    },
+    'invented release commit': (registry) => { registry.preset.sourceCommit = 'a'.repeat(40) },
+    'trivial required check': (registry) => { registry.consumers[0].requiredCheckNames = ['lint'] },
+    'unbound protection': (registry) => { registry.consumers[0].rulesetOrProtectionId = 'ruleset-unknown' },
+    'unproved path coverage': (registry) => { registry.consumers[0].renovatePathsTriggerRequiredChecks = true },
+    'missing pristine-branch gate': (registry) => {
+      registry.consumers[0].state = 'automerge-eligible'
+    },
+    'fabricated live receipt': (registry) => { registry.consumers[0].livePrReceipt = { result: 'passed' } },
+    'fabricated resolved digest': (registry) => { registry.preset.resolvedConfigSha256 = 'not-a-resolved-config-digest' },
+  }
+  for (const [label, mutate] of Object.entries(mutations)) {
+    await context.test(label, (subcontext) => {
+      const root = fixture(subcontext)
+      mutateJson(root, 'automerge-consumers.json', mutate)
+      assert.match(
+        collectRenovateSystemPolicyProblems(root).join('\n'),
+        /immutable 1\.0\.0 target.*human-merge/u
+      )
+    })
+  }
 })
 
 // Claude Code loads CLAUDE.md, not AGENTS.md. If the adapter is deleted or its

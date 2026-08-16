@@ -25,12 +25,12 @@
     { "name": "inclusive-content-design", "canonicalSkillPath": "skills/inclusive-content-design/SKILL.md", "canonicalSkillSha256": "6dee58a6e49c45cbbf3eebdde1b794d38b6d1c62f0922a8e878ad1f62a059e0b" },
     { "name": "inclusive-product-foundation", "canonicalSkillPath": "skills/inclusive-product-foundation/SKILL.md", "canonicalSkillSha256": "3bc3f64694a6f2dcca1723c88e337ebaa91ac92f5df3e96aaa5b1436a40c8590" },
     { "name": "internationalization-first", "canonicalSkillPath": "skills/internationalization-first/SKILL.md", "canonicalSkillSha256": "8d3916165311db1afd23fe01567decd4c14da5e8bded0de66d5889c67017c99f" },
-    { "name": "performance-sensitive-change", "canonicalSkillPath": "skills/performance-sensitive-change/SKILL.md", "canonicalSkillSha256": "955ecb5dc73c8798e59763d4bd43eaa3170169b3cb9659b9550fabce1c25b07c" },
+    { "name": "performance-sensitive-change", "canonicalSkillPath": "skills/performance-sensitive-change/SKILL.md", "canonicalSkillSha256": "7ba39bdba1a07077e367d81e167de7db1ad4cc5e74226c43e70345e7f349802a" },
     { "name": "privacy-by-design", "canonicalSkillPath": "skills/privacy-by-design/SKILL.md", "canonicalSkillSha256": "86939dc78d5410c163cd540e514534ca2240558fc0736ab20a47f5c05d73f493" },
     { "name": "reviewable-agent-workspaces", "canonicalSkillPath": "skills/reviewable-agent-workspaces/SKILL.md", "canonicalSkillSha256": "cc663ed8100e3049a4f1d4f7261dcb429ece04bf22ec4224a2341f9a7d757edb" },
     { "name": "secure-by-design", "canonicalSkillPath": "skills/secure-by-design/SKILL.md", "canonicalSkillSha256": "031c59c6fbcd6209d6d07fa5ae46e800b14ad6540c3af6e3ab750bc6df57d8fe" },
     { "name": "shift-to-authority", "canonicalSkillPath": "skills/shift-to-authority/SKILL.md", "canonicalSkillSha256": "4a28d226a46510671f2692e2e66e7c25499bfc8d36f5f41c2282fc13d5413af8" },
-    { "name": "verification-selection", "canonicalSkillPath": "skills/verification-selection/SKILL.md", "canonicalSkillSha256": "807d8664a7407ab6d549f913c6b5352467b788ba66065555f7b26034465a48f0" }
+    { "name": "verification-selection", "canonicalSkillPath": "skills/verification-selection/SKILL.md", "canonicalSkillSha256": "04f06cd97b173a7ab0e5df6c52c77e92f40a1f42ca3da901b89d8a386a9bc0b0" }
   ],
   "physicalRoutes": [
     {

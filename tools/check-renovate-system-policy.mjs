@@ -271,12 +271,33 @@ export function collectRenovateSystemPolicyProblems(root = repositoryRoot) {
     }
     const humanFallbackRules = (lowRiskPreset.packageRules ?? []).filter((rule) =>
       JSON.stringify(rule.matchPackageNames) === JSON.stringify(['*']) &&
-      rule.automerge === false && rule.platformAutomerge === false
+      rule.automerge === false && rule.platformAutomerge === false &&
+      JSON.stringify(rule.labels) === JSON.stringify(['dependencies', 'review:human'])
     )
-    const authorityLineCount = (lowRiskPreset.prBodyNotes ?? [])
-      .flatMap((note) => String(note).match(/Merge authority:/gu) ?? []).length
-    if (humanFallbackRules.length !== 1 || authorityLineCount !== 1) {
-      problems.push('the named preset must retain one fail-closed human fallback and derive one authority line from effective branch configuration.')
+    const eligibleRuleHasNoDenialMarker = devRules.length === 1 &&
+      JSON.stringify(devRules[0].labels) === JSON.stringify(['dependencies', 'class:routine-dev'])
+    const explicitHumanRules = (lowRiskPreset.packageRules ?? []).filter((rule) =>
+      rule !== devRules[0] && rule.description !== "Raise normal npm versions to the standalone preset's fourteen-day floor."
+    )
+    const everyHumanRuleMarksDenial = explicitHumanRules.every((rule) =>
+      Array.isArray(rule.labels) && rule.labels.includes('review:human')
+    )
+    const authorityLineCount = String(lowRiskPreset.prHeader ?? '').match(/Merge authority:/gu)?.length ?? 0
+    const policyLineCount = String(lowRiskPreset.prHeader ?? '').includes(
+      'Policy: https://github.com/jasondockery/renovate-config/blob/1.1.0/docs/dependency-merge-policy.md'
+    ) ? 1 : 0
+    if (
+      humanFallbackRules.length !== 1 || !eligibleRuleHasNoDenialMarker || !everyHumanRuleMarksDenial ||
+      authorityLineCount !== 1 || policyLineCount !== 1 ||
+      !String(lowRiskPreset.prHeader ?? '').includes("{{#if (includes labels 'review:human')}}")
+    ) {
+      problems.push('the named 1.1.0 preset must retain one fail-closed human fallback, derive one authority line from effective branch configuration, and link its exact immutable policy version.')
+    }
+    if (
+      !Array.isArray(lowRiskPreset.vulnerabilityAlerts?.labels) ||
+      !lowRiskPreset.vulnerabilityAlerts.labels.includes('review:human')
+    ) {
+      problems.push('the named preset must keep vulnerability alerts visibly human-merged.')
     }
   }
 
@@ -296,11 +317,38 @@ export function collectRenovateSystemPolicyProblems(root = repositoryRoot) {
   const lowRiskPolicySha256 = fs.existsSync(path.join(root, 'low-risk-automerge.json'))
     ? createHash('sha256').update(fs.readFileSync(path.join(root, 'low-risk-automerge.json'))).digest('hex')
     : ''
+  const defaultPolicySha256 = fs.existsSync(path.join(root, 'default.json'))
+    ? createHash('sha256').update(fs.readFileSync(path.join(root, 'default.json'))).digest('hex')
+    : ''
+  const humanMergeBaseline = automergeConsumers?.humanMergeBaseline
+  const baselineConsumersValid = Array.isArray(automergeConsumers?.consumers) &&
+    automergeConsumers.consumers.every((consumer) =>
+      consumer.humanMergeBaseline?.state === 'unpinned' &&
+      consumer.humanMergeBaseline?.pinnedReference === null &&
+      Array.isArray(consumer.humanMergeBaseline?.requiredCheckNames) &&
+      consumer.humanMergeBaseline.requiredCheckNames.length === 0 &&
+      consumer.humanMergeBaseline?.rulesetOrProtectionId === null &&
+      consumer.humanMergeBaseline?.rollback === null &&
+      typeof consumer.humanMergeBaseline?.blockingReason === 'string' &&
+      consumer.humanMergeBaseline.blockingReason.length > 0
+    )
   if (
-    automergeConsumers?.schemaVersion !== 2 ||
+    automergeConsumers?.schemaVersion !== 3 ||
+    humanMergeBaseline?.name !== 'default' ||
+    humanMergeBaseline?.reference !== 'github>jasondockery/renovate-config#1.0.0' ||
+    humanMergeBaseline?.releaseTag !== '1.0.0' ||
+    humanMergeBaseline?.state !== 'held-pending-release-and-consumer-pinning' ||
+    humanMergeBaseline?.sourceCommit !== null ||
+    humanMergeBaseline?.sourceTree !== null ||
+    humanMergeBaseline?.policySha256 !== defaultPolicySha256 ||
+    !/^[a-f0-9]{64}$/u.test(humanMergeBaseline?.resolvedConfigSha256 ?? '') ||
+    humanMergeBaseline?.release?.published !== false ||
+    humanMergeBaseline?.release?.draft !== null ||
+    humanMergeBaseline?.release?.prerelease !== null ||
+    humanMergeBaseline?.release?.url !== null ||
     automergeConsumers?.preset?.name !== 'low-risk-automerge' ||
-    automergeConsumers?.preset?.reference !== 'github>jasondockery/renovate-config:low-risk-automerge#1.0.0' ||
-    automergeConsumers?.preset?.releaseTag !== '1.0.0' ||
+    automergeConsumers?.preset?.reference !== 'github>jasondockery/renovate-config:low-risk-automerge#1.1.0' ||
+    automergeConsumers?.preset?.releaseTag !== '1.1.0' ||
     automergeConsumers?.preset?.state !== 'held-pending-release-and-consumer-proof' ||
     automergeConsumers?.preset?.policySha256 !== lowRiskPolicySha256 ||
     automergeConsumers?.preset?.sourceCommit !== null ||
@@ -308,6 +356,7 @@ export function collectRenovateSystemPolicyProblems(root = repositoryRoot) {
     !/^[a-f0-9]{64}$/u.test(automergeConsumers?.preset?.resolvedConfigSha256 ?? '') ||
     JSON.stringify(automergeConsumers?.activationRequirements) !== JSON.stringify(expectedAutomergeRequirements) ||
     !Array.isArray(automergeConsumers?.consumers) ||
+    !baselineConsumersValid ||
     JSON.stringify(automergeConsumers.consumers.map((consumer) => consumer.repository)) !== JSON.stringify(targetRepositories) ||
     automergeConsumers.consumers.some((consumer) =>
       consumer.state !== 'human-merge' ||
@@ -321,10 +370,17 @@ export function collectRenovateSystemPolicyProblems(root = repositoryRoot) {
       typeof consumer.blockingReason !== 'string' || consumer.blockingReason.length === 0
     )
   ) {
-    problems.push('automerge-consumers.json must bind the immutable 1.0.0 target and keep every consumer explicitly human-merge until exact protection, check, pristine-branch, live-PR, and rollback evidence is recorded.')
+    problems.push('automerge-consumers.json must bind the additive immutable 1.1.0 target and keep every consumer explicitly human-merge until the 1.0.0 human baseline is pinned and exact protection, check, pristine-branch, live-PR, and rollback evidence is recorded.')
   }
   if ((localRenovateConfig?.extends ?? []).some((entry) => String(entry).includes(':low-risk-automerge'))) {
     problems.push('this repository must not opt into low-risk automerge while its readiness registry remains held.')
+  }
+  const localDenialRules = (localRenovateConfig?.packageRules ?? []).filter((rule) => rule.automerge === false)
+  if (
+    localDenialRules.length === 0 ||
+    localDenialRules.some((rule) => !Array.isArray(rule.labels) || !rule.labels.includes('review:human'))
+  ) {
+    problems.push('every consumer-local automerge denial must expose review:human so rendered merge authority cannot contradict the effective branch.')
   }
 
   if (workflow) {

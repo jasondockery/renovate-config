@@ -38,6 +38,7 @@
         "renovatebot/github-action",
         "zizmorcore/zizmor-action"
       ],
+      "labels": ["dependencies", "review:human", "risk:infrastructure"],
       "automerge": false
     }
   ]

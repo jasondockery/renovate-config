@@ -1,14 +1,30 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
+  "humanMergeBaseline": {
+    "name": "default",
+    "reference": "github>jasondockery/renovate-config#1.0.0",
+    "releaseTag": "1.0.0",
+    "state": "held-pending-release-and-consumer-pinning",
+    "sourceCommit": null,
+    "sourceTree": null,
+    "policySha256": "7e9be34da216e39d461c920068a891f6cbde2c3cd497934b46a2060d392cebab",
+    "resolvedConfigSha256": "802fbb57e08f7aac810e4aaa4daa466e2bce245c9a5400b3f6ea1fa8bce0bb10",
+    "release": {
+      "published": false,
+      "draft": null,
+      "prerelease": null,
+      "url": null
+    }
+  },
   "preset": {
     "name": "low-risk-automerge",
-    "reference": "github>jasondockery/renovate-config:low-risk-automerge#1.0.0",
-    "releaseTag": "1.0.0",
+    "reference": "github>jasondockery/renovate-config:low-risk-automerge#1.1.0",
+    "releaseTag": "1.1.0",
     "state": "held-pending-release-and-consumer-proof",
     "sourceCommit": null,
     "sourceTree": null,
-    "policySha256": "33ac6a136c01e0bad4ee49a89c6ae6c14a5a20a6e67661b83abd5c661e433606",
-    "resolvedConfigSha256": "28c03c130febe54a351a17e1afd3506d7c31dff21293b46c8dbb6b88971e0a50"
+    "policySha256": "ed02a01d26266932aa06a4574148d5e5a4ed32e6f48559ddddadd04b292a85ad",
+    "resolvedConfigSha256": "c088874cb71705b55cf4ec4028cbd72a9b9fcd056a9f7b5d621ddab5dab0e1c0"
   },
   "activationRequirements": [
     "immutable-preset-release",
@@ -27,6 +43,14 @@
     {
       "repository": "jasondockery/renovate-config",
       "state": "human-merge",
+      "humanMergeBaseline": {
+        "state": "unpinned",
+        "pinnedReference": null,
+        "requiredCheckNames": [],
+        "rulesetOrProtectionId": null,
+        "rollback": null,
+        "blockingReason": "The immutable 1.0.0 release and exact consumer pin do not exist yet."
+      },
       "requiredCheckNames": [],
       "rulesetOrProtectionId": null,
       "renovatePathsTriggerRequiredChecks": false,
@@ -41,6 +65,14 @@
     {
       "repository": "jasondockery/roost",
       "state": "human-merge",
+      "humanMergeBaseline": {
+        "state": "unpinned",
+        "pinnedReference": null,
+        "requiredCheckNames": [],
+        "rulesetOrProtectionId": null,
+        "rollback": null,
+        "blockingReason": "The immutable 1.0.0 release and exact consumer pin do not exist yet."
+      },
       "requiredCheckNames": [],
       "rulesetOrProtectionId": null,
       "renovatePathsTriggerRequiredChecks": false,
@@ -55,6 +87,14 @@
     {
       "repository": "jasondockery/groundwork",
       "state": "human-merge",
+      "humanMergeBaseline": {
+        "state": "unpinned",
+        "pinnedReference": null,
+        "requiredCheckNames": [],
+        "rulesetOrProtectionId": null,
+        "rollback": null,
+        "blockingReason": "The immutable 1.0.0 release and exact consumer pin do not exist yet."
+      },
       "requiredCheckNames": [],
       "rulesetOrProtectionId": null,
       "renovatePathsTriggerRequiredChecks": false,

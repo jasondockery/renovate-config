@@ -359,8 +359,9 @@ check pass on the current head. This may include stable compilers, linters,
 test runners, formatters, and build tools unless a consumer excludes them.
 Majors, `0.x`, lockfile maintenance,
 Actions, runtimes, runner/trust-boundary infrastructure, vulnerability alerts,
-and source-remediation work remain manual. This candidate is not active until its
-separate proof, release, and merge gates complete;
+and source-remediation work remain manual. This candidate is not active until
+the human-merge `1.0.0` baseline is pinned in every consumer and its separate
+proof, merge, and additive `1.1.0` release gates complete;
 `.preset-bootstrap-freeze` protects that exact accepted state. See `ROADMAP.md`
 for the ordered owner gates and `CONTRIBUTING.md` for
 the executable `release:controls:check`, `release:preflight`, and
@@ -376,7 +377,9 @@ the security PR base. `low-risk-automerge.json` is a complete standalone,
 versioned opt-in with its own baseline, exclusions, fourteen-day floor, and
 bounded stable-devDependency eligibility. Repo-specific risk exceptions remain
 later in each consumer and every activation stays recorded in
-`automerge-consumers.json`.
+`automerge-consumers.json`. That record also binds the prerequisite human-merge
+`default#1.0.0` release and every consumer pin; its current null release and pin
+fields truthfully keep both rollout stages held.
 
 Copilot and other AI reviews are advisory observations, not merge authority.
 The actual automatic-merge boundary is the resolved Renovate policy plus the

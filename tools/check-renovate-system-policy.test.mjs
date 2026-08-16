@@ -268,6 +268,22 @@ test('binds every GitHub App repository scope to compatibility-targets.json', as
 
 test('keeps selective automerge held until immutable identity and exact consumer gates exist', async (context) => {
   const mutations = {
+    'missing human baseline reference': (registry) => {
+      registry.humanMergeBaseline.reference = null
+    },
+    'invented human baseline release commit': (registry) => {
+      registry.humanMergeBaseline.sourceCommit = 'a'.repeat(40)
+    },
+    'fabricated human baseline publication': (registry) => {
+      registry.humanMergeBaseline.release.published = true
+    },
+    'fabricated human baseline consumer pin': (registry) => {
+      registry.consumers[0].humanMergeBaseline.pinnedReference =
+        'github>jasondockery/renovate-config#1.0.0'
+    },
+    'fabricated human baseline protection': (registry) => {
+      registry.consumers[0].humanMergeBaseline.rulesetOrProtectionId = 'ruleset-unknown'
+    },
     'unpinned preset reference': (registry) => {
       registry.preset.reference = 'github>jasondockery/renovate-config:low-risk-automerge'
     },
@@ -287,10 +303,55 @@ test('keeps selective automerge held until immutable identity and exact consumer
       mutateJson(root, 'automerge-consumers.json', mutate)
       assert.match(
         collectRenovateSystemPolicyProblems(root).join('\n'),
-        /immutable 1\.0\.0 target.*human-merge/u
+        /additive immutable 1\.1\.0 target.*human-merge.*1\.0\.0 human baseline/u
       )
     })
   }
+
+  await context.test('rejects a PR policy link to the wrong immutable release', (subcontext) => {
+    const root = fixture(subcontext)
+    for (const relativePath of ['low-risk-automerge.json', 'tools/fixtures/preset/low-risk-automerge.json']) {
+      mutateJson(root, relativePath, (preset) => {
+        preset.prHeader = preset.prHeader.replace(
+          '/blob/1.1.0/docs/dependency-merge-policy.md',
+          '/blob/1.0.0/docs/dependency-merge-policy.md'
+        )
+      })
+    }
+    assert.match(
+      collectRenovateSystemPolicyProblems(root).join('\n'),
+      /link its exact immutable policy version/u
+    )
+  })
+
+  await context.test('rejects a human denial that cannot reach branch-level PR guidance', (subcontext) => {
+    const root = fixture(subcontext)
+    for (const relativePath of ['low-risk-automerge.json', 'tools/fixtures/preset/low-risk-automerge.json']) {
+      mutateJson(root, relativePath, (preset) => {
+        const major = preset.packageRules.find((rule) =>
+          JSON.stringify(rule.matchUpdateTypes) === JSON.stringify(['major'])
+        )
+        major.addLabels = major.labels
+        delete major.labels
+      })
+    }
+    assert.match(
+      collectRenovateSystemPolicyProblems(root).join('\n'),
+      /fail-closed human fallback/u
+    )
+  })
+
+  await context.test('rejects a consumer-local denial without the rendered marker', (subcontext) => {
+    const root = fixture(subcontext)
+    mutateJson(root, 'renovate.json', (config) => {
+      const denial = config.packageRules.find((rule) => rule.automerge === false)
+      denial.labels = ['dependencies', 'risk:infrastructure']
+    })
+    assert.match(
+      collectRenovateSystemPolicyProblems(root).join('\n'),
+      /consumer-local automerge denial/u
+    )
+  })
 })
 
 // Claude Code loads CLAUDE.md, not AGENTS.md. If the adapter is deleted or its

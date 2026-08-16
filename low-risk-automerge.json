@@ -9,15 +9,7 @@
   "extends": ["config:best-practices"],
   "minimumReleaseAge": "14 days",
   "internalChecksFilter": "strict",
-  "prBodyNotes": [
-    "## Repository dependency policy",
-    "Classification: {{#if isGroup}}Grouped dependency updates{{else}}{{#if (includes labels 'security')}}Security update{{else}}{{#if (includes labels 'risk:major')}}Major or pre-1.0 update{{else}}{{#if (includes labels 'risk:infrastructure')}}Action, runtime, toolchain, or infrastructure update{{else}}{{#if (includes labels 'risk:production')}}Production, peer, or optional dependency update{{else}}{{#if (includes labels 'risk:migration')}}Dependency migration or replacement{{else}}{{#if (includes labels 'class:lockfile')}}Lockfile maintenance{{else}}{{#if (includes labels 'class:routine-dev')}}Routine stable devDependency patch/minor{{else}}Routine dependency update{{/if}}{{/if}}{{/if}}{{/if}}{{/if}}{{/if}}{{/if}}{{/if}}",
-    "Merge authority: {{#if isGroup}}Human merge required unless every grouped update independently satisfies the eligible class and the pristine-branch integrity check passes{{else}}{{#if isVulnerabilityAlert}}Human merge required after applicable checks and review{{else}}{{#if (equals datasource 'npm')}}{{#if (equals depType 'devDependencies')}}{{#if (or isMinor isPatch)}}{{#if major}}{{#unless (or (equals depName 'node') (equals depName 'npm') (equals depName 'pnpm') (equals depName 'yarn') (equals depName 'corepack') (equals depName 'renovate') (equals depName 'renovatebot/github-action'))}}Renovate may merge only after the exact required-check inventory and pristine-branch integrity check pass on the current head{{else}}Human merge required after applicable checks and review{{/unless}}{{else}}Human merge required after applicable checks and review{{/if}}{{else}}Human merge required after applicable checks and review{{/if}}{{else}}Human merge required after applicable checks and review{{/if}}{{else}}Human merge required after applicable checks and review{{/if}}{{/if}}{{/if}}",
-    "Maturity: {{#if isGroup}}Every grouped update must satisfy its applicable maturity boundary{{else}}{{#if (includes labels 'security')}}Immediate PR; the normal age floor is bypassed{{else}}{{#if (includes labels 'class:lockfile')}}No direct release-age claim; verify package-manager supply-chain floors{{else}}Fourteen-day release-age floor where supported{{/if}}{{/if}}{{/if}}",
-    "Developer action: {{#if isGroup}}Review the complete grouped change whenever any member or required gate is ineligible{{else}}{{#if (includes labels 'automerge:eligible')}}None unless checks fail, the pristine-branch check fails, or expected behavior changes{{else}}Review the changelog, affected behavior, provenance, and repository-specific proof{{/if}}{{/if}}",
-    "AI review: Advisory only; applying a suggestion creates a foreign commit, fails pristine-branch eligibility, and requires a fresh Renovate PR or a separate manual successor",
-    "Policy: https://github.com/jasondockery/renovate-config/blob/1.0.0/docs/dependency-merge-policy.md · Local exceptions: https://github.com/{{{repository}}}/blob/{{{baseBranch}}}/renovate.json"
-  ],
+  "prHeader": "## Repository dependency policy\n\nClassification: {{#if isGroup}}Grouped dependency updates{{else}}{{#if (includes labels 'security')}}Security update{{else}}{{#if (includes labels 'risk:major')}}Major or pre-1.0 update{{else}}{{#if (includes labels 'risk:infrastructure')}}Action, runtime, toolchain, or infrastructure update{{else}}{{#if (includes labels 'risk:production')}}Production, peer, or optional dependency update{{else}}{{#if (includes labels 'risk:migration')}}Dependency migration or replacement{{else}}{{#if (includes labels 'class:lockfile')}}Lockfile maintenance{{else}}{{#if (includes labels 'class:routine-dev')}}Routine stable devDependency patch/minor{{else}}Routine dependency update{{/if}}{{/if}}{{/if}}{{/if}}{{/if}}{{/if}}{{/if}}{{/if}}\n\nMerge authority: {{#if (includes labels 'review:human')}}Human merge required after applicable checks and review{{else}}Renovate may merge only after the exact required-check inventory and pristine-branch integrity check pass on the current head{{/if}}\n\nMaturity: {{#if isGroup}}Every grouped update must satisfy its applicable maturity boundary{{else}}{{#if (includes labels 'security')}}Immediate PR; the normal age floor is bypassed{{else}}{{#if (includes labels 'class:lockfile')}}No direct release-age claim; verify package-manager supply-chain floors{{else}}Fourteen-day release-age floor where supported{{/if}}{{/if}}{{/if}}\n\nDeveloper action: Follow the Merge authority line; for Renovate-authorized PRs, none unless checks, pristine-branch integrity, or expected behavior changes; otherwise review the changelog, provenance, affected behavior, and repository-specific proof\n\nAI review: Advisory only; applying a suggestion creates a foreign commit, fails pristine-branch eligibility, and requires a fresh Renovate PR or a separate manual successor\n\nPolicy: https://github.com/jasondockery/renovate-config/blob/1.1.0/docs/dependency-merge-policy.md · Local exceptions: https://github.com/{{{repository}}}/blob/{{{baseBranch}}}/renovate.json",
   "packageRules": [
     {
       "description": "Raise normal npm versions to the standalone preset's fourteen-day floor.",
@@ -81,7 +73,7 @@
       "matchDepTypes": ["devDependencies"],
       "matchCurrentVersion": ">=1.0.0",
       "matchUpdateTypes": ["minor", "patch"],
-      "labels": ["dependencies", "automerge:eligible", "class:routine-dev"],
+      "labels": ["dependencies", "class:routine-dev"],
       "automerge": true,
       "automergeType": "pr",
       "ignoreTests": false,
@@ -101,7 +93,7 @@
   "labels": ["dependencies"],
   "vulnerabilityAlerts": {
     "enabled": true,
-    "addLabels": ["security"],
+    "labels": ["dependencies", "security", "review:human"],
     "schedule": ["at any time"],
     "minimumReleaseAge": null,
     "prHourlyLimit": 0,

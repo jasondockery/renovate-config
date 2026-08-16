@@ -27,8 +27,17 @@ dependencies.
 
 ## Enforcement boundary
 
-Labels and PR notes explain the classification; they never grant or revoke
-merge authority. The resolved Renovate `automerge` option is necessary but not
+Labels explain risk and dependency class; they never claim or grant merge
+authority. `review:human` is the conservative denial marker: every default,
+high-risk, security, or consumer-local denial must place it in the effective
+branch `labels` array. In particular, no `automerge:eligible` label is emitted because
+Renovate unions member labels for grouped PRs and could leave that label on a
+group whose effective authority is human-only. The single rendered
+`Merge authority:` line lives in the branch-level `prHeader` and states the
+branch decision. It is deliberately not a mergeable `prBodyNotes` entry because
+Renovate renders those once per grouped upgrade and a mixed group could display
+contradictory authority lines. The resolved Renovate
+`automerge` option is necessary but not
 sufficient. Each opted-in repository must also enforce all of the following on
 the exact pull-request head:
 
@@ -56,3 +65,7 @@ tree, policy digest, resolved-config digest, protection identity, exact check
 inventory, pristine-branch check, live PR receipt, and rollback are recorded.
 Until then their registry state remains `human-merge`. Rollback removes the
 named preset reference and returns to the pinned human-merge `default` preset.
+The same registry machine-binds the prerequisite `default#1.0.0` source,
+release, policy and resolved-config digests, plus each consumer pin, protection,
+required-check, and rollback observation. Null values are explicit held state,
+not evidence that the baseline exists.

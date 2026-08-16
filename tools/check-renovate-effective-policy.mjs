@@ -110,15 +110,27 @@ function authorityLines(rendered) {
   return rendered.match(/^Merge authority:.*$/gmu) ?? []
 }
 
-function assertRenderedAuthority(getPrNotes, generateBranchConfig, upgrades, expected) {
+function configuredLabels(config) {
+  return [...new Set([...(config.labels ?? []), ...(config.addLabels ?? [])])]
+}
+
+function assertRenderedAuthority(getPrHeader, generateBranchConfig, upgrades, expected) {
   const branch = generateBranchConfig(upgrades)
-  const rendered = getPrNotes(branch)
+  const rendered = getPrHeader(branch)
   for (const field of ['Classification', 'Merge authority', 'Maturity', 'Developer action', 'AI review', 'Policy']) {
     const lines = rendered.match(new RegExp(`^${field}:.*$`, 'gmu')) ?? []
-    assert.equal(lines.length, 1, `rendered PR guidance must contain exactly one ${field} line:\n${rendered}`)
+    assert.equal(
+      lines.length,
+      1,
+      `rendered PR guidance must contain exactly one ${field} line for ${upgrades.map((upgrade) => upgrade.depName).join(', ')}:\n${rendered}`
+    )
   }
   const lines = authorityLines(rendered)
-  assert.match(lines[0], expected)
+  assert.match(
+    lines[0],
+    expected,
+    `rendered merge authority contradicted the effective branch for ${upgrades.map((upgrade) => upgrade.depName).join(', ')}`
+  )
   assert.match(rendered, /github\.com\/jasondockery\/fixture-consumer\/blob\/main\/renovate\.json/u)
   return { branch, rendered }
 }
@@ -146,6 +158,7 @@ export async function checkEffectivePolicy({
     { filterInternalChecks },
     { api: semver },
     { generateBranchConfig },
+    { getPrHeader },
     { getPrNotes },
     { getOptions },
   ] = await Promise.all([
@@ -155,9 +168,11 @@ export async function checkEffectivePolicy({
     importRenovateModule(runtimeRoot, 'workers/repository/process/lookup/filter-checks.js'),
     importRenovateModule(runtimeRoot, 'modules/versioning/semver/index.js'),
     importRenovateModule(runtimeRoot, 'workers/repository/updates/generate.js'),
+    importRenovateModule(runtimeRoot, 'workers/repository/update/pr/body/header.js'),
     importRenovateModule(runtimeRoot, 'workers/repository/update/pr/body/notes.js'),
     importRenovateModule(runtimeRoot, 'config/options/index.js'),
   ])
+  const renderPolicyGuidance = (branch) => getPrHeader(branch) || getPrNotes(branch)
 
   const updateTypeOption = getOptions().find((option) => option.name === 'matchUpdateTypes')
   assert.deepEqual(
@@ -194,7 +209,7 @@ export async function checkEffectivePolicy({
 
   const defaultRoutine = await applyPackageRules(dependency(resolvedDefault), 'default-human-proof')
   assert.equal(defaultRoutine.automerge, false, 'default.json must remain human-merge')
-  assertRenderedAuthority(getPrNotes, generateBranchConfig, [defaultRoutine], /Human merge required/u)
+  assertRenderedAuthority(renderPolicyGuidance, generateBranchConfig, [defaultRoutine], /Human merge required/u)
   const defaultLockfile = await applyPackageRules(dependency(resolvedDefault, {
     updateType: 'lockFileMaintenance', isLockFileMaintenance: true, isMinor: false,
   }), 'default-lockfile-human-proof')
@@ -207,6 +222,11 @@ export async function checkEffectivePolicy({
   assert.equal(eligibleMinor.automergeType, 'pr')
   assert.equal(eligibleMinor.ignoreTests, false)
   assert.equal(eligibleMinor.platformAutomerge, false)
+  assert.deepEqual(
+    configuredLabels(eligibleMinor).sort(),
+    ['class:routine-dev', 'dependencies'].sort(),
+    'eligible updates must expose a truthful class without an authority-bearing label'
+  )
   assert.equal(
     (await policyResult(filterInternalChecks, semver, eligibleMinor, JUST_UNDER_FOURTEEN_DAYS)).pendingChecks,
     true
@@ -215,12 +235,37 @@ export async function checkEffectivePolicy({
     (await policyResult(filterInternalChecks, semver, eligibleMinor, JUST_OVER_FOURTEEN_DAYS)).pendingChecks,
     false
   )
-  assertRenderedAuthority(getPrNotes, generateBranchConfig, [eligibleMinor], /Renovate may merge only/u)
+  assertRenderedAuthority(renderPolicyGuidance, generateBranchConfig, [eligibleMinor], /Renovate may merge only/u)
 
   const eligiblePatch = await applyPackageRules(dependency(resolvedAutomerge, {
     updateType: 'patch', isMinor: false, isPatch: true, newValue: '1.0.1', newVersion: '1.0.1',
   }), 'eligible-patch-proof')
   assert.equal(eligiblePatch.automerge, true)
+
+  const groupedEligibleMinor = {
+    ...eligibleMinor,
+    groupName: 'eligible-policy',
+    branchName: 'renovate/eligible-policy',
+  }
+  const groupedEligiblePatch = {
+    ...eligiblePatch,
+    groupName: 'eligible-policy',
+    branchName: 'renovate/eligible-policy',
+    depName: 'second-fixture-package',
+    packageName: 'second-fixture-package',
+  }
+  const eligibleGroup = assertRenderedAuthority(
+    renderPolicyGuidance,
+    generateBranchConfig,
+    [groupedEligibleMinor, groupedEligiblePatch],
+    /Renovate may merge only/u
+  )
+  assert.equal(eligibleGroup.branch.automerge, true, 'an all-eligible grouped PR must retain Renovate authority')
+  assert.equal(
+    eligibleGroup.branch.labels?.includes('review:human'),
+    false,
+    'an all-eligible grouped PR must not gain the denial marker'
+  )
 
   const humanCases = [
     ['major', { updateType: 'major', isMajor: true, isMinor: false, newValue: '2.0.0', newVersion: '2.0.0' }],
@@ -244,7 +289,8 @@ export async function checkEffectivePolicy({
     const effective = await applyPackageRules(dependency(resolvedAutomerge, overrides), `${label}-human-proof`)
     assert.equal(effective.automerge, false, `${label} must remain human-merge`)
     assert.equal(effective.platformAutomerge, false, `${label} must not gain platform merge authority`)
-    assertRenderedAuthority(getPrNotes, generateBranchConfig, [effective], /Human merge required/u)
+    assert.ok(configuredLabels(effective).includes('review:human'), `${label} must expose human review in the PR list`)
+    assertRenderedAuthority(renderPolicyGuidance, generateBranchConfig, [effective], /Human merge required/u)
     humanResults.set(label, effective)
   }
 
@@ -266,7 +312,7 @@ export async function checkEffectivePolicy({
     (await policyResult(filterInternalChecks, semver, vulnerability, JUST_UNDER_FIVE_DAYS)).pendingChecks,
     false
   )
-  assertRenderedAuthority(getPrNotes, generateBranchConfig, [vulnerability], /Human merge required/u)
+  assertRenderedAuthority(renderPolicyGuidance, generateBranchConfig, [vulnerability], /Human merge required/u)
 
   const mixedEligible = { ...eligibleMinor, groupName: 'mixed-policy', branchName: 'renovate/mixed-policy' }
   const mixedMajor = {
@@ -274,31 +320,48 @@ export async function checkEffectivePolicy({
     depName: 'major-fixture', packageName: 'major-fixture',
   }
   const mixed = assertRenderedAuthority(
-    getPrNotes, generateBranchConfig, [mixedEligible, mixedMajor], /Human merge required/u
+    renderPolicyGuidance, generateBranchConfig, [mixedEligible, mixedMajor], /Human merge required/u
   )
   assert.equal(mixed.branch.automerge, false, 'one ineligible update must make the complete grouped PR human-merge')
+  assert.ok(mixed.branch.labels?.includes('review:human'), 'a mixed grouped PR must expose human review')
 
   const runnerInfrastructure = await applyPackageRules(dependency(resolvedConsumer, {
     depName: 'renovate', packageName: 'renovate',
   }), 'consumer-local-runner-infrastructure-proof')
   assert.equal(runnerInfrastructure.automerge, false, 'consumer-local rules must apply after the standalone preset')
+  assert.ok(
+    configuredLabels(runnerInfrastructure).includes('review:human'),
+    'a consumer-local denial must retain the conservative human-review marker'
+  )
+  assertRenderedAuthority(
+    renderPolicyGuidance,
+    generateBranchConfig,
+    [runnerInfrastructure],
+    /Human merge required/u
+  )
 
   const defaultNpm = await applyPackageRules(dependency(resolvedDefault), 'default-five-day-proof')
   assert.equal(defaultNpm.minimumReleaseAge, '5 days')
   assert.equal((await policyResult(filterInternalChecks, semver, defaultNpm, JUST_UNDER_FIVE_DAYS)).pendingChecks, true)
   assert.equal((await policyResult(filterInternalChecks, semver, defaultNpm, JUST_OVER_FIVE_DAYS)).pendingChecks, false)
 
+  const resolvedDefaultConfigSha256 = stableDigest(resolvedDefault)
   const resolvedConfigSha256 = stableDigest(resolvedAutomerge)
   const readinessRegistry = readJson(repoRoot, 'automerge-consumers.json')
+  assert.equal(
+    readinessRegistry.humanMergeBaseline?.resolvedConfigSha256,
+    resolvedDefaultConfigSha256,
+    'automerge-consumers.json must bind the pinned engine human-baseline resolved-config digest'
+  )
   assert.equal(
     readinessRegistry.preset?.resolvedConfigSha256,
     resolvedConfigSha256,
     'automerge-consumers.json must bind the pinned engine resolved-config digest'
   )
   output.log(
-    `ok: Renovate ${expectedVersion} resolved standalone 14-day selective automerge, human default/lockfile/security/high-risk boundaries, local overrides, mixed-group denial, and rendered PR guidance (resolved sha256 ${resolvedConfigSha256})`
+    `ok: Renovate ${expectedVersion} resolved standalone 14-day selective automerge, human default/lockfile/security/high-risk boundaries, local overrides, eligible-group authority, mixed-group denial, and rendered PR guidance (resolved sha256 ${resolvedConfigSha256})`
   )
-  return { ok: true, version: expectedVersion, resolvedConfigSha256 }
+  return { ok: true, version: expectedVersion, resolvedDefaultConfigSha256, resolvedConfigSha256 }
 }
 
 export function parseArguments(argv) {

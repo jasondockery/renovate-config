@@ -1,6 +1,6 @@
 {
   "schema": "compass.shift-to-authority-registry",
-  "schemaVersion": 3,
+  "schemaVersion": 5,
   "authority": "compass",
   "candidates": [
     {
@@ -267,6 +267,236 @@
           }
         }
       ]
+    },
+    {
+      "id": "sta-compass-reviewable-agent-workspaces",
+      "invariant": "Agent implementation remains in an explicitly declared, visible, human-reviewable workspace with one writer, stable identity, complete diff visibility, proof-only temporary roots, and lossless cleanup.",
+      "origin": {
+        "repository": "jasondockery/compass",
+        "identity": {
+          "kind": "source",
+          "repository": "jasondockery/compass",
+          "commit": "f45222d0d6fd7651675e627c9f9f51a5eb25e77a"
+        }
+      },
+      "evidence": [
+        {
+          "id": "owner-reviewable-workspaces-review-f45222d",
+          "type": "cross-repository-review",
+          "repository": "jasondockery/compass",
+          "sourceCommit": "f45222d0d6fd7651675e627c9f9f51a5eb25e77a",
+          "summary": "Owner review accepted a vendor-neutral contract after hidden or relocated implementation work made cross-agent progress difficult to inspect and safely reconcile."
+        },
+        {
+          "id": "owner-reviewable-workspaces-correction-bb08714",
+          "type": "cross-repository-review",
+          "repository": "jasondockery/compass",
+          "sourceCommit": "bb087147c0ab60095b12b6f64da5862d583476ad",
+          "summary": "Owner review refined the issued workspace contract to distinguish writable lanes from read-only sharing, admit review-visible branch-backed native worktrees, require early remote recovery, and bind exact handoff and routing evidence."
+        }
+      ],
+      "affectedScope": [
+        "compass-doctrine-and-procedure",
+        "direct-consumer-agent-workspaces",
+        "generated-consumer-review-surfaces",
+        "future-agent-tools"
+      ],
+      "localRepairStatus": "not-required",
+      "authorityReconciliation": "complete",
+      "incorporationStatus": "complete",
+      "proposedAuthority": "compass",
+      "ownershipReason": "Workspace identity, review visibility, one-active-writable-principal ownership with an explicit process tree and transfer, integration ownership, branch-backed recovery, proof-root separation, and lossless cleanup are generic across repositories, products, providers, editors, and agent tools.",
+      "consumerOwnedRemainder": "Each consumer owns workspace and tool integration, editor registration, branch publication, and local human-review mechanics.",
+      "candidateState": "issued",
+      "authorityIdentity": {
+        "kind": "exact-artifact-receipt",
+        "repository": "jasondockery/compass",
+        "sourceCommit": "bb087147c0ab60095b12b6f64da5862d583476ad",
+        "sourceTree": "811e78cd4dcc9a6a48ad24cc976e1e8e70b2918e",
+        "sourceFingerprintSha256": "bc956e0a9755b62acf9fabfed715c6e71a40173f8902547767579a670c771232",
+        "artifactSha256": "b8c1642aaf540ea03012b6a6fdccd8f1d0bb96ad97c5d1d521522e361e48486c",
+        "artifactBytes": 371290,
+        "validationReceiptSha256": "25c3566578ced3c148456db7b8369b2724e4502fb2dcffe7ccf945b8f64eaaff",
+        "artifactReceiptSha256": "8a578029ad119c8ac756ee49b718a3438cf09dd96ed9bbe79ff4adca73556b49"
+      },
+      "supersedes": null,
+      "transitionHistory": [
+        {
+          "sequence": 1,
+          "state": "local",
+          "identity": {
+            "kind": "source",
+            "repository": "jasondockery/compass",
+            "commit": "f45222d0d6fd7651675e627c9f9f51a5eb25e77a"
+          }
+        },
+        {
+          "sequence": 2,
+          "state": "nominated",
+          "identity": {
+            "kind": "source",
+            "repository": "jasondockery/compass",
+            "commit": "f45222d0d6fd7651675e627c9f9f51a5eb25e77a"
+          }
+        },
+        {
+          "sequence": 3,
+          "state": "accepted",
+          "identity": {
+            "kind": "source",
+            "repository": "jasondockery/compass",
+            "commit": "f45222d0d6fd7651675e627c9f9f51a5eb25e77a"
+          }
+        },
+        {
+          "sequence": 4,
+          "state": "issued",
+          "identity": {
+            "kind": "containing-projection-receipt",
+            "path": ".compass/receipt.json",
+            "schema": "compass.artifact-receipt",
+            "repository": "jasondockery/compass"
+          }
+        }
+      ],
+      "epochSelection": {
+        "activeIssuedSequence": 1,
+        "pendingSequence": 2,
+        "topLevelSequence": 1
+      },
+      "authorityEpochState": "issued",
+      "authorityEpochs": [
+        {
+          "sequence": 1,
+          "state": "issued",
+          "invariant": "Agent implementation remains in an explicitly declared, visible, human-reviewable workspace with one writer, stable identity, complete diff visibility, proof-only temporary roots, and lossless cleanup.",
+          "canonicalSkillPath": "skills/reviewable-agent-workspaces/SKILL.md",
+          "canonicalSkillSha256": "cd5fde53e4a0a42532f39c2de36bf02ccf01ac46de2508e341703f78f9aa7e1b",
+          "authorityIdentity": {
+            "kind": "exact-artifact-receipt",
+            "repository": "jasondockery/compass",
+            "sourceCommit": "bb087147c0ab60095b12b6f64da5862d583476ad",
+            "sourceTree": "811e78cd4dcc9a6a48ad24cc976e1e8e70b2918e",
+            "sourceFingerprintSha256": "bc956e0a9755b62acf9fabfed715c6e71a40173f8902547767579a670c771232",
+            "artifactSha256": "b8c1642aaf540ea03012b6a6fdccd8f1d0bb96ad97c5d1d521522e361e48486c",
+            "artifactBytes": 371290,
+            "validationReceiptSha256": "25c3566578ced3c148456db7b8369b2724e4502fb2dcffe7ccf945b8f64eaaff",
+            "artifactReceiptSha256": "8a578029ad119c8ac756ee49b718a3438cf09dd96ed9bbe79ff4adca73556b49"
+          },
+          "supersedesSequence": null
+        },
+        {
+          "sequence": 2,
+          "state": "pending-containing-receipt",
+          "invariant": "Agent implementation remains in an explicitly declared, human-reviewable workspace with one active writable ownership principal and its declared process tree per worktree, explicit ownership transfer, stable identity, complete diff visibility, branch-backed recovery, proof-only temporary roots, integration ownership, and lossless cleanup.",
+          "canonicalSkillPath": "skills/reviewable-agent-workspaces/SKILL.md",
+          "canonicalSkillSha256": "cc663ed8100e3049a4f1d4f7261dcb429ece04bf22ec4224a2341f9a7d757edb",
+          "authorityIdentity": {
+            "kind": "containing-projection-receipt",
+            "path": ".compass/receipt.json",
+            "schema": "compass.artifact-receipt",
+            "repository": "jasondockery/compass"
+          },
+          "supersedesSequence": 1
+        }
+      ]
+    },
+    {
+      "id": "sta-compass-concurrent-agent-runtimes",
+      "invariant": "Concurrent repositories, worktrees, developer tools, and AI agents cannot interfere through ambient ports, processes, paths, IPC, containers, caches, or cleanup; each automated run owns an explicit isolated runtime identity, while resource leases govern performance only.",
+      "origin": {
+        "repository": "jasondockery/roost",
+        "identity": {
+          "kind": "source",
+          "repository": "jasondockery/roost",
+          "commit": "44bf1a8be272d40cd842550db8dcbcaababb6157"
+        }
+      },
+      "evidence": [
+        {
+          "id": "owner-concurrent-agent-runtimes-review-8ccfcff",
+          "type": "cross-repository-review",
+          "repository": "jasondockery/compass",
+          "sourceCommit": "8ccfcff351dfb8c652f8eba75b77980b602bf4c8",
+          "summary": "Owner review accepted a vendor-neutral runtime-isolation contract after canonical proof attributed ambient processes to contamination and depended on conventional ports and a loosened environment."
+        },
+        {
+          "id": "roost-runtime-contamination-44bf1a8",
+          "type": "consumer-field-review",
+          "repository": "jasondockery/roost",
+          "sourceCommit": "44bf1a8be272d40cd842550db8dcbcaababb6157",
+          "summary": "A Roost field failure showed that repository proof, developer servers, and unrelated product processes need explicit run-owned ports, process identity, state, and cleanup boundaries."
+        },
+        {
+          "id": "renovate-runtime-isolation-fdeecb1",
+          "type": "consumer-field-review",
+          "repository": "jasondockery/renovate-config",
+          "sourceCommit": "fdeecb1e17c895b44f8b5e0406c3cc253a0e62a5",
+          "summary": "A renovate-config focused repair corroborated run-scoped temporary state, identity-bound cleanup, and preservation of unrelated concurrent process groups while retaining its repository-owned implementation."
+        }
+      ],
+      "affectedScope": [
+        "compass-doctrine-and-procedure",
+        "roost-reusable-and-generated-runtime-proof",
+        "groundwork-developer-environment-acceptance",
+        "renovate-config-automation",
+        "hatch-via-roost-acceptance",
+        "generated-consumers",
+        "future-agent-tools"
+      ],
+      "localRepairStatus": "pending",
+      "authorityReconciliation": "complete",
+      "incorporationStatus": "complete",
+      "proposedAuthority": "compass",
+      "ownershipReason": "Vendor-neutral runtime identity, isolation, cleanup ownership, and concurrent-proof doctrine is generic across repositories, worktrees, tools, agents, frameworks, providers, and products.",
+      "consumerOwnedRemainder": "Consumers own concrete test, server, process, port, temporary-state, cache, socket, container, cleanup, platform, and deployed-acceptance implementation.",
+      "candidateState": "issued",
+      "authorityIdentity": {
+        "kind": "containing-projection-receipt",
+        "path": ".compass/receipt.json",
+        "schema": "compass.artifact-receipt",
+        "repository": "jasondockery/compass"
+      },
+      "supersedes": null,
+      "transitionHistory": [
+        {
+          "sequence": 1,
+          "state": "local",
+          "identity": {
+            "kind": "source",
+            "repository": "jasondockery/roost",
+            "commit": "44bf1a8be272d40cd842550db8dcbcaababb6157"
+          }
+        },
+        {
+          "sequence": 2,
+          "state": "nominated",
+          "identity": {
+            "kind": "source",
+            "repository": "jasondockery/roost",
+            "commit": "44bf1a8be272d40cd842550db8dcbcaababb6157"
+          }
+        },
+        {
+          "sequence": 3,
+          "state": "accepted",
+          "identity": {
+            "kind": "source",
+            "repository": "jasondockery/compass",
+            "commit": "8ccfcff351dfb8c652f8eba75b77980b602bf4c8"
+          }
+        },
+        {
+          "sequence": 4,
+          "state": "issued",
+          "identity": {
+            "kind": "containing-projection-receipt",
+            "path": ".compass/receipt.json",
+            "schema": "compass.artifact-receipt",
+            "repository": "jasondockery/compass"
+          }
+        }
+      ]
     }
   ],
   "heldAuthoritySources": [
@@ -510,6 +740,27 @@
           "artifactBytes": 309751,
           "validationReceiptSha256": "ae2d3a192d57751f5741a9157ff6a83459404ac2f24ef7db67b632ccf48f0786",
           "artifactReceiptSha256": "9ffdd0617e858d1ecee3b7ea8e9caf3b6ba1d5e267b0e40f94c12f34faf8af57"
+        }
+      ]
+    },
+    {
+      "source": {
+        "repository": "jasondockery/compass",
+        "sourceCommit": "8713d212e5ce1c55517fdcd1763e64f27238dba1",
+        "sourceTree": "73d5e8331db538559f0615db90e0bcf9b00a6989",
+        "sourceFingerprintSha256": "7a08554e42ade994fadb7dfd860266e5b2191b21c37a00c43f32e6f115406aeb"
+      },
+      "disposition": "historical-not-adoptable",
+      "reason": "The issued source authorized managed retirement only from bb087147 rather than the valid 8ccfcff predecessor held by known consumers, and its declared discovery routes exposed only two of fifteen receipt-bound canonical skills.",
+      "observedExactIdentities": [
+        {
+          "sourceCommit": "8713d212e5ce1c55517fdcd1763e64f27238dba1",
+          "sourceTree": "73d5e8331db538559f0615db90e0bcf9b00a6989",
+          "sourceFingerprintSha256": "7a08554e42ade994fadb7dfd860266e5b2191b21c37a00c43f32e6f115406aeb",
+          "artifactSha256": "c42031874df699958ca6e6fd1077fcf29a42a4d24cb24850ff59337f8f9d91d7",
+          "artifactBytes": 469595,
+          "validationReceiptSha256": "8b273fc9a1cf9e5c1782a400560533e2fdb452b128f989006b1fc0ae2e171a28",
+          "artifactReceiptSha256": "3f6d62dfbaa5a8f90b8c8d0b74b2b6cba24ebe0cc4182500441ec6a1ea5cdb95"
         }
       ]
     }

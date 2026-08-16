@@ -58,7 +58,7 @@
   "authorities": {
     "compass": {
       "repository": "jasondockery/compass",
-      "scope": "generic doctrine, terminology, behavior, and proof requirements",
+      "scope": "generic doctrine, terminology, behavior, runtime isolation, and proof requirements",
       "requiresProductFrameworkProviderDeploymentIndependence": true
     },
     "roost": {

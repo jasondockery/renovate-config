@@ -1,0 +1,11 @@
+{"name":"renovate","level":30,"msg":"Renovate started","fixtureOrigin":"captured lifecycle shape","fixtureRuntime":"44.23.0"}
+{"name":"renovate","level":30,"repository":"jasondockery/renovate-config","msg":"Repository started","fixtureOrigin":"captured lifecycle shape","fixtureRuntime":"44.23.0"}
+{"name":"renovate","level":20,"repository":"jasondockery/renovate-config","baseBranch":"main","update":{"bucket":"non-major","newVersion":"1.1.0","newValue":"^1.1.0","updateType":"minor"}}
+{"name":"renovate","level":30,"repository":"jasondockery/renovate-config","msg":"Repository timing splits (milliseconds)","splits":{"init":100,"onboarding":0,"extract":200,"lookup":300,"update":400},"total":1000,"fixtureOrigin":"pinned source timing shape","fixtureRuntime":"44.23.0"}
+{"name":"renovate","level":40,"msg":"sanitized global warning","fixtureOrigin":"hostile scenario","fixtureRuntime":"44.23.0"}
+{"name":"renovate","level":30,"repository":"jasondockery/roost","msg":"Repository started","fixtureOrigin":"captured lifecycle shape","fixtureRuntime":"44.23.0"}
+{"name":"renovate","level":50,"repository":"jasondockery/roost","msg":"sanitized repository error","fixtureOrigin":"hostile scenario","fixtureRuntime":"44.23.0"}
+{"name":"renovate","level":30,"repository":"jasondockery/roost","msg":"Repository timing splits (milliseconds)","splits":{"init":200,"onboarding":0,"extract":400,"lookup":600,"update":800},"total":2000,"fixtureOrigin":"pinned source timing shape","fixtureRuntime":"44.23.0"}
+{"name":"renovate","level":30,"repository":"jasondockery/groundwork","msg":"Repository started","fixtureOrigin":"captured lifecycle shape","fixtureRuntime":"44.23.0"}
+{"name":"renovate","level":30,"repository":"jasondockery/groundwork","msg":"Repository timing splits (milliseconds)","splits":{"init":300,"onboarding":0,"extract":600,"lookup":900,"update":1200},"total":3000,"fixtureOrigin":"pinned source timing shape","fixtureRuntime":"44.23.0"}
+{"name":"renovate","level":60,"msg":"sanitized global fatal","fixtureOrigin":"hostile scenario","fixtureRuntime":"44.23.0"}

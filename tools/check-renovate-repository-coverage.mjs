@@ -556,6 +556,7 @@ const PRESET_KEYS = new Set([
   'extends',
   'minimumReleaseAge',
   'internalChecksFilter',
+  'prBodyNotes',
   'packageRules',
   'prConcurrentLimit',
   'prHourlyLimit',
@@ -565,10 +566,19 @@ const PRESET_KEYS = new Set([
 ])
 const PACKAGE_RULE_KEYS = new Set([
   'description',
+  'matchManagers',
+  'matchPackageNames',
   'matchDatasources',
+  'matchDepTypes',
+  'matchCurrentVersion',
   'matchUpdateTypes',
+  'labels',
   'minimumReleaseAge',
   'internalChecksFilter',
+  'automerge',
+  'automergeType',
+  'ignoreTests',
+  'platformAutomerge',
 ])
 const VULNERABILITY_KEYS = new Set([
   'enabled',
@@ -627,6 +637,7 @@ export function assertExtractionNeutralPreset(preset) {
   }
   if ('minimumReleaseAge' in preset) assertString(preset.minimumReleaseAge, ['minimumReleaseAge'])
   if ('internalChecksFilter' in preset) assertString(preset.internalChecksFilter, ['internalChecksFilter'])
+  if ('prBodyNotes' in preset) assertStringArray(preset.prBodyNotes, ['prBodyNotes'])
   if ('prConcurrentLimit' in preset) assertNonnegativeInteger(preset.prConcurrentLimit, ['prConcurrentLimit'])
   if ('prHourlyLimit' in preset) assertNonnegativeInteger(preset.prHourlyLimit, ['prHourlyLimit'])
   if ('rebaseWhen' in preset) assertString(preset.rebaseWhen, ['rebaseWhen'])
@@ -637,10 +648,19 @@ export function assertExtractionNeutralPreset(preset) {
       const base = ['packageRules', String(index)]
       assertAllowedKeys(rule, PACKAGE_RULE_KEYS, base)
       if ('description' in rule) assertString(rule.description, [...base, 'description'])
+      if ('matchManagers' in rule) assertStringArray(rule.matchManagers, [...base, 'matchManagers'])
+      if ('matchPackageNames' in rule) assertStringArray(rule.matchPackageNames, [...base, 'matchPackageNames'])
       if ('matchDatasources' in rule) assertStringArray(rule.matchDatasources, [...base, 'matchDatasources'])
+      if ('matchDepTypes' in rule) assertStringArray(rule.matchDepTypes, [...base, 'matchDepTypes'])
+      if ('matchCurrentVersion' in rule) assertString(rule.matchCurrentVersion, [...base, 'matchCurrentVersion'])
       if ('matchUpdateTypes' in rule) assertStringArray(rule.matchUpdateTypes, [...base, 'matchUpdateTypes'])
+      if ('labels' in rule) assertStringArray(rule.labels, [...base, 'labels'])
       if ('minimumReleaseAge' in rule) assertString(rule.minimumReleaseAge, [...base, 'minimumReleaseAge'])
       if ('internalChecksFilter' in rule) assertString(rule.internalChecksFilter, [...base, 'internalChecksFilter'])
+      for (const key of ['automerge', 'ignoreTests', 'platformAutomerge']) {
+        if (key in rule && typeof rule[key] !== 'boolean') failPresetShape([...base, key], 'expected a boolean')
+      }
+      if ('automergeType' in rule) assertString(rule.automergeType, [...base, 'automergeType'])
     }
   }
   if ('vulnerabilityAlerts' in preset) {

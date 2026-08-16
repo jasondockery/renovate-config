@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -14,52 +15,54 @@ const DAY = 24 * 60 * 60 * 1000
 const MINUTE = 60 * 1000
 const JUST_UNDER_FIVE_DAYS = 5 * DAY - MINUTE
 const JUST_OVER_FIVE_DAYS = 5 * DAY + MINUTE
-const ACCEPTED_POLICY_PATH = 'default.json'
-const REVIEWED_POLICY_PATH = 'tools/fixtures/preset/default-five-day-policy.json'
+const JUST_UNDER_FOURTEEN_DAYS = 14 * DAY - MINUTE
+const JUST_OVER_FOURTEEN_DAYS = 14 * DAY + MINUTE
+const DEFAULT_POLICY_PATH = 'default.json'
+const REVIEWED_DEFAULT_PATH = 'tools/fixtures/preset/default-five-day-policy.json'
+const AUTOMERGE_POLICY_PATH = 'low-risk-automerge.json'
+const REVIEWED_AUTOMERGE_PATH = 'tools/fixtures/preset/low-risk-automerge.json'
 
-export const policyValidatorArguments = Object.freeze([
-  '--strict',
-  '--no-global',
-  ACCEPTED_POLICY_PATH,
-])
+export function policyValidatorArguments(relativePath) {
+  return ['--strict', '--no-global', relativePath]
+}
 
 function renovateCleanEnvironment(environment) {
-  return Object.fromEntries(
-    Object.entries(environment).filter(([key]) => !key.startsWith('RENOVATE_'))
-  )
+  return Object.fromEntries(Object.entries(environment).filter(([key]) => !key.startsWith('RENOVATE_')))
 }
 
-export function assertReviewedPolicy(accepted, reviewed) {
+export function assertReviewedPolicy(accepted, reviewed, label = 'policy') {
   assert.ok(
-    Array.isArray(accepted.description) &&
-      accepted.description.length > 0 &&
+    Array.isArray(accepted.description) && accepted.description.length > 0 &&
       accepted.description.every((line) => typeof line === 'string' && line.trim()),
-    'accepted policy description must contain reviewed non-empty strings'
+    `${label} description must contain reviewed non-empty strings`
   )
-  assert.deepEqual(
-    accepted,
-    reviewed,
-    'accepted default.json must match the exact owner-reviewed five-day policy fixture'
-  )
+  assert.deepEqual(accepted, reviewed, `${label} must match its exact owner-reviewed fixture`)
 }
 
-function validateAcceptedPolicy(repoRoot, environment, run) {
-  const accepted = JSON.parse(fs.readFileSync(path.join(repoRoot, 'default.json'), 'utf8'))
-  const reviewed = JSON.parse(fs.readFileSync(path.join(repoRoot, REVIEWED_POLICY_PATH), 'utf8'))
-  assertReviewedPolicy(accepted, reviewed)
+function readJson(repoRoot, relativePath) {
+  return JSON.parse(fs.readFileSync(path.join(repoRoot, relativePath), 'utf8'))
+}
 
-  const validated = run('renovate-config-validator', policyValidatorArguments, {
-    cwd: repoRoot,
-    env: renovateCleanEnvironment(environment),
-    encoding: 'utf8',
-    timeout: 60_000,
-  })
-  if (validated.error) throw validated.error
-  assert.equal(
-    validated.status,
-    0,
-    `strict accepted-policy validation failed:\n${validated.stderr || validated.stdout || 'no output'}`
-  )
+function validateReviewedPolicies(repoRoot, environment, run) {
+  const pairs = [
+    [DEFAULT_POLICY_PATH, REVIEWED_DEFAULT_PATH, 'default human-merge policy'],
+    [AUTOMERGE_POLICY_PATH, REVIEWED_AUTOMERGE_PATH, 'standalone selective-automerge policy'],
+  ]
+  for (const [acceptedPath, reviewedPath, label] of pairs) {
+    assertReviewedPolicy(readJson(repoRoot, acceptedPath), readJson(repoRoot, reviewedPath), label)
+    const validated = run('renovate-config-validator', policyValidatorArguments(acceptedPath), {
+      cwd: repoRoot,
+      env: renovateCleanEnvironment(environment),
+      encoding: 'utf8',
+      timeout: 60_000,
+    })
+    if (validated.error) throw validated.error
+    assert.equal(
+      validated.status,
+      0,
+      `strict ${label} validation failed:\n${validated.stderr || validated.stdout || 'no output'}`
+    )
+  }
 }
 
 function release(millisecondsOld) {
@@ -74,17 +77,66 @@ function dependency(config, overrides = {}) {
     ...config,
     currentValue: '1.0.0',
     currentVersion: '1.0.0',
+    newValue: '1.1.0',
+    newVersion: '1.1.0',
     datasource: 'npm',
     depName: 'fixture-package',
     packageName: 'fixture-package',
     manager: 'npm',
     versioning: 'semver',
+    depType: 'devDependencies',
+    updateType: 'minor',
+    isMajor: false,
+    isMinor: true,
+    isPatch: false,
+    major: 1,
+    minor: 0,
+    patch: 0,
+    branchName: 'renovate/fixture-package-1.x',
+    repository: 'jasondockery/fixture-consumer',
+    baseBranch: 'main',
+    groupName: null,
+    pendingChecks: false,
+    packageFile: 'package.json',
     ...overrides,
   }
 }
 
 async function policyResult(filterInternalChecks, versioning, config, millisecondsOld) {
   return filterInternalChecks(config, versioning, 'minor', [release(millisecondsOld)])
+}
+
+function authorityLines(rendered) {
+  return rendered.match(/^Merge authority:.*$/gmu) ?? []
+}
+
+function configuredLabels(config) {
+  return [...new Set([...(config.labels ?? []), ...(config.addLabels ?? [])])]
+}
+
+function assertRenderedAuthority(getPrHeader, generateBranchConfig, upgrades, expected) {
+  const branch = generateBranchConfig(upgrades)
+  const rendered = getPrHeader(branch)
+  for (const field of ['Classification', 'Merge authority', 'Maturity', 'Developer action', 'AI review', 'Policy']) {
+    const lines = rendered.match(new RegExp(`^${field}:.*$`, 'gmu')) ?? []
+    assert.equal(
+      lines.length,
+      1,
+      `rendered PR guidance must contain exactly one ${field} line for ${upgrades.map((upgrade) => upgrade.depName).join(', ')}:\n${rendered}`
+    )
+  }
+  const lines = authorityLines(rendered)
+  assert.match(
+    lines[0],
+    expected,
+    `rendered merge authority contradicted the effective branch for ${upgrades.map((upgrade) => upgrade.depName).join(', ')}`
+  )
+  assert.match(rendered, /github\.com\/jasondockery\/fixture-consumer\/blob\/main\/renovate\.json/u)
+  return { branch, rendered }
+}
+
+function stableDigest(value) {
+  return createHash('sha256').update(`${JSON.stringify(value)}\n`).digest('hex')
 }
 
 export async function checkEffectivePolicy({
@@ -95,99 +147,221 @@ export async function checkEffectivePolicy({
 } = {}) {
   const expectedVersion = readRenovateVersion(repoRoot)
   const runtimeRoot = findPinnedRenovateRoot(environment)
-  const runtimeManifest = JSON.parse(fs.readFileSync(path.join(runtimeRoot, 'package.json'), 'utf8'))
+  const runtimeManifest = readJson(runtimeRoot, 'package.json')
   assert.equal(runtimeManifest.version, expectedVersion, 'PATH Renovate must match .renovate-version')
-  validateAcceptedPolicy(repoRoot, environment, run)
+  validateReviewedPolicies(repoRoot, environment, run)
 
-  const [{ resolveConfigPresets }, { applyPackageRules }, { filterInternalChecks }, { api: semver }] = await Promise.all([
+  const [
+    { resolveConfigPresets },
+    { mergeChildConfig },
+    { applyPackageRules },
+    { filterInternalChecks },
+    { api: semver },
+    { generateBranchConfig },
+    { getPrHeader },
+    { getPrNotes },
+    { getOptions },
+  ] = await Promise.all([
     importRenovateModule(runtimeRoot, 'config/presets/index.js'),
+    importRenovateModule(runtimeRoot, 'config/utils.js'),
     importRenovateModule(runtimeRoot, 'util/package-rules/index.js'),
     importRenovateModule(runtimeRoot, 'workers/repository/process/lookup/filter-checks.js'),
     importRenovateModule(runtimeRoot, 'modules/versioning/semver/index.js'),
+    importRenovateModule(runtimeRoot, 'workers/repository/updates/generate.js'),
+    importRenovateModule(runtimeRoot, 'workers/repository/update/pr/body/header.js'),
+    importRenovateModule(runtimeRoot, 'workers/repository/update/pr/body/notes.js'),
+    importRenovateModule(runtimeRoot, 'config/options/index.js'),
   ])
-  const source = JSON.parse(fs.readFileSync(path.resolve(repoRoot, ACCEPTED_POLICY_PATH), 'utf8'))
-  const { config: resolved } = await resolveConfigPresets(structuredClone(source), structuredClone(source))
-  assert.deepEqual(source.extends, ['config:best-practices'], 'the active preset must not add a routine calendar gate')
-  assert.equal(Object.hasOwn(source, 'schedule'), false, 'routine updates must be eligible on every daily run')
-  assert.equal(resolved.schedule, undefined, 'the resolved root policy must not inherit a routine calendar gate')
+  const renderPolicyGuidance = (branch) => getPrHeader(branch) || getPrNotes(branch)
 
-  const effectiveNpm = await applyPackageRules(
-    dependency(resolved, { updateType: 'minor' }),
-    'npm-five-day-proof'
+  const updateTypeOption = getOptions().find((option) => option.name === 'matchUpdateTypes')
+  assert.deepEqual(
+    updateTypeOption?.allowedValues,
+    ['major', 'minor', 'patch', 'pin', 'pinDigest', 'digest', 'lockFileMaintenance', 'rollback', 'bump', 'replacement'],
+    'the pinned Renovate update-type inventory changed; classify the new engine semantics explicitly'
   )
-  assert.equal(effectiveNpm.minimumReleaseAge, '5 days', 'the later npm rule must override inherited age policy')
-  assert.equal(effectiveNpm.internalChecksFilter, 'strict', 'the effective npm rule must fail closed while releases age')
-  assert.equal(effectiveNpm.schedule, undefined, 'mature npm updates must advance on the next daily run')
-  const npmJustUnder = await policyResult(filterInternalChecks, semver, effectiveNpm, JUST_UNDER_FIVE_DAYS)
-  assert.equal(npmJustUnder.pendingChecks, true, 'an npm release one minute under five days must remain pending')
-  const npmJustOver = await policyResult(filterInternalChecks, semver, effectiveNpm, JUST_OVER_FIVE_DAYS)
-  assert.equal(npmJustOver.pendingChecks, false, 'an npm release one minute over five days must advance')
 
-  const effectiveNonNpm = await applyPackageRules(dependency(resolved, {
-    datasource: 'github-releases',
-    depName: 'sharkdp/bat',
-    packageName: 'sharkdp/bat',
-    manager: 'custom.regex',
-    updateType: 'minor',
-  }), 'github-release-five-day-proof')
-  assert.equal(effectiveNonNpm.minimumReleaseAge, '5 days')
-  assert.equal(effectiveNonNpm.internalChecksFilter, 'strict')
-  const nonNpmJustUnder = await policyResult(filterInternalChecks, semver, effectiveNonNpm, JUST_UNDER_FIVE_DAYS)
-  assert.equal(nonNpmJustUnder.pendingChecks, true, 'a timestamped GitHub release one minute under five days must remain pending')
-  const nonNpmJustOver = await policyResult(filterInternalChecks, semver, effectiveNonNpm, JUST_OVER_FIVE_DAYS)
-  assert.equal(nonNpmJustOver.pendingChecks, false, 'a timestamped GitHub release one minute over five days must advance')
+  const defaultSource = readJson(repoRoot, DEFAULT_POLICY_PATH)
+  const automergeSource = readJson(repoRoot, AUTOMERGE_POLICY_PATH)
+  const localSource = readJson(repoRoot, 'renovate.json')
+  const { config: resolvedDefault } = await resolveConfigPresets(
+    structuredClone(defaultSource), structuredClone(defaultSource)
+  )
+  const { config: resolvedAutomerge } = await resolveConfigPresets(
+    structuredClone(automergeSource), structuredClone(automergeSource)
+  )
+  const localWithoutRemotePreset = structuredClone(localSource)
+  delete localWithoutRemotePreset.extends
+  const { config: resolvedLocal } = await resolveConfigPresets(
+    localWithoutRemotePreset, localWithoutRemotePreset
+  )
+  const resolvedConsumer = mergeChildConfig(resolvedAutomerge, resolvedLocal)
+
+  assert.deepEqual(defaultSource.extends, ['config:best-practices'])
+  assert.deepEqual(automergeSource.extends, ['config:best-practices'])
+  assert.equal(
+    JSON.stringify(automergeSource).includes('github>jasondockery/renovate-config'),
+    false,
+    'the named preset must be standalone rather than relying on a separately ordered repository preset'
+  )
+  assert.equal(resolvedDefault.schedule, undefined)
+  assert.equal(resolvedAutomerge.schedule, undefined)
+
+  const defaultRoutine = await applyPackageRules(dependency(resolvedDefault), 'default-human-proof')
+  assert.equal(defaultRoutine.automerge, false, 'default.json must remain human-merge')
+  assertRenderedAuthority(renderPolicyGuidance, generateBranchConfig, [defaultRoutine], /Human merge required/u)
+  const defaultLockfile = await applyPackageRules(dependency(resolvedDefault, {
+    updateType: 'lockFileMaintenance', isLockFileMaintenance: true, isMinor: false,
+  }), 'default-lockfile-human-proof')
+  assert.equal(defaultLockfile.automerge, false, 'default lockfile maintenance must remain human-merge')
+
+  const eligibleMinor = await applyPackageRules(dependency(resolvedAutomerge), 'eligible-minor-proof')
+  assert.equal(eligibleMinor.minimumReleaseAge, '14 days')
+  assert.equal(eligibleMinor.internalChecksFilter, 'strict')
+  assert.equal(eligibleMinor.automerge, true)
+  assert.equal(eligibleMinor.automergeType, 'pr')
+  assert.equal(eligibleMinor.ignoreTests, false)
+  assert.equal(eligibleMinor.platformAutomerge, false)
+  assert.deepEqual(
+    configuredLabels(eligibleMinor).sort(),
+    ['class:routine-dev', 'dependencies'].sort(),
+    'eligible updates must expose a truthful class without an authority-bearing label'
+  )
+  assert.equal(
+    (await policyResult(filterInternalChecks, semver, eligibleMinor, JUST_UNDER_FOURTEEN_DAYS)).pendingChecks,
+    true
+  )
+  assert.equal(
+    (await policyResult(filterInternalChecks, semver, eligibleMinor, JUST_OVER_FOURTEEN_DAYS)).pendingChecks,
+    false
+  )
+  assertRenderedAuthority(renderPolicyGuidance, generateBranchConfig, [eligibleMinor], /Renovate may merge only/u)
+
+  const eligiblePatch = await applyPackageRules(dependency(resolvedAutomerge, {
+    updateType: 'patch', isMinor: false, isPatch: true, newValue: '1.0.1', newVersion: '1.0.1',
+  }), 'eligible-patch-proof')
+  assert.equal(eligiblePatch.automerge, true)
+
+  const groupedEligibleMinor = {
+    ...eligibleMinor,
+    groupName: 'eligible-policy',
+    branchName: 'renovate/eligible-policy',
+  }
+  const groupedEligiblePatch = {
+    ...eligiblePatch,
+    groupName: 'eligible-policy',
+    branchName: 'renovate/eligible-policy',
+    depName: 'second-fixture-package',
+    packageName: 'second-fixture-package',
+  }
+  const eligibleGroup = assertRenderedAuthority(
+    renderPolicyGuidance,
+    generateBranchConfig,
+    [groupedEligibleMinor, groupedEligiblePatch],
+    /Renovate may merge only/u
+  )
+  assert.equal(eligibleGroup.branch.automerge, true, 'an all-eligible grouped PR must retain Renovate authority')
+  assert.equal(
+    eligibleGroup.branch.labels?.includes('review:human'),
+    false,
+    'an all-eligible grouped PR must not gain the denial marker'
+  )
+
+  const humanCases = [
+    ['major', { updateType: 'major', isMajor: true, isMinor: false, newValue: '2.0.0', newVersion: '2.0.0' }],
+    ['pre-1.0', { currentValue: '0.9.0', currentVersion: '0.9.0', newValue: '0.10.0', newVersion: '0.10.0', major: 0 }],
+    ['production', { depType: 'dependencies' }],
+    ['peer', { depType: 'peerDependencies' }],
+    ['optional', { depType: 'optionalDependencies' }],
+    ['action', { datasource: 'github-tags', manager: 'github-actions', depType: 'action' }],
+    ['runtime', { depName: 'renovate', packageName: 'renovate' }],
+    ['non-npm', { datasource: 'github-releases', manager: 'custom.regex', depName: 'sharkdp/bat', packageName: 'sharkdp/bat' }],
+    ['pin', { updateType: 'pin', isMinor: false, isPin: true }],
+    ['pin-digest', { updateType: 'pinDigest', isMinor: false, isPinDigest: true }],
+    ['digest', { updateType: 'digest', isMinor: false, isDigest: true }],
+    ['rollback', { updateType: 'rollback', isMinor: false, isRollback: true }],
+    ['bump', { updateType: 'bump', isMinor: false }],
+    ['replacement', { updateType: 'replacement', isMinor: false, isReplacement: true }],
+    ['lockfile', { updateType: 'lockFileMaintenance', isMinor: false, isLockFileMaintenance: true }],
+  ]
+  const humanResults = new Map()
+  for (const [label, overrides] of humanCases) {
+    const effective = await applyPackageRules(dependency(resolvedAutomerge, overrides), `${label}-human-proof`)
+    assert.equal(effective.automerge, false, `${label} must remain human-merge`)
+    assert.equal(effective.platformAutomerge, false, `${label} must not gain platform merge authority`)
+    assert.ok(configuredLabels(effective).includes('review:human'), `${label} must expose human review in the PR list`)
+    assertRenderedAuthority(renderPolicyGuidance, generateBranchConfig, [effective], /Human merge required/u)
+    humanResults.set(label, effective)
+  }
 
   const vulnerabilityRule = {
     matchDatasources: ['npm'],
     matchPackageNames: ['fixture-package'],
     isVulnerabilityAlert: true,
-    force: { ...resolved.vulnerabilityAlerts },
+    force: { ...resolvedAutomerge.vulnerabilityAlerts },
   }
-  const vulnerability = dependency({
-    ...resolved,
-    packageRules: [...resolved.packageRules, vulnerabilityRule],
-  }, { isVulnerabilityAlert: true })
-  const effectiveVulnerability = await applyPackageRules(vulnerability, 'vulnerability-proof')
-  assert.equal(effectiveVulnerability.minimumReleaseAge, null)
-  assert.deepEqual(effectiveVulnerability.schedule, ['at any time'])
-  assert.equal(effectiveVulnerability.prHourlyLimit, 0)
-  assert.equal(effectiveVulnerability.prConcurrentLimit, 0)
-  assert.equal(effectiveVulnerability.prCreation, 'immediate')
-  assert.equal(effectiveVulnerability.automerge, false, 'vulnerability updates must require human merge review')
-  assert.equal(effectiveVulnerability.platformAutomerge, false, 'the platform must not merge vulnerability updates')
-  const vulnerabilityJustUnder = await policyResult(
-    filterInternalChecks,
-    semver,
-    effectiveVulnerability,
-    JUST_UNDER_FIVE_DAYS
+  const vulnerability = await applyPackageRules(dependency({
+    ...resolvedAutomerge,
+    packageRules: [...resolvedAutomerge.packageRules, vulnerabilityRule],
+  }, { isVulnerabilityAlert: true }), 'vulnerability-human-proof')
+  assert.equal(vulnerability.minimumReleaseAge, null)
+  assert.deepEqual(vulnerability.schedule, ['at any time'])
+  assert.equal(vulnerability.automerge, false)
+  assert.equal(vulnerability.platformAutomerge, false)
+  assert.equal(
+    (await policyResult(filterInternalChecks, semver, vulnerability, JUST_UNDER_FIVE_DAYS)).pendingChecks,
+    false
   )
-  assert.equal(vulnerabilityJustUnder.pendingChecks, false, 'vulnerability updates must bypass the normal age floor')
+  assertRenderedAuthority(renderPolicyGuidance, generateBranchConfig, [vulnerability], /Human merge required/u)
 
-  // `config:best-practices` assigns three days to these uncommon npm update
-  // types. The later owner rule intentionally matches only major/minor/patch,
-  // so pin the inherited behavior instead of implying that the five-day claim
-  // covers every update type.
-  for (const updateType of ['bump', 'rollback']) {
-    const inherited = await applyPackageRules(
-      dependency(resolved, { updateType }),
-      `${updateType}-inherited-age-proof`
-    )
-    assert.equal(
-      inherited.minimumReleaseAge,
-      '3 days',
-      `${updateType} updates must retain the reviewed inherited three-day policy`
-    )
-    assert.equal(inherited.internalChecksFilter, 'strict')
+  const mixedEligible = { ...eligibleMinor, groupName: 'mixed-policy', branchName: 'renovate/mixed-policy' }
+  const mixedMajor = {
+    ...humanResults.get('major'), groupName: 'mixed-policy', branchName: 'renovate/mixed-policy',
+    depName: 'major-fixture', packageName: 'major-fixture',
   }
+  const mixed = assertRenderedAuthority(
+    renderPolicyGuidance, generateBranchConfig, [mixedEligible, mixedMajor], /Human merge required/u
+  )
+  assert.equal(mixed.branch.automerge, false, 'one ineligible update must make the complete grouped PR human-merge')
+  assert.ok(mixed.branch.labels?.includes('review:human'), 'a mixed grouped PR must expose human review')
 
-  const lockfile = await applyPackageRules(dependency(resolved, {
-    updateType: 'lockFileMaintenance',
-    isLockFileMaintenance: true,
-  }), 'lockfile-proof')
-  assert.equal(lockfile.minimumReleaseAge, null, 'Renovate lockfile maintenance must not claim release-age enforcement')
+  const runnerInfrastructure = await applyPackageRules(dependency(resolvedConsumer, {
+    depName: 'renovate', packageName: 'renovate',
+  }), 'consumer-local-runner-infrastructure-proof')
+  assert.equal(runnerInfrastructure.automerge, false, 'consumer-local rules must apply after the standalone preset')
+  assert.ok(
+    configuredLabels(runnerInfrastructure).includes('review:human'),
+    'a consumer-local denial must retain the conservative human-review marker'
+  )
+  assertRenderedAuthority(
+    renderPolicyGuidance,
+    generateBranchConfig,
+    [runnerInfrastructure],
+    /Human merge required/u
+  )
 
-  output.log(`ok: Renovate ${expectedVersion} resolved daily mature updates, five-day normal age, inherited bump/rollback age, human-reviewed security bypass, and weekly lockfile maintenance`)
-  return { ok: true, version: expectedVersion }
+  const defaultNpm = await applyPackageRules(dependency(resolvedDefault), 'default-five-day-proof')
+  assert.equal(defaultNpm.minimumReleaseAge, '5 days')
+  assert.equal((await policyResult(filterInternalChecks, semver, defaultNpm, JUST_UNDER_FIVE_DAYS)).pendingChecks, true)
+  assert.equal((await policyResult(filterInternalChecks, semver, defaultNpm, JUST_OVER_FIVE_DAYS)).pendingChecks, false)
+
+  const resolvedDefaultConfigSha256 = stableDigest(resolvedDefault)
+  const resolvedConfigSha256 = stableDigest(resolvedAutomerge)
+  const readinessRegistry = readJson(repoRoot, 'automerge-consumers.json')
+  assert.equal(
+    readinessRegistry.humanMergeBaseline?.resolvedConfigSha256,
+    resolvedDefaultConfigSha256,
+    'automerge-consumers.json must bind the pinned engine human-baseline resolved-config digest'
+  )
+  assert.equal(
+    readinessRegistry.preset?.resolvedConfigSha256,
+    resolvedConfigSha256,
+    'automerge-consumers.json must bind the pinned engine resolved-config digest'
+  )
+  output.log(
+    `ok: Renovate ${expectedVersion} resolved standalone 14-day selective automerge, human default/lockfile/security/high-risk boundaries, local overrides, eligible-group authority, mixed-group denial, and rendered PR guidance (resolved sha256 ${resolvedConfigSha256})`
+  )
+  return { ok: true, version: expectedVersion, resolvedDefaultConfigSha256, resolvedConfigSha256 }
 }
 
 export function parseArguments(argv) {

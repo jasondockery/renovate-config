@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import fs from 'node:fs'
+import { createHash } from 'node:crypto'
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
@@ -80,6 +81,10 @@ function checkTokenRepositoryScopes(workflow, relativePath, expectedOwner, expec
 export function collectRenovateSystemPolicyProblems(root = repositoryRoot) {
   const problems = []
   const preset = readJson(root, 'default.json', problems)
+  const lowRiskPreset = readJson(root, 'low-risk-automerge.json', problems)
+  const reviewedLowRiskPreset = readJson(root, 'tools/fixtures/preset/low-risk-automerge.json', problems)
+  const automergeConsumers = readJson(root, 'automerge-consumers.json', problems)
+  const localRenovateConfig = readJson(root, 'renovate.json', problems)
   const packageManifest = readJson(root, 'package.json', problems)
   let workflow = ''
   let compatibilityWorkflow = ''
@@ -167,6 +172,53 @@ export function collectRenovateSystemPolicyProblems(root = repositoryRoot) {
     ) {
       problems.push('default.json must retain the one reviewed npm rule that overrides the inherited three-day policy.')
     }
+    const automaticMergeRules = (preset.packageRules ?? []).filter((rule) => rule.automerge === true)
+    const lockfileRules = (preset.packageRules ?? []).filter((rule) =>
+      JSON.stringify(rule.matchUpdateTypes) === JSON.stringify(['lockFileMaintenance']) &&
+      JSON.stringify(rule.labels) === JSON.stringify(['dependencies', 'review:human', 'class:lockfile'])
+    )
+    if (automaticMergeRules.length !== 0) {
+      problems.push('default.json must remain human-merge by default; automatic merge authority belongs only in the named opt-in preset.')
+    }
+    if (lockfileRules.length !== 1) {
+      problems.push('default.json must keep lockfile maintenance human-reviewed until its transitive update boundary earns separate proof.')
+    }
+    const deliberateMajorRules = (preset.packageRules ?? []).filter((rule) =>
+      JSON.stringify(rule.matchUpdateTypes) === JSON.stringify(['major'])
+    )
+    if (
+      deliberateMajorRules.length !== 1 ||
+      JSON.stringify(deliberateMajorRules[0].labels) !==
+        JSON.stringify(['dependencies', 'review:human', 'risk:major'])
+    ) {
+      problems.push('default.json must keep all major updates outside automatic merge authority.')
+    }
+    const runtimeRules = (preset.packageRules ?? []).filter((rule) =>
+      JSON.stringify(rule.matchPackageNames) === JSON.stringify([
+        'node', 'npm', 'pnpm', 'yarn', 'corepack', 'renovate', 'renovatebot/github-action',
+      ])
+    )
+    const actionRules = (preset.packageRules ?? []).filter((rule) =>
+      JSON.stringify(rule.matchManagers) === JSON.stringify(['github-actions'])
+    )
+    if (
+      runtimeRules.length !== 1 ||
+      JSON.stringify(runtimeRules[0].labels) !== JSON.stringify(['dependencies', 'review:human', 'risk:infrastructure']) ||
+      actionRules.length !== 1 ||
+      JSON.stringify(actionRules[0].labels) !== JSON.stringify(['dependencies', 'review:human', 'risk:infrastructure'])
+    ) {
+      problems.push('default.json must keep runtimes, dependency automation, and GitHub Actions outside automatic merge authority.')
+    }
+    const humanFallbackRules = (preset.packageRules ?? []).filter((rule) =>
+      JSON.stringify(rule.matchPackageNames) === JSON.stringify(['*']) &&
+      rule.automerge === false && rule.platformAutomerge === false &&
+      JSON.stringify(rule.labels) === JSON.stringify(['dependencies', 'review:human'])
+    )
+    const authorityLineCount = (preset.prBodyNotes ?? [])
+      .flatMap((note) => String(note).match(/Merge authority:/gu) ?? []).length
+    if (humanFallbackRules.length !== 1 || authorityLineCount !== 1) {
+      problems.push('default.json must provide one human-merge fallback and exactly one PR-visible merge-authority line.')
+    }
     if (Object.hasOwn(preset, 'enabledManagers')) {
       problems.push('default.json must not silently narrow built-in dependency manager coverage with enabledManagers.')
     }
@@ -180,6 +232,155 @@ export function collectRenovateSystemPolicyProblems(root = repositoryRoot) {
     ) {
       problems.push('the active preset must preserve immediate vulnerability PRs with age/rate bypass and required human merge review.')
     }
+  }
+
+  if (lowRiskPreset && reviewedLowRiskPreset) {
+    if (JSON.stringify(lowRiskPreset) !== JSON.stringify(reviewedLowRiskPreset)) {
+      problems.push('low-risk-automerge.json must exactly match its owner-reviewed fixture.')
+    }
+    if (
+      JSON.stringify(lowRiskPreset.extends) !== JSON.stringify(['config:best-practices']) ||
+      lowRiskPreset.minimumReleaseAge !== '14 days' ||
+      lowRiskPreset.internalChecksFilter !== 'strict' ||
+      JSON.stringify(lowRiskPreset).includes('github>jasondockery/renovate-config')
+    ) {
+      problems.push('low-risk-automerge.json must be a standalone fourteen-day preset with no self-reference or separately ordered repository preset dependency.')
+    }
+    const automaticMergeRules = (lowRiskPreset.packageRules ?? []).filter((rule) => rule.automerge === true)
+    const devRules = automaticMergeRules.filter((rule) =>
+      JSON.stringify(rule.matchDatasources) === JSON.stringify(['npm']) &&
+      JSON.stringify(rule.matchDepTypes) === JSON.stringify(['devDependencies']) &&
+      rule.matchCurrentVersion === '>=1.0.0' &&
+      JSON.stringify(rule.matchUpdateTypes) === JSON.stringify(['minor', 'patch']) &&
+      rule.automergeType === 'pr' && rule.ignoreTests === false && rule.platformAutomerge === false
+    )
+    const lockfileRules = (lowRiskPreset.packageRules ?? []).filter((rule) =>
+      JSON.stringify(rule.matchUpdateTypes) === JSON.stringify(['lockFileMaintenance']) &&
+      rule.automerge === false && rule.platformAutomerge === false
+    )
+    const runtimeExclusions = (lowRiskPreset.packageRules ?? []).filter((rule) =>
+      JSON.stringify(rule.matchPackageNames) === JSON.stringify([
+        'node', 'npm', 'pnpm', 'yarn', 'corepack', 'renovate', 'renovatebot/github-action',
+      ]) && rule.automerge === false && rule.platformAutomerge === false
+    )
+    if (
+      automaticMergeRules.length !== 1 || devRules.length !== 1 ||
+      lockfileRules.length !== 1 || runtimeExclusions.length !== 1
+    ) {
+      problems.push('the named low-risk preset must limit automerge to stable npm devDependency patch/minor, keep lockfiles and runtimes human-reviewed, and retain Renovate-owned check gating.')
+    }
+    const humanFallbackRules = (lowRiskPreset.packageRules ?? []).filter((rule) =>
+      JSON.stringify(rule.matchPackageNames) === JSON.stringify(['*']) &&
+      rule.automerge === false && rule.platformAutomerge === false &&
+      JSON.stringify(rule.labels) === JSON.stringify(['dependencies', 'review:human'])
+    )
+    const eligibleRuleHasNoDenialMarker = devRules.length === 1 &&
+      JSON.stringify(devRules[0].labels) === JSON.stringify(['dependencies', 'class:routine-dev'])
+    const explicitHumanRules = (lowRiskPreset.packageRules ?? []).filter((rule) =>
+      rule !== devRules[0] && rule.description !== "Raise normal npm versions to the standalone preset's fourteen-day floor."
+    )
+    const everyHumanRuleMarksDenial = explicitHumanRules.every((rule) =>
+      Array.isArray(rule.labels) && rule.labels.includes('review:human')
+    )
+    const authorityLineCount = String(lowRiskPreset.prHeader ?? '').match(/Merge authority:/gu)?.length ?? 0
+    const policyLineCount = String(lowRiskPreset.prHeader ?? '').includes(
+      'Policy: https://github.com/jasondockery/renovate-config/blob/1.1.0/docs/dependency-merge-policy.md'
+    ) ? 1 : 0
+    if (
+      humanFallbackRules.length !== 1 || !eligibleRuleHasNoDenialMarker || !everyHumanRuleMarksDenial ||
+      authorityLineCount !== 1 || policyLineCount !== 1 ||
+      !String(lowRiskPreset.prHeader ?? '').includes("{{#if (includes labels 'review:human')}}")
+    ) {
+      problems.push('the named 1.1.0 preset must retain one fail-closed human fallback, derive one authority line from effective branch configuration, and link its exact immutable policy version.')
+    }
+    if (
+      !Array.isArray(lowRiskPreset.vulnerabilityAlerts?.labels) ||
+      !lowRiskPreset.vulnerabilityAlerts.labels.includes('review:human')
+    ) {
+      problems.push('the named preset must keep vulnerability alerts visibly human-merged.')
+    }
+  }
+
+  const expectedAutomergeRequirements = [
+    'immutable-preset-release',
+    'exact-required-check-inventory',
+    'ruleset-or-branch-protection-identity',
+    'renovate-path-trigger-proof',
+    'current-head-enforcement',
+    'pristine-renovate-branch-integrity-check',
+    'artifact-error-status-observed',
+    'resolved-policy-proof',
+    'generated-consumer-equivalence-when-applicable',
+    'one-consumer-at-a-time-live-pr-receipt',
+    'documented-rollback',
+  ]
+  const lowRiskPolicySha256 = fs.existsSync(path.join(root, 'low-risk-automerge.json'))
+    ? createHash('sha256').update(fs.readFileSync(path.join(root, 'low-risk-automerge.json'))).digest('hex')
+    : ''
+  const defaultPolicySha256 = fs.existsSync(path.join(root, 'default.json'))
+    ? createHash('sha256').update(fs.readFileSync(path.join(root, 'default.json'))).digest('hex')
+    : ''
+  const humanMergeBaseline = automergeConsumers?.humanMergeBaseline
+  const baselineConsumersValid = Array.isArray(automergeConsumers?.consumers) &&
+    automergeConsumers.consumers.every((consumer) =>
+      consumer.humanMergeBaseline?.state === 'unpinned' &&
+      consumer.humanMergeBaseline?.pinnedReference === null &&
+      Array.isArray(consumer.humanMergeBaseline?.requiredCheckNames) &&
+      consumer.humanMergeBaseline.requiredCheckNames.length === 0 &&
+      consumer.humanMergeBaseline?.rulesetOrProtectionId === null &&
+      consumer.humanMergeBaseline?.rollback === null &&
+      typeof consumer.humanMergeBaseline?.blockingReason === 'string' &&
+      consumer.humanMergeBaseline.blockingReason.length > 0
+    )
+  if (
+    automergeConsumers?.schemaVersion !== 3 ||
+    humanMergeBaseline?.name !== 'default' ||
+    humanMergeBaseline?.reference !== 'github>jasondockery/renovate-config#1.0.0' ||
+    humanMergeBaseline?.releaseTag !== '1.0.0' ||
+    humanMergeBaseline?.state !== 'held-pending-release-and-consumer-pinning' ||
+    humanMergeBaseline?.sourceCommit !== null ||
+    humanMergeBaseline?.sourceTree !== null ||
+    humanMergeBaseline?.policySha256 !== defaultPolicySha256 ||
+    !/^[a-f0-9]{64}$/u.test(humanMergeBaseline?.resolvedConfigSha256 ?? '') ||
+    humanMergeBaseline?.release?.published !== false ||
+    humanMergeBaseline?.release?.draft !== null ||
+    humanMergeBaseline?.release?.prerelease !== null ||
+    humanMergeBaseline?.release?.url !== null ||
+    automergeConsumers?.preset?.name !== 'low-risk-automerge' ||
+    automergeConsumers?.preset?.reference !== 'github>jasondockery/renovate-config:low-risk-automerge#1.1.0' ||
+    automergeConsumers?.preset?.releaseTag !== '1.1.0' ||
+    automergeConsumers?.preset?.state !== 'held-pending-release-and-consumer-proof' ||
+    automergeConsumers?.preset?.policySha256 !== lowRiskPolicySha256 ||
+    automergeConsumers?.preset?.sourceCommit !== null ||
+    automergeConsumers?.preset?.sourceTree !== null ||
+    !/^[a-f0-9]{64}$/u.test(automergeConsumers?.preset?.resolvedConfigSha256 ?? '') ||
+    JSON.stringify(automergeConsumers?.activationRequirements) !== JSON.stringify(expectedAutomergeRequirements) ||
+    !Array.isArray(automergeConsumers?.consumers) ||
+    !baselineConsumersValid ||
+    JSON.stringify(automergeConsumers.consumers.map((consumer) => consumer.repository)) !== JSON.stringify(targetRepositories) ||
+    automergeConsumers.consumers.some((consumer) =>
+      consumer.state !== 'human-merge' ||
+      !Array.isArray(consumer.requiredCheckNames) || consumer.requiredCheckNames.length !== 0 ||
+      consumer.rulesetOrProtectionId !== null ||
+      consumer.renovatePathsTriggerRequiredChecks !== false ||
+      consumer.currentHeadEnforced !== false ||
+      consumer.pristineBranchIntegrityCheck !== null ||
+      consumer.artifactErrorStatusCheck !== null ||
+      consumer.livePrReceipt !== null || consumer.rollback !== null ||
+      typeof consumer.blockingReason !== 'string' || consumer.blockingReason.length === 0
+    )
+  ) {
+    problems.push('automerge-consumers.json must bind the additive immutable 1.1.0 target and keep every consumer explicitly human-merge until the 1.0.0 human baseline is pinned and exact protection, check, pristine-branch, live-PR, and rollback evidence is recorded.')
+  }
+  if ((localRenovateConfig?.extends ?? []).some((entry) => String(entry).includes(':low-risk-automerge'))) {
+    problems.push('this repository must not opt into low-risk automerge while its readiness registry remains held.')
+  }
+  const localDenialRules = (localRenovateConfig?.packageRules ?? []).filter((rule) => rule.automerge === false)
+  if (
+    localDenialRules.length === 0 ||
+    localDenialRules.some((rule) => !Array.isArray(rule.labels) || !rule.labels.includes('review:human'))
+  ) {
+    problems.push('every consumer-local automerge denial must expose review:human so rendered merge authority cannot contradict the effective branch.')
   }
 
   if (workflow) {
@@ -219,6 +420,11 @@ export function collectRenovateSystemPolicyProblems(root = repositoryRoot) {
     problems.push('package.json must expose the canonical latest-head renovate:compatibility command.')
   }
   const activePolicyPaths = [
+    'automerge-consumers.json',
+    'low-risk-automerge.json',
+    'tools/fixtures/preset/low-risk-automerge.json',
+    'docs/ai-review-merge-authority.md',
+    'docs/dependency-merge-policy.md',
     'specs/preset-freeze-exception.md',
     'tools/check-renovate-effective-policy.mjs',
     'tools/check-renovate-effective-policy.test.mjs',
@@ -289,6 +495,7 @@ export function collectRenovateSystemPolicyProblems(root = repositoryRoot) {
     }
     if (activePolicyPresence.every(Boolean) && hasActivePolicyScript) {
       const policyProof = read(root, 'tools/check-renovate-effective-policy.mjs')
+      const aiMergeAuthority = read(root, 'docs/ai-review-merge-authority.md')
       if (
         !policyProof.includes('renovate-config-validator') ||
         !policyProof.includes('assertReviewedPolicy') ||
@@ -296,6 +503,13 @@ export function collectRenovateSystemPolicyProblems(root = repositoryRoot) {
         !policyProof.includes("'--no-global'")
       ) {
         problems.push('active policy proof must keep strict validation and exact reviewed-policy parity.')
+      }
+      if (
+        !aiMergeAuthority.includes('AI review is useful evidence, but it is never the authority') ||
+        !aiMergeAuthority.includes('stop-updating label') ||
+        !aiMergeAuthority.includes('No AI reviewer may approve its own fix')
+      ) {
+        problems.push('AI review guidance must remain advisory, preserve Renovate branch ownership, and forbid self-authorized fixes.')
       }
     }
     if (!audit.includes("'--state', 'all'")) {
@@ -373,6 +587,6 @@ if (isMainModule(import.meta.url)) {
     for (const problem of problems) console.error(`renovate-system-policy: ${problem}`)
     process.exitCode = 1
   } else {
-    console.log('ok: daily runner and branch creation, active five-day preset, compatibility activation, scope, and audit policies agree')
+    console.log('ok: daily runner, five-day policy, bounded automerge, AI-review authority, compatibility activation, scope, and audit policies agree')
   }
 }

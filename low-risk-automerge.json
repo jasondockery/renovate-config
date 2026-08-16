@@ -1,0 +1,105 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": [
+    "Standalone, versioned selective-automerge preset. Consumers reference only the immutable named preset and do not rely on separately composing default.json.",
+    "Routine third-party releases use Renovate's recommended 14-day automerge maturity floor with strict internal checks.",
+    "Only stable npm devDependency patch/minor updates are eligible. Lockfile maintenance and every higher-risk class remain human-merged.",
+    "Automatic eligibility also requires the consumer's machine-proved required-check inventory and pristine Renovate-branch integrity check."
+  ],
+  "extends": ["config:best-practices"],
+  "minimumReleaseAge": "14 days",
+  "internalChecksFilter": "strict",
+  "prHeader": "## Repository dependency policy\n\nClassification: {{#if isGroup}}Grouped dependency updates{{else}}{{#if (includes labels 'security')}}Security update{{else}}{{#if (includes labels 'risk:major')}}Major or pre-1.0 update{{else}}{{#if (includes labels 'risk:infrastructure')}}Action, runtime, toolchain, or infrastructure update{{else}}{{#if (includes labels 'risk:production')}}Production, peer, or optional dependency update{{else}}{{#if (includes labels 'risk:migration')}}Dependency migration or replacement{{else}}{{#if (includes labels 'class:lockfile')}}Lockfile maintenance{{else}}{{#if (includes labels 'class:routine-dev')}}Routine stable devDependency patch/minor{{else}}Routine dependency update{{/if}}{{/if}}{{/if}}{{/if}}{{/if}}{{/if}}{{/if}}{{/if}}\n\nMerge authority: {{#if (includes labels 'review:human')}}Human merge required after applicable checks and review{{else}}Renovate may merge only after the exact required-check inventory and pristine-branch integrity check pass on the current head{{/if}}\n\nMaturity: {{#if isGroup}}Every grouped update must satisfy its applicable maturity boundary{{else}}{{#if (includes labels 'security')}}Immediate PR; the normal age floor is bypassed{{else}}{{#if (includes labels 'class:lockfile')}}No direct release-age claim; verify package-manager supply-chain floors{{else}}Fourteen-day release-age floor where supported{{/if}}{{/if}}{{/if}}\n\nDeveloper action: Follow the Merge authority line; for Renovate-authorized PRs, none unless checks, pristine-branch integrity, or expected behavior changes; otherwise review the changelog, provenance, affected behavior, and repository-specific proof\n\nAI review: Advisory only; applying a suggestion creates a foreign commit, fails pristine-branch eligibility, and requires a fresh Renovate PR or a separate manual successor\n\nPolicy: https://github.com/jasondockery/renovate-config/blob/1.1.0/docs/dependency-merge-policy.md · Local exceptions: https://github.com/{{{repository}}}/blob/{{{baseBranch}}}/renovate.json",
+  "packageRules": [
+    {
+      "description": "Raise normal npm versions to the standalone preset's fourteen-day floor.",
+      "matchDatasources": ["npm"],
+      "matchUpdateTypes": ["major", "minor", "patch"],
+      "minimumReleaseAge": "14 days",
+      "internalChecksFilter": "strict"
+    },
+    {
+      "description": "Every dependency PR defaults to human merge before narrower classification and eligibility rules apply.",
+      "matchPackageNames": ["*"],
+      "labels": ["dependencies", "review:human"],
+      "automerge": false,
+      "platformAutomerge": false
+    },
+    {
+      "description": "Production dependencies remain human-reviewed.",
+      "matchDepTypes": ["dependencies"],
+      "labels": ["dependencies", "review:human", "risk:production"]
+    },
+    {
+      "description": "Peer and optional dependencies remain human-reviewed.",
+      "matchDepTypes": ["peerDependencies", "optionalDependencies"],
+      "labels": ["dependencies", "review:human", "risk:production"]
+    },
+    {
+      "description": "Major updates remain human-reviewed.",
+      "matchUpdateTypes": ["major"],
+      "labels": ["dependencies", "review:human", "risk:major"]
+    },
+    {
+      "description": "Pre-1.0 dependencies remain human-reviewed because non-major releases can break compatibility.",
+      "matchCurrentVersion": "<1.0.0",
+      "labels": ["dependencies", "review:human", "risk:major"]
+    },
+    {
+      "description": "GitHub Actions remain human-reviewed.",
+      "matchManagers": ["github-actions"],
+      "labels": ["dependencies", "review:human", "risk:infrastructure"]
+    },
+    {
+      "description": "Image and immutable-reference digest changes remain human-reviewed.",
+      "matchUpdateTypes": ["digest", "pinDigest"],
+      "labels": ["dependencies", "review:human", "risk:infrastructure"]
+    },
+    {
+      "description": "Dependency replacements and migrations remain human-reviewed.",
+      "matchUpdateTypes": ["replacement"],
+      "labels": ["dependencies", "review:human", "risk:migration"]
+    },
+    {
+      "description": "Lockfile maintenance remains human-reviewed; it is outside this candidate's authority.",
+      "matchUpdateTypes": ["lockFileMaintenance"],
+      "labels": ["dependencies", "review:human", "class:lockfile"],
+      "automerge": false,
+      "platformAutomerge": false
+    },
+    {
+      "description": "Only stable npm devDependency patch/minor updates receive bounded Renovate merge authority.",
+      "matchDatasources": ["npm"],
+      "matchDepTypes": ["devDependencies"],
+      "matchCurrentVersion": ">=1.0.0",
+      "matchUpdateTypes": ["minor", "patch"],
+      "labels": ["dependencies", "class:routine-dev"],
+      "automerge": true,
+      "automergeType": "pr",
+      "ignoreTests": false,
+      "platformAutomerge": false
+    },
+    {
+      "description": "Runtime, package-manager, and dependency-automation updates remain human-reviewed even when they are npm devDependencies.",
+      "matchPackageNames": ["node", "npm", "pnpm", "yarn", "corepack", "renovate", "renovatebot/github-action"],
+      "labels": ["dependencies", "review:human", "risk:infrastructure"],
+      "automerge": false,
+      "platformAutomerge": false
+    }
+  ],
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 3,
+  "rebaseWhen": "behind-base-branch",
+  "labels": ["dependencies"],
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "labels": ["dependencies", "security", "review:human"],
+    "schedule": ["at any time"],
+    "minimumReleaseAge": null,
+    "prHourlyLimit": 0,
+    "prConcurrentLimit": 0,
+    "prCreation": "immediate",
+    "automerge": false,
+    "platformAutomerge": false
+  }
+}

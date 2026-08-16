@@ -58,6 +58,12 @@ Bootstrap sequence, in this order:
       record that PR as the receipt that distribution actually works. Renovate
       proposes preset-version updates only once the reference is already pinned.
 - [ ] 9. Lift the freeze and note it here.
+- [ ] 10. Only after all consumers are pinned to the accepted human-merge
+      `default#1.0.0` baseline, merge the separately reviewed standalone
+      `low-risk-automerge` preset and publish the additive repository release
+      `1.1.0`. Keep every consumer `human-merge` until its exact protection,
+      required-check, pristine-branch, live-canary, and rollback evidence is
+      independently accepted.
 - [x] Document the release procedure in `CONTRIBUTING.md`, pointing at the
       charter's patch/minor/major contract rather than restating it.
 

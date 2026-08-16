@@ -3,87 +3,93 @@ import fs from 'node:fs'
 import path from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
-import {
-  assertReviewedPolicy,
-  policyValidatorArguments,
-} from './check-renovate-effective-policy.mjs'
+import { assertReviewedPolicy, policyValidatorArguments } from './check-renovate-effective-policy.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const accepted = JSON.parse(fs.readFileSync(path.join(root, 'default.json'), 'utf8'))
-const reviewed = JSON.parse(fs.readFileSync(
-  path.join(root, 'tools/fixtures/preset/default-five-day-policy.json'),
-  'utf8'
-))
 
-test('accepts only the exact owner-reviewed active policy', () => {
-  assert.doesNotThrow(() => assertReviewedPolicy(accepted, reviewed))
+function read(relativePath) {
+  return JSON.parse(fs.readFileSync(path.join(root, relativePath), 'utf8'))
+}
 
-  for (const mutate of [
-    (value) => { value.extends.push('group:allNonMajor') },
-    (value) => { value.prHourlyLimit = 99 },
-    (value) => { value.packageRules.push({ matchManagers: ['npm'], enabled: false }) },
-    (value) => { value.vulnerabilityAlerts.automerge = true },
+const defaultAccepted = read('default.json')
+const defaultReviewed = read('tools/fixtures/preset/default-five-day-policy.json')
+const automergeAccepted = read('low-risk-automerge.json')
+const automergeReviewed = read('tools/fixtures/preset/low-risk-automerge.json')
+
+function ruleFor(value, predicate) {
+  const rule = value.packageRules.find(predicate)
+  assert.ok(rule, 'fixture rule must exist')
+  return rule
+}
+
+test('accepts only the exact owner-reviewed default and standalone automerge policies', () => {
+  assert.doesNotThrow(() => assertReviewedPolicy(defaultAccepted, defaultReviewed, 'default policy'))
+  assert.doesNotThrow(() => assertReviewedPolicy(automergeAccepted, automergeReviewed, 'automerge policy'))
+
+  for (const [accepted, reviewed, label, mutate] of [
+    [defaultAccepted, defaultReviewed, 'default policy', (value) => { value.prHourlyLimit = 99 }],
+    [defaultAccepted, defaultReviewed, 'default policy', (value) => { value.vulnerabilityAlerts.automerge = true }],
+    [automergeAccepted, automergeReviewed, 'automerge policy', (value) => { value.minimumReleaseAge = '5 days' }],
+    [automergeAccepted, automergeReviewed, 'automerge policy', (value) => { value.extends.push('github>example/other') }],
   ]) {
     const changed = structuredClone(reviewed)
     mutate(changed)
-    assert.throws(() => assertReviewedPolicy(accepted, changed), /exact owner-reviewed/)
+    assert.throws(() => assertReviewedPolicy(accepted, changed, label), /exact owner-reviewed fixture/)
   }
 })
 
-// The degradations the required integration lane exists to catch. Each is a
-// realistic way the effective five-day floor, security timing, or human merge
-// boundary could drift, and each must stop the lane at its first gate rather
-// than reach a green receipt. `checkEffectivePolicy` calls this before it
-// resolves anything against the runtime, so these are provable offline.
-test('rejects weakened age/filter policy or expanded security merge authority', () => {
+test('review fixture binds the standalone eligibility and fail-closed exclusions', () => {
   const degradations = {
-    'later npm rule below five days': (value) => {
-      value.packageRules.at(-1).minimumReleaseAge = '3 days'
+    'age below fourteen days': (value) => { value.minimumReleaseAge = '5 days' },
+    'npm rule below fourteen days': (value) => {
+      ruleFor(value, (rule) => rule.matchDatasources?.includes('npm') && rule.minimumReleaseAge).minimumReleaseAge = '5 days'
     },
-    'top-level age below five days': (value) => { value.minimumReleaseAge = '3 days' },
-    'npm rule no longer failing closed': (value) => {
-      value.packageRules.at(-1).internalChecksFilter = 'none'
+    'routine eligibility widened beyond npm': (value) => {
+      delete ruleFor(value, (rule) => rule.automerge === true).matchDatasources
     },
-    'top-level internal checks relaxed': (value) => { value.internalChecksFilter = 'none' },
-    'security updates inheriting an age floor': (value) => {
-      value.vulnerabilityAlerts.minimumReleaseAge = '5 days'
+    'routine eligibility widened to majors': (value) => {
+      ruleFor(value, (rule) => rule.automerge === true).matchUpdateTypes.unshift('major')
     },
-    'security updates losing their schedule bypass': (value) => {
-      value.vulnerabilityAlerts.schedule = ['before 4am on monday']
+    'routine eligibility widened to production': (value) => {
+      ruleFor(value, (rule) => rule.automerge === true).matchDepTypes.push('dependencies')
     },
-    'security updates losing their rate-limit bypass': (value) => {
-      value.vulnerabilityAlerts.prConcurrentLimit = 5
+    'routine eligibility delegated to platform': (value) => {
+      ruleFor(value, (rule) => rule.automerge === true).platformAutomerge = true
     },
-    'security updates gaining Renovate merge authority': (value) => {
-      value.vulnerabilityAlerts.automerge = true
+    'routine eligibility ignores checks': (value) => {
+      ruleFor(value, (rule) => rule.automerge === true).ignoreTests = true
     },
-    'security updates gaining platform merge authority': (value) => {
-      value.vulnerabilityAlerts.platformAutomerge = true
+    'routine eligibility bypasses pull request': (value) => {
+      ruleFor(value, (rule) => rule.automerge === true).automergeType = 'branch'
     },
-    'routine updates regaining a weekly calendar gate': (value) => {
-      value.extends.push('schedule:weekly')
+    'lockfile receives authority': (value) => {
+      ruleFor(value, (rule) => rule.matchUpdateTypes?.includes('lockFileMaintenance')).automerge = true
     },
-    'an added later rule disabling npm updates': (value) => {
-      value.packageRules.push({ matchDatasources: ['npm'], minimumReleaseAge: '0 days' })
+    'runtime exclusion removed': (value) => {
+      value.packageRules = value.packageRules.filter((rule) => !rule.matchPackageNames?.includes('renovate'))
     },
+    'human fallback removed': (value) => {
+      value.packageRules = value.packageRules.filter((rule) => JSON.stringify(rule.matchPackageNames) !== '["*"]')
+    },
+    'security receives authority': (value) => { value.vulnerabilityAlerts.automerge = true },
   }
 
   for (const [label, mutate] of Object.entries(degradations)) {
-    const weakened = structuredClone(accepted)
+    const weakened = structuredClone(automergeReviewed)
     mutate(weakened)
-    assert.notDeepEqual(weakened, reviewed, `${label} must actually change the policy`)
+    assert.notDeepEqual(weakened, automergeReviewed, `${label} must change the fixture`)
     assert.throws(
-      () => assertReviewedPolicy(weakened, reviewed),
-      /exact owner-reviewed/,
-      `the integration lane must reject: ${label}`
+      () => assertReviewedPolicy(automergeAccepted, weakened, 'automerge policy'),
+      /exact owner-reviewed fixture/,
+      `review fixture must reject: ${label}`
     )
   }
 })
 
-test('pins strict no-global validation to the active preset', () => {
-  assert.deepEqual(policyValidatorArguments, [
-    '--strict',
-    '--no-global',
-    'default.json',
-  ])
+test('strict no-global validation covers both distributed presets', () => {
+  assert.deepEqual(policyValidatorArguments('default.json'), ['--strict', '--no-global', 'default.json'])
+  assert.deepEqual(
+    policyValidatorArguments('low-risk-automerge.json'),
+    ['--strict', '--no-global', 'low-risk-automerge.json']
+  )
 })

@@ -33,12 +33,19 @@ observable contract and evidence matrix are in
 
 ## Policy status
 
-- **Current policy:** the owner-approved exceptions activate daily routine PR
-  creation after the reviewed strict five-day npm floor and preserve the
-  explicit vulnerability-alert age, schedule, and rate-limit bypass. Security
-  PRs require human merge review; Renovate and the platform have no automerge
-  authority for them. The freeze checksum binds that exact policy while
-  consumers still follow the default branch.
+- **Current policy candidate:** `default.json` retains daily routine PR creation
+  after the reviewed strict five-day npm floor and grants no automatic merge
+  authority. The standalone, versioned `low-risk-automerge` opt-in uses a
+  fourteen-day floor and limits eligibility to stable npm `devDependencies`
+  patch/minor PRs, subject to an exact required-check inventory and pristine
+  Renovate-branch integrity check. Majors, `0.x`, lockfile
+  maintenance, vulnerability alerts, Actions, runtimes, repository
+  trust-boundary infrastructure, and source-remediation work remain
+  human-reviewed. Platform automerge is disabled. This candidate
+  remains on a review branch until exact proof and the separate release/merge
+  gates complete. The bootstrap freeze continues to bind the active default
+  preset; the candidate's reviewed fixture and held consumer registry bind its
+  separate bytes.
 - **Current evidence:** policy activation is not end-to-end acceptance. The
   live runner receipt, replacement/current pull requests, consumer CI, and
   security-alert reconciliation remain required evidence.
@@ -50,6 +57,7 @@ observable contract and evidence matrix are in
 - Shared scheduling, cooldown, and dependency-age policy (`default.json`)
 - PR and concurrency limits, common labels, and rebase behavior
 - Baseline security-update behavior
+- Shared automatic-merge eligibility and its fail-closed proof boundary
 - The canonical Renovate runtime pin and the runner config (`runner.json`)
 - The self-hosted runner workflow and its validation gate
 - The Renovate App identity contract, its delivery to the central runner, and

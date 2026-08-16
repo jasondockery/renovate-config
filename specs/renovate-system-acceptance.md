@@ -4,9 +4,9 @@ Contract status: active
 
 System acceptance: not achieved
 
-Policy activation: active. The owner-approved preset exception supplies the
-daily routine-creation policy, later strict five-day npm rule, and explicit
-vulnerability-alert schedule, age, and routine rate-limit bypass. Field
+Policy activation: the existing daily/five-day/security policy is active. The
+selective-automerge revision is a held review candidate and is not
+active until its exact proof plus release/merge choreography complete. Field
 acceptance remains separate.
 
 Owner: `jasondockery/renovate-config`
@@ -36,6 +36,8 @@ These clocks solve different problems and must remain independent:
 | Normal release age | Five days with `internalChecksFilter: strict` where timestamps and update types support it; inventories name exceptions |
 | Vulnerability-alert PRs | Bypass normal age and PR schedules; observed on the next daily run |
 | Lockfile maintenance | Weekly; Renovate release-age checks do not apply directly, while consumer package-manager policy still governs generated resolution where configured |
+| Automatic merge candidate | Standalone versioned opt-in only: stable npm `devDependencies` patch/minor after fourteen days, the exact required-check inventory, current-head enforcement, and pristine Renovate-branch integrity; no platform automerge |
+| Deliberate review | Majors, `0.x`, lockfile maintenance, vulnerability alerts, Actions, runtimes, trust-boundary infrastructure, repository risk exceptions, and any source remediation |
 
 The workflow cadence determines discovery latency. It never replaces or extends
 the age floor: a supported timestamped release completes its own five-day clock
@@ -55,6 +57,8 @@ independently of when the runner executes.
 | Existing PRs update correctly | A later eligible version refreshes the same Renovate branch and PR |
 | Stale PRs recover | A deliberately closed stale canary PR is recreated from current `main` while still eligible |
 | Security updates are timely | Fixture policy plus a controlled field case prove that normal age and schedule do not block the security lane |
+| Selective automerge is bounded | The pinned Renovate engine resolves the complete standalone named preset plus consumer-local rules, renders PR guidance, and proves only stable fourteen-day npm `devDependencies` patch/minor PRs receive Renovate-owned merge authority while `0.x`, majors, lockfile maintenance, grouped ineligible updates, non-npm updates, vulnerability alerts, runtimes, Actions, and repository infrastructure exceptions do not |
+| AI review is non-authoritative | The merge decision is reproducible from policy and independent checks without treating an AI comment, suggested fix, approval, or self-authored commit as proof |
 | No-update runs are explainable | Dashboard, recursive pnpm evidence, and `pnpm renovate:audit --run <run-id>` identify no update, minimum age, approval, disabled policy, weekly lockfile maintenance, branch, PR, limit, or failure state |
 | Cleanup is safe | Sanitized receipt says the raw log and original private directory were removed before publication; neither is uploaded |
 

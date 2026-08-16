@@ -12,6 +12,15 @@
   "extends": ["config:best-practices"],
   "minimumReleaseAge": "5 days",
   "internalChecksFilter": "strict",
+  "prBodyNotes": [
+    "## Repository dependency policy",
+    "Classification: {{#if isGroup}}Grouped dependency updates{{else}}{{#if (includes labels 'security')}}Security update{{else}}{{#if (includes labels 'risk:major')}}Major or pre-1.0 update{{else}}{{#if (includes labels 'risk:infrastructure')}}Action, runtime, toolchain, or infrastructure update{{else}}{{#if (includes labels 'risk:production')}}Production, peer, or optional dependency update{{else}}{{#if (includes labels 'risk:migration')}}Dependency migration or replacement{{else}}{{#if (includes labels 'class:lockfile')}}Lockfile maintenance{{else}}{{#if (includes labels 'class:routine-dev')}}Routine stable devDependency patch/minor{{else}}Routine dependency update{{/if}}{{/if}}{{/if}}{{/if}}{{/if}}{{/if}}{{/if}}{{/if}}",
+    "Merge authority: Human merge required after applicable checks and review",
+    "Maturity: {{#if (includes labels 'security')}}Immediate PR; the normal age floor is bypassed{{else}}{{#if (includes labels 'class:lockfile')}}No direct release-age claim; verify package-manager supply-chain floors{{else}}Five-day release-age floor where supported{{/if}}{{/if}}",
+    "Developer action: Review the changelog, affected behavior, provenance, and repository-specific proof",
+    "AI review: Advisory only; applying a fix creates a new SHA and restarts verification",
+    "Policy: https://github.com/jasondockery/renovate-config/blob/1.0.0/docs/dependency-merge-policy.md · Local exceptions: https://github.com/{{{repository}}}/blob/{{{baseBranch}}}/renovate.json"
+  ],
   "packageRules": [
     {
       "description": "Raise normal npm version updates above config:best-practices' three-day npm floor; update types without Renovate release-age support remain governed by their repository inventory controls.",
@@ -19,6 +28,66 @@
       "matchUpdateTypes": ["major", "minor", "patch"],
       "minimumReleaseAge": "5 days",
       "internalChecksFilter": "strict"
+    },
+    {
+      "description": "Every dependency PR defaults to human merge unless a later released opt-in preset proves a narrower category.",
+      "matchPackageNames": ["*"],
+      "labels": ["dependencies", "review:human"],
+      "automerge": false,
+      "platformAutomerge": false
+    },
+    {
+      "description": "Identify routine stable npm devDependency patch/minor updates without granting merge authority.",
+      "matchDatasources": ["npm"],
+      "matchDepTypes": ["devDependencies"],
+      "matchCurrentVersion": ">=1.0.0",
+      "matchUpdateTypes": ["minor", "patch"],
+      "labels": ["dependencies", "review:human", "class:routine-dev"]
+    },
+    {
+      "description": "Production dependencies remain human-reviewed.",
+      "matchDepTypes": ["dependencies"],
+      "labels": ["dependencies", "review:human", "risk:production"]
+    },
+    {
+      "description": "Peer and optional dependencies remain human-reviewed.",
+      "matchDepTypes": ["peerDependencies", "optionalDependencies"],
+      "labels": ["dependencies", "review:human", "risk:production"]
+    },
+    {
+      "description": "Major updates remain human-reviewed.",
+      "matchUpdateTypes": ["major"],
+      "labels": ["dependencies", "review:human", "risk:major"]
+    },
+    {
+      "description": "Pre-1.0 dependencies remain human-reviewed because non-major updates may break compatibility.",
+      "matchCurrentVersion": "<1.0.0",
+      "labels": ["dependencies", "review:human", "risk:major"]
+    },
+    {
+      "description": "GitHub Actions and digest changes remain human-reviewed.",
+      "matchManagers": ["github-actions"],
+      "labels": ["dependencies", "review:human", "risk:infrastructure"]
+    },
+    {
+      "description": "Image and immutable-reference digest changes remain human-reviewed.",
+      "matchUpdateTypes": ["digest", "pinDigest"],
+      "labels": ["dependencies", "review:human", "risk:infrastructure"]
+    },
+    {
+      "description": "Runtime, package-manager, and dependency-automation updates remain human-reviewed.",
+      "matchPackageNames": ["node", "npm", "pnpm", "yarn", "corepack", "renovate", "renovatebot/github-action"],
+      "labels": ["dependencies", "review:human", "risk:infrastructure"]
+    },
+    {
+      "description": "Dependency replacements and migrations remain human-reviewed.",
+      "matchUpdateTypes": ["replacement"],
+      "labels": ["dependencies", "review:human", "risk:migration"]
+    },
+    {
+      "description": "Lockfile maintenance remains human-reviewed until each consumer proves a narrower opt-in.",
+      "matchUpdateTypes": ["lockFileMaintenance"],
+      "labels": ["dependencies", "review:human", "class:lockfile"]
     }
   ],
   "prConcurrentLimit": 5,

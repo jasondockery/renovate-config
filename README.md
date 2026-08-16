@@ -350,8 +350,17 @@ with SemVer tags that carry no `v` prefix, and consumers pin an exact tag such a
 `github>jasondockery/renovate-config#1.0.0`.
 
 The initial pinning bootstrap is in progress. Owner-approved exceptions now bind
-the reviewed five-day policy, daily mature-update creation, and immediate
-human-reviewed security PR behavior before the first immutable preset release;
+the reviewed five-day human-merge policy, daily mature-update creation, and
+immediate human-reviewed security PR behavior. The separate standalone
+`low-risk-automerge` review candidate uses a fourteen-day floor and grants
+Renovate-only merge authority to stable npm `devDependencies` patch/minor PRs
+only after the exact required-check inventory and pristine-branch integrity
+check pass on the current head. This may include stable compilers, linters,
+test runners, formatters, and build tools unless a consumer excludes them.
+Majors, `0.x`, lockfile maintenance,
+Actions, runtimes, runner/trust-boundary infrastructure, vulnerability alerts,
+and source-remediation work remain manual. This candidate is not active until its
+separate proof, release, and merge gates complete;
 `.preset-bootstrap-freeze` protects that exact accepted state. See `ROADMAP.md`
 for the ordered owner gates and `CONTRIBUTING.md` for
 the executable `release:controls:check`, `release:preflight`, and
@@ -361,9 +370,21 @@ the executable `release:controls:check`, `release:preflight`, and
 
 ## Policy Boundary
 
-`default.json` contains only policy that should remain identical across owner
-repos: schedule, cooldown, PR limits, rebase behavior, labels, and the security
-PR base. Repo-specific package rules stay local in each consumer.
+`default.json` contains the human-merge policy that should remain identical
+across owner repos: schedule, cooldown, PR limits, rebase behavior, labels, and
+the security PR base. `low-risk-automerge.json` is a complete standalone,
+versioned opt-in with its own baseline, exclusions, fourteen-day floor, and
+bounded stable-devDependency eligibility. Repo-specific risk exceptions remain
+later in each consumer and every activation stays recorded in
+`automerge-consumers.json`.
+
+Copilot and other AI reviews are advisory observations, not merge authority.
+The actual automatic-merge boundary is the resolved Renovate policy plus the
+consumer's exact required-check and pristine-branch integrity gates. If an
+agent changes a Renovate-owned branch, that new SHA fails automatic eligibility
+and must be replaced by a fresh Renovate PR or a separate manual successor.
+The stop-updating label alone does not revoke resolved merge authority. See
+[`docs/ai-review-merge-authority.md`](docs/ai-review-merge-authority.md).
 
 The runner explicitly targets:
 

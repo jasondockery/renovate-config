@@ -7,7 +7,7 @@
   "required": ["schema", "schemaVersion", "consumer", "records"],
   "properties": {
     "schema": { "const": "compass.consumer-reconciliation" },
-    "schemaVersion": { "const": 2 },
+    "schemaVersion": { "const": 3 },
     "consumer": {
       "type": "object",
       "additionalProperties": false,
@@ -152,6 +152,15 @@
         "localReconciliation": { "enum": ["pending", "complete", "not-required"] },
         "transitionHistory": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/consumerTransition" } },
         "authorityIdentity": { "$ref": "#/$defs/exactIdentity" },
+        "authorityEpoch": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["sequence", "identity"],
+          "properties": {
+            "sequence": { "type": "integer", "minimum": 1 },
+            "identity": { "$ref": "#/$defs/exactIdentity" }
+          }
+        },
         "viaAuthority": { "$ref": "#/$defs/viaAuthority" },
         "adoptionContract": { "$ref": "#/$defs/adoptionContract" },
         "adoptionEvidence": { "$ref": "#/$defs/adoptionEvidence" },
@@ -172,7 +181,7 @@
           "then": {
             "required": ["notApplicableReason"],
             "properties": { "consumerState": { "const": "not-applicable" }, "localReconciliation": { "const": "not-required" } },
-            "not": { "anyOf": [{ "required": ["authorityIdentity"] }, { "required": ["viaAuthority"] }, { "required": ["adoptionContract"] }, { "required": ["adoptionEvidence"] }, { "required": ["deferredDisposition"] }] }
+            "not": { "anyOf": [{ "required": ["authorityIdentity"] }, { "required": ["authorityEpoch"] }, { "required": ["viaAuthority"] }, { "required": ["adoptionContract"] }, { "required": ["adoptionEvidence"] }, { "required": ["deferredDisposition"] }] }
           }
         },
         {

@@ -43,6 +43,10 @@ the complete task diff independently of the index, stage only attributable
 changes when authorized, and stop if owner and agent changes cannot be safely
 separated.
 
+For proof that starts or inspects concurrent processes or ambient resources,
+load `concurrent-agent-runtimes` and preserve its strict isolated-runtime
+boundary.
+
 ## Inclusive-product and web-performance ladder
 
 For applicable user-facing work, move quality left until the cheapest reliable

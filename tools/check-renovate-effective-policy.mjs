@@ -163,10 +163,18 @@ export async function checkEffectivePolicy({
   )
   assert.equal(vulnerabilityJustUnder.pendingChecks, false, 'vulnerability updates must bypass the normal age floor')
 
-  // `config:best-practices` assigns three days to these uncommon npm update
-  // types. The later owner rule intentionally matches only major/minor/patch,
-  // so pin the inherited behavior instead of implying that the five-day claim
-  // covers every update type.
+  // Renovate 44 opts these update types out of minimumReleaseAge entirely, in
+  // security:minimumReleaseAgeNpm, because they carry no release timestamp: an
+  // age rule on them produced updates that would never come. Renovate 43
+  // inherited three days here, so this pins the corrected upstream behavior
+  // rather than the old number. It is the same stance this file already takes
+  // for lockFileMaintenance below -- a policy that cannot be enforced must not
+  // be claimed -- and the owner rule still matches only major/minor/patch, so
+  // the five-day claim never covered these types either.
+  //
+  // The practical consequence is worth stating plainly: bump and rollback
+  // updates are not age-gated. They were not effectively gated before either,
+  // but the configuration used to imply that they were.
   for (const updateType of ['bump', 'rollback']) {
     const inherited = await applyPackageRules(
       dependency(resolved, { updateType }),
@@ -174,8 +182,8 @@ export async function checkEffectivePolicy({
     )
     assert.equal(
       inherited.minimumReleaseAge,
-      '3 days',
-      `${updateType} updates must retain the reviewed inherited three-day policy`
+      null,
+      `${updateType} updates must not claim release-age enforcement they cannot perform`
     )
     assert.equal(inherited.internalChecksFilter, 'strict')
   }
@@ -186,7 +194,7 @@ export async function checkEffectivePolicy({
   }), 'lockfile-proof')
   assert.equal(lockfile.minimumReleaseAge, null, 'Renovate lockfile maintenance must not claim release-age enforcement')
 
-  output.log(`ok: Renovate ${expectedVersion} resolved daily mature updates, five-day normal age, inherited bump/rollback age, human-reviewed security bypass, and weekly lockfile maintenance`)
+  output.log(`ok: Renovate ${expectedVersion} resolved daily mature updates, five-day normal age, unenforceable bump/rollback age declined, human-reviewed security bypass, and weekly lockfile maintenance`)
   return { ok: true, version: expectedVersion }
 }
 

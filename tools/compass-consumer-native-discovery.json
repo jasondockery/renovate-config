@@ -1,0 +1,40 @@
+{
+  "schema": "renovate-config.compass-consumer-native-discovery",
+  "schemaVersion": 1,
+  "authorityIdentity": {
+    "sourceCommit": "f4745e19e1408ee19734a303332a9e3c966f9b7f",
+    "sourceTree": "4a3e1bbbfede536ffa2ca11a2f7a5b20efd876e3",
+    "sourceFingerprintSha256": "b52c007c599419d668d500e20e35fddd5fea2eadf1a1e2302863f13804893aba",
+    "artifactSha256": "fac8d5d863cccde66903320db6abb251e4875afac4b83a2c9238c6bd19d56335",
+    "artifactBytes": 568892,
+    "validationReceiptSha256": "f3d7d028e44784997d2ea5afa719e13b31a8960bca0b2f512c30cadbe8e3131f",
+    "artifactReceiptSha256": "45710f9577269c58cf6d23589b0c56ae9dd04e43f9d87ddc744454c375599b86"
+  },
+  "observations": [
+    {
+      "id": "claude",
+      "state": "unobserved",
+      "reason": "No consumer-native Claude discovery smoke has been run for this pending adoption."
+    },
+    {
+      "id": "codex",
+      "state": "unobserved",
+      "reason": "No consumer-native Codex discovery smoke has been run for this pending adoption."
+    },
+    {
+      "id": "cursor",
+      "state": "unobserved",
+      "reason": "The consumer-owned AGENTS route is statically verified; Cursor itself has not been invoked."
+    },
+    {
+      "id": "github-copilot",
+      "state": "unobserved",
+      "reason": "No consumer-native GitHub Copilot duplicate-route discovery smoke has been run."
+    },
+    {
+      "id": "opencode",
+      "state": "unobserved",
+      "reason": "No consumer-native OpenCode duplicate-route discovery smoke has been run."
+    }
+  ]
+}

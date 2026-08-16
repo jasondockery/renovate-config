@@ -1,6 +1,6 @@
 {
   "schema": "compass.consumer-reconciliation",
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "consumer": {
     "name": "renovate-config",
     "repository": "jasondockery/renovate-config",
@@ -21,8 +21,8 @@
     {
       "candidateId": "sta-compass-shift-to-authority",
       "relationship": "direct",
-      "consumerState": "adopted",
-      "localReconciliation": "complete",
+      "consumerState": "pending-adoption",
+      "localReconciliation": "pending",
       "transitionHistory": [
         {
           "sequence": 1,
@@ -31,20 +31,16 @@
         {
           "sequence": 2,
           "state": "pending-adoption"
-        },
-        {
-          "sequence": 3,
-          "state": "adopted"
         }
       ],
       "authorityIdentity": {
-        "sourceCommit": "0b6911dbf66240fe7dfeee2808e1d51663dcdfaa",
-        "sourceTree": "f6a218049ee60667101ca4f5b56767002dc6acf3",
-        "sourceFingerprintSha256": "d0ef4a00ff39bd0b3829527a788fd1c640799cd78505fc9ff08c73741a5c114d",
-        "artifactSha256": "63fa100f36c5392d6a8536363cc31bbb9c6cd8c74eb159ba80ecd8fc7d706541",
-        "artifactBytes": 314639,
-        "validationReceiptSha256": "3501e8944be9ecba1133fdfd0a56e036fdd3b5d0613f322dec10e73f391c28bb",
-        "artifactReceiptSha256": "bf2be1851c006a2a7276ccb521ffa5862f97e5b51be5f08c27352fa32105c5d5"
+        "sourceCommit": "f4745e19e1408ee19734a303332a9e3c966f9b7f",
+        "sourceTree": "4a3e1bbbfede536ffa2ca11a2f7a5b20efd876e3",
+        "sourceFingerprintSha256": "b52c007c599419d668d500e20e35fddd5fea2eadf1a1e2302863f13804893aba",
+        "artifactSha256": "fac8d5d863cccde66903320db6abb251e4875afac4b83a2c9238c6bd19d56335",
+        "artifactBytes": 568892,
+        "validationReceiptSha256": "f3d7d028e44784997d2ea5afa719e13b31a8960bca0b2f512c30cadbe8e3131f",
+        "artifactReceiptSha256": "45710f9577269c58cf6d23589b0c56ae9dd04e43f9d87ddc744454c375599b86"
       },
       "adoptionContract": {
         "provider": "github-actions",
@@ -55,39 +51,14 @@
           "kind": "artifact",
           "nameTemplate": "renovate-config-ci-receipt-{runId}-{attempt}",
           "path": "compass-hosted-adoption-receipt.json"
-        }
-      },
-      "adoptionEvidence": {
-        "repository": "jasondockery/renovate-config",
-        "commit": "5ee6f465dc7d47e41a56dbd04b4de4d60aa1d27c",
-        "tree": "5a38e591fa140474524ab2df67c60a090fbc0f39",
-        "hostedRun": {
-          "provider": "github-actions",
-          "repository": "jasondockery/renovate-config",
-          "workflow": ".github/workflows/ci.yml",
-          "requiredGate": "ci-gate",
-          "requiredJobId": 93793315981,
-          "requiredCheckId": 93793315981,
-          "conclusion": "success",
-          "runId": 31495794224,
-          "attempt": 1,
-          "headSha": "5ee6f465dc7d47e41a56dbd04b4de4d60aa1d27c",
-          "evidence": {
-            "kind": "artifact",
-            "artifactId": 9102920595,
-            "name": "renovate-config-ci-receipt-31495794224-1",
-            "path": "compass-hosted-adoption-receipt.json",
-            "artifactSha256": "415b27c48f8a510003f5e5acac25f454c70403bb7435e02499cb105dfd6d209c",
-            "receiptSha256": "07052468e3f1943d10639c4e8b85a338d7ec360572c66d3eda87121221e13308"
-          }
         }
       }
     },
     {
       "candidateId": "sta-compass-replaceable-ai-workloads",
       "relationship": "direct",
-      "consumerState": "adopted",
-      "localReconciliation": "complete",
+      "consumerState": "pending-adoption",
+      "localReconciliation": "pending",
       "transitionHistory": [
         {
           "sequence": 1,
@@ -96,20 +67,16 @@
         {
           "sequence": 2,
           "state": "pending-adoption"
-        },
-        {
-          "sequence": 3,
-          "state": "adopted"
         }
       ],
       "authorityIdentity": {
-        "sourceCommit": "0b6911dbf66240fe7dfeee2808e1d51663dcdfaa",
-        "sourceTree": "f6a218049ee60667101ca4f5b56767002dc6acf3",
-        "sourceFingerprintSha256": "d0ef4a00ff39bd0b3829527a788fd1c640799cd78505fc9ff08c73741a5c114d",
-        "artifactSha256": "63fa100f36c5392d6a8536363cc31bbb9c6cd8c74eb159ba80ecd8fc7d706541",
-        "artifactBytes": 314639,
-        "validationReceiptSha256": "3501e8944be9ecba1133fdfd0a56e036fdd3b5d0613f322dec10e73f391c28bb",
-        "artifactReceiptSha256": "bf2be1851c006a2a7276ccb521ffa5862f97e5b51be5f08c27352fa32105c5d5"
+        "sourceCommit": "f4745e19e1408ee19734a303332a9e3c966f9b7f",
+        "sourceTree": "4a3e1bbbfede536ffa2ca11a2f7a5b20efd876e3",
+        "sourceFingerprintSha256": "b52c007c599419d668d500e20e35fddd5fea2eadf1a1e2302863f13804893aba",
+        "artifactSha256": "fac8d5d863cccde66903320db6abb251e4875afac4b83a2c9238c6bd19d56335",
+        "artifactBytes": 568892,
+        "validationReceiptSha256": "f3d7d028e44784997d2ea5afa719e13b31a8960bca0b2f512c30cadbe8e3131f",
+        "artifactReceiptSha256": "45710f9577269c58cf6d23589b0c56ae9dd04e43f9d87ddc744454c375599b86"
       },
       "adoptionContract": {
         "provider": "github-actions",
@@ -120,39 +87,14 @@
           "kind": "artifact",
           "nameTemplate": "renovate-config-ci-receipt-{runId}-{attempt}",
           "path": "compass-hosted-adoption-receipt.json"
-        }
-      },
-      "adoptionEvidence": {
-        "repository": "jasondockery/renovate-config",
-        "commit": "5ee6f465dc7d47e41a56dbd04b4de4d60aa1d27c",
-        "tree": "5a38e591fa140474524ab2df67c60a090fbc0f39",
-        "hostedRun": {
-          "provider": "github-actions",
-          "repository": "jasondockery/renovate-config",
-          "workflow": ".github/workflows/ci.yml",
-          "requiredGate": "ci-gate",
-          "requiredJobId": 93793315981,
-          "requiredCheckId": 93793315981,
-          "conclusion": "success",
-          "runId": 31495794224,
-          "attempt": 1,
-          "headSha": "5ee6f465dc7d47e41a56dbd04b4de4d60aa1d27c",
-          "evidence": {
-            "kind": "artifact",
-            "artifactId": 9102920595,
-            "name": "renovate-config-ci-receipt-31495794224-1",
-            "path": "compass-hosted-adoption-receipt.json",
-            "artifactSha256": "415b27c48f8a510003f5e5acac25f454c70403bb7435e02499cb105dfd6d209c",
-            "receiptSha256": "07052468e3f1943d10639c4e8b85a338d7ec360572c66d3eda87121221e13308"
-          }
         }
       }
     },
     {
       "candidateId": "sta-compass-operable-developer-tools",
       "relationship": "direct",
-      "consumerState": "adopted",
-      "localReconciliation": "complete",
+      "consumerState": "pending-adoption",
+      "localReconciliation": "pending",
       "transitionHistory": [
         {
           "sequence": 1,
@@ -161,20 +103,52 @@
         {
           "sequence": 2,
           "state": "pending-adoption"
-        },
-        {
-          "sequence": 3,
-          "state": "adopted"
         }
       ],
       "authorityIdentity": {
-        "sourceCommit": "0b6911dbf66240fe7dfeee2808e1d51663dcdfaa",
-        "sourceTree": "f6a218049ee60667101ca4f5b56767002dc6acf3",
-        "sourceFingerprintSha256": "d0ef4a00ff39bd0b3829527a788fd1c640799cd78505fc9ff08c73741a5c114d",
-        "artifactSha256": "63fa100f36c5392d6a8536363cc31bbb9c6cd8c74eb159ba80ecd8fc7d706541",
-        "artifactBytes": 314639,
-        "validationReceiptSha256": "3501e8944be9ecba1133fdfd0a56e036fdd3b5d0613f322dec10e73f391c28bb",
-        "artifactReceiptSha256": "bf2be1851c006a2a7276ccb521ffa5862f97e5b51be5f08c27352fa32105c5d5"
+        "sourceCommit": "f4745e19e1408ee19734a303332a9e3c966f9b7f",
+        "sourceTree": "4a3e1bbbfede536ffa2ca11a2f7a5b20efd876e3",
+        "sourceFingerprintSha256": "b52c007c599419d668d500e20e35fddd5fea2eadf1a1e2302863f13804893aba",
+        "artifactSha256": "fac8d5d863cccde66903320db6abb251e4875afac4b83a2c9238c6bd19d56335",
+        "artifactBytes": 568892,
+        "validationReceiptSha256": "f3d7d028e44784997d2ea5afa719e13b31a8960bca0b2f512c30cadbe8e3131f",
+        "artifactReceiptSha256": "45710f9577269c58cf6d23589b0c56ae9dd04e43f9d87ddc744454c375599b86"
+      },
+      "adoptionContract": {
+        "provider": "github-actions",
+        "repository": "jasondockery/renovate-config",
+        "workflow": ".github/workflows/ci.yml",
+        "requiredGate": "ci-gate",
+        "evidence": {
+          "kind": "artifact",
+          "nameTemplate": "renovate-config-ci-receipt-{runId}-{attempt}",
+          "path": "compass-hosted-adoption-receipt.json"
+        }
+      }
+    },
+    {
+      "candidateId": "sta-compass-reviewable-agent-workspaces",
+      "relationship": "direct",
+      "consumerState": "pending-adoption",
+      "localReconciliation": "pending",
+      "transitionHistory": [
+        {
+          "sequence": 1,
+          "state": "awaiting-issue"
+        },
+        {
+          "sequence": 2,
+          "state": "pending-adoption"
+        }
+      ],
+      "authorityIdentity": {
+        "sourceCommit": "f4745e19e1408ee19734a303332a9e3c966f9b7f",
+        "sourceTree": "4a3e1bbbfede536ffa2ca11a2f7a5b20efd876e3",
+        "sourceFingerprintSha256": "b52c007c599419d668d500e20e35fddd5fea2eadf1a1e2302863f13804893aba",
+        "artifactSha256": "fac8d5d863cccde66903320db6abb251e4875afac4b83a2c9238c6bd19d56335",
+        "artifactBytes": 568892,
+        "validationReceiptSha256": "f3d7d028e44784997d2ea5afa719e13b31a8960bca0b2f512c30cadbe8e3131f",
+        "artifactReceiptSha256": "45710f9577269c58cf6d23589b0c56ae9dd04e43f9d87ddc744454c375599b86"
       },
       "adoptionContract": {
         "provider": "github-actions",
@@ -187,29 +161,52 @@
           "path": "compass-hosted-adoption-receipt.json"
         }
       },
-      "adoptionEvidence": {
+      "authorityEpoch": {
+        "sequence": 2,
+        "identity": {
+          "sourceCommit": "f4745e19e1408ee19734a303332a9e3c966f9b7f",
+          "sourceTree": "4a3e1bbbfede536ffa2ca11a2f7a5b20efd876e3",
+          "sourceFingerprintSha256": "b52c007c599419d668d500e20e35fddd5fea2eadf1a1e2302863f13804893aba",
+          "artifactSha256": "fac8d5d863cccde66903320db6abb251e4875afac4b83a2c9238c6bd19d56335",
+          "artifactBytes": 568892,
+          "validationReceiptSha256": "f3d7d028e44784997d2ea5afa719e13b31a8960bca0b2f512c30cadbe8e3131f",
+          "artifactReceiptSha256": "45710f9577269c58cf6d23589b0c56ae9dd04e43f9d87ddc744454c375599b86"
+        }
+      }
+    },
+    {
+      "candidateId": "sta-compass-concurrent-agent-runtimes",
+      "relationship": "direct",
+      "consumerState": "pending-adoption",
+      "localReconciliation": "pending",
+      "transitionHistory": [
+        {
+          "sequence": 1,
+          "state": "awaiting-issue"
+        },
+        {
+          "sequence": 2,
+          "state": "pending-adoption"
+        }
+      ],
+      "authorityIdentity": {
+        "sourceCommit": "f4745e19e1408ee19734a303332a9e3c966f9b7f",
+        "sourceTree": "4a3e1bbbfede536ffa2ca11a2f7a5b20efd876e3",
+        "sourceFingerprintSha256": "b52c007c599419d668d500e20e35fddd5fea2eadf1a1e2302863f13804893aba",
+        "artifactSha256": "fac8d5d863cccde66903320db6abb251e4875afac4b83a2c9238c6bd19d56335",
+        "artifactBytes": 568892,
+        "validationReceiptSha256": "f3d7d028e44784997d2ea5afa719e13b31a8960bca0b2f512c30cadbe8e3131f",
+        "artifactReceiptSha256": "45710f9577269c58cf6d23589b0c56ae9dd04e43f9d87ddc744454c375599b86"
+      },
+      "adoptionContract": {
+        "provider": "github-actions",
         "repository": "jasondockery/renovate-config",
-        "commit": "5ee6f465dc7d47e41a56dbd04b4de4d60aa1d27c",
-        "tree": "5a38e591fa140474524ab2df67c60a090fbc0f39",
-        "hostedRun": {
-          "provider": "github-actions",
-          "repository": "jasondockery/renovate-config",
-          "workflow": ".github/workflows/ci.yml",
-          "requiredGate": "ci-gate",
-          "requiredJobId": 93793315981,
-          "requiredCheckId": 93793315981,
-          "conclusion": "success",
-          "runId": 31495794224,
-          "attempt": 1,
-          "headSha": "5ee6f465dc7d47e41a56dbd04b4de4d60aa1d27c",
-          "evidence": {
-            "kind": "artifact",
-            "artifactId": 9102920595,
-            "name": "renovate-config-ci-receipt-31495794224-1",
-            "path": "compass-hosted-adoption-receipt.json",
-            "artifactSha256": "415b27c48f8a510003f5e5acac25f454c70403bb7435e02499cb105dfd6d209c",
-            "receiptSha256": "07052468e3f1943d10639c4e8b85a338d7ec360572c66d3eda87121221e13308"
-          }
+        "workflow": ".github/workflows/ci.yml",
+        "requiredGate": "ci-gate",
+        "evidence": {
+          "kind": "artifact",
+          "nameTemplate": "renovate-config-ci-receipt-{runId}-{attempt}",
+          "path": "compass-hosted-adoption-receipt.json"
         }
       }
     }

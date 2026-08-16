@@ -85,6 +85,23 @@ completed authority incorporation and reconciliation. Ordered
 transition history preserves prior states; the current record never pretends a
 historical nomination is current.
 
+When an issued candidate carries immutable authority epochs, source may contain
+one final `pending-containing-receipt` epoch because it cannot embed its own
+future artifact digest. That source state is not consumable as issued. After
+the exact artifact receipt exists, derive the external issued-epoch record with:
+
+```text
+node .compass/check-authority-record.mjs \
+  --projection-root . \
+  --print-authority-epoch-resolution <sta-candidate-id>
+```
+
+The command binds the sequence, invariant, canonical skill path and digest, and
+complete containing artifact identity. Direct consumer records bind that
+resolved sequence and exact identity. The next authority source archives the
+derived issued identity before adding another pending epoch; it never rewrites
+earlier epochs.
+
 The hosted receipt is produced before artifact upload. It contains only
 precomputable consumer, run, job/check, artifact-name, receipt-path, and result
 fields. The provider-assigned artifact ID plus archive and receipt digests belong
@@ -142,6 +159,10 @@ and does not claim direct Compass adoption. A caller-created self-signed
 intermediary is invalid. A truly inapplicable relationship gives an exact
 reason. Deferred work requires the schema's owner-bound disposition and never
 claims adoption or conformance.
+Each repeated `--upstream-projection-root` adds one unique intermediary in
+command order. The canonical validator resolves governed roots before rejecting
+canonical duplicates, rejects symlink aliases, and accepts at most eight, so
+intermediary validation remains explicitly bounded.
 
 The projected JSON Schemas validate portable structure. The projected
 executable is the normative semantic validator for transition order, sequence,

@@ -20,6 +20,7 @@ const MAX_RECORD_BYTES = 1024 * 1024
 const MAX_PROVIDER_JSON_BYTES = 2 * 1024 * 1024
 const MAX_PROVIDER_ARCHIVE_BYTES = 64 * 1024 * 1024
 const PROVIDER_DEADLINE_MS = 15_000
+export const MAX_UPSTREAM_PROJECTION_ROOTS = 8
 const GITHUB_ACTIONS_APP_ID = 15368
 const GITHUB_ACTIONS_APP_SLUG = 'github-actions'
 const GITHUB_ACTIONS_APP_OWNER = 'github'
@@ -156,7 +157,7 @@ export function validateAuthorityPolicy(policy) {
 export function validateAuthorityRegistry(registry, policy) {
   const problems = [...validateAuthorityPolicy(policy)]
   if (!exactKeys(registry, ['schema', 'schemaVersion', 'authority', 'candidates', 'heldAuthoritySources', 'heldAuthorityIdentities'], 'authority registry', problems)) return problems
-  if (registry.schema !== 'compass.shift-to-authority-registry' || registry.schemaVersion !== 3 || !NAME.test(registry.authority ?? '') || !Object.hasOwn(policy.authorities ?? {}, registry.authority)) {
+  if (registry.schema !== 'compass.shift-to-authority-registry' || registry.schemaVersion !== 5 || !NAME.test(registry.authority ?? '') || !Object.hasOwn(policy.authorities ?? {}, registry.authority)) {
     problems.push('authority registry identity is invalid')
   }
   const authorityRepository = policy.authorities?.[registry.authority]?.repository
@@ -170,6 +171,7 @@ export function validateAuthorityRegistry(registry, policy) {
       'authorityReconciliation', 'incorporationStatus', 'proposedAuthority', 'ownershipReason',
       'consumerOwnedRemainder', 'candidateState', 'authorityIdentity', 'supersedes', 'transitionHistory',
     ]
+    if (Object.hasOwn(candidate ?? {}, 'authorityEpochs')) keys.push('authorityEpochs', 'authorityEpochState', 'epochSelection')
     if (!exactKeys(candidate, keys, label, problems)) continue
     if (!CANDIDATE_ID.test(candidate.id) || ids.has(candidate.id)) problems.push(`${label} ID is invalid or duplicated`)
     ids.add(candidate.id)
@@ -206,12 +208,50 @@ export function validateAuthorityRegistry(registry, policy) {
     }
     if (candidate.transitionHistory[0]?.state !== 'local' || previous !== candidate.candidateState) problems.push(`${label} current state does not match ordered transition history`)
     if (candidate.candidateState === 'issued') {
-      validateTransitionIdentity(candidate.authorityIdentity, `${label} authorityIdentity`, problems)
-      if (candidate.authorityIdentity?.kind !== 'containing-projection-receipt' || candidate.authorityReconciliation !== 'complete' || candidate.incorporationStatus !== 'complete') {
+      if (!Object.hasOwn(candidate, 'authorityEpochs')) validateTransitionIdentity(candidate.authorityIdentity, `${label} authorityIdentity`, problems)
+      if ((!Object.hasOwn(candidate, 'authorityEpochs') && candidate.authorityIdentity?.kind !== 'containing-projection-receipt') || candidate.authorityReconciliation !== 'complete' || candidate.incorporationStatus !== 'complete') {
         problems.push(`${label} issued state lacks exact receipt binding or completed authority work`)
       }
       if (candidate.authorityIdentity?.repository !== authorityRepository) problems.push(`${label} issued receipt repository does not match its authority policy`)
     } else if (candidate.authorityIdentity !== null) problems.push(`${label} non-issued state has an authorityIdentity`)
+    if (Object.hasOwn(candidate, 'authorityEpochs')) {
+      if (!Array.isArray(candidate.authorityEpochs) || candidate.authorityEpochs.length < 1) {
+        problems.push(`${label} authority epochs are missing`)
+      } else {
+        const epochIdentities = new Set()
+        let latestIssuedSequence = null
+        let pendingSequence = null
+        for (const [index, epoch] of candidate.authorityEpochs.entries()) {
+          const epochLabel = `${label} authority epoch ${index + 1}`
+          if (!exactKeys(epoch, ['sequence', 'state', 'invariant', 'canonicalSkillPath', 'canonicalSkillSha256', 'authorityIdentity', 'supersedesSequence'], epochLabel, problems)) continue
+          if (epoch.sequence !== index + 1 || epoch.supersedesSequence !== (index === 0 ? null : index)) problems.push(`${epochLabel} sequence or supersession is invalid`)
+          if (!['issued', 'pending-containing-receipt'].includes(epoch.state) || !nonEmpty(epoch.invariant) || !safeRelativePath(epoch.canonicalSkillPath) || !/^skills\/[a-z0-9]+(?:-[a-z0-9]+)*\/SKILL\.md$/u.test(epoch.canonicalSkillPath) || !SHA256.test(epoch.canonicalSkillSha256 ?? '')) problems.push(`${epochLabel} state or content is invalid`)
+          const identity = epoch.authorityIdentity
+          if (identity?.kind === 'exact-artifact-receipt') {
+            if (!exactKeys(identity, ['kind', 'repository', ...REQUIRED_IDENTITY_DIMENSIONS], `${epochLabel} authorityIdentity`, problems)) continue
+            if (identity.repository !== authorityRepository) problems.push(`${epochLabel} repository does not match its authority policy`)
+            validateExactIdentity(Object.fromEntries(REQUIRED_IDENTITY_DIMENSIONS.map((key) => [key, identity[key]])), `${epochLabel} exact identity`, problems)
+            if (epoch.state !== 'issued') problems.push(`${epochLabel} exact identity must be issued`)
+            latestIssuedSequence = epoch.sequence
+          } else {
+            validateTransitionIdentity(identity, `${epochLabel} authorityIdentity`, problems)
+            if (identity?.kind !== 'containing-projection-receipt' || identity?.repository !== authorityRepository || epoch.state !== 'pending-containing-receipt') problems.push(`${epochLabel} pending successor must bind the containing receipt`)
+            if (pendingSequence !== null) problems.push(`${epochLabel} creates more than one pending authority epoch`)
+            pendingSequence = epoch.sequence
+          }
+          const canonicalIdentity = canonicalJson(identity)
+          if (epochIdentities.has(canonicalIdentity)) problems.push(`${epochLabel} duplicates an authority epoch identity`)
+          epochIdentities.add(canonicalIdentity)
+          if (index < candidate.authorityEpochs.length - 1 && epoch.state !== 'issued') problems.push(`${epochLabel} historical epoch is not issued`)
+        }
+        if (latestIssuedSequence === null) problems.push(`${label} authority epochs lack an issued epoch`)
+        if (pendingSequence !== null && pendingSequence !== candidate.authorityEpochs.length) problems.push(`${label} pending authority epoch is not final`)
+        const topLevelSequence = latestIssuedSequence
+        if (!exactKeys(candidate.epochSelection, ['activeIssuedSequence', 'pendingSequence', 'topLevelSequence'], `${label} epochSelection`, problems) || candidate.epochSelection?.activeIssuedSequence !== latestIssuedSequence || candidate.epochSelection?.pendingSequence !== pendingSequence || candidate.epochSelection?.topLevelSequence !== topLevelSequence) problems.push(`${label} active, pending, or top-level authority epoch selection is invalid`)
+        const topLevelEpoch = candidate.authorityEpochs.find(({ sequence }) => sequence === topLevelSequence)
+        if (candidate.authorityEpochState !== topLevelEpoch?.state || topLevelEpoch?.invariant !== candidate.invariant || !isDeepStrictEqual(topLevelEpoch?.authorityIdentity, candidate.authorityIdentity)) problems.push(`${label} top-level authority epoch mirror is invalid`)
+      }
+    }
   }
   if (!Array.isArray(registry.heldAuthoritySources)) problems.push('authority registry held sources are missing')
   const heldSources = new Set()
@@ -314,7 +354,7 @@ function validateAdoptionEvidence(evidence, consumer, contract, label, problems)
 export function validateConsumerReconciliation(record, policy) {
   const problems = [...validateAuthorityPolicy(policy)]
   if (!exactKeys(record, ['schema', 'schemaVersion', 'consumer', 'records'], 'consumer reconciliation', problems)) return problems
-  if (record.schema !== 'compass.consumer-reconciliation' || record.schemaVersion !== 2) problems.push('consumer reconciliation identity is invalid')
+  if (record.schema !== 'compass.consumer-reconciliation' || record.schemaVersion !== 3) problems.push('consumer reconciliation identity is invalid')
   if (!exactKeys(record.consumer, ['name', 'repository', 'reconciliationPath', 'adoptionContract'], 'consumer identity', problems) || !NAME.test(record.consumer?.name ?? '') || !REPOSITORY.test(record.consumer?.repository ?? '') || !safeRelativePath(record.consumer?.reconciliationPath)) problems.push('consumer identity is invalid')
   else validateAdoptionContract(record.consumer.adoptionContract, record.consumer, 'consumer adoption contract', problems)
   if (!Array.isArray(record.records) || record.records.length < 1) problems.push('consumer reconciliation records are missing')
@@ -323,13 +363,19 @@ export function validateConsumerReconciliation(record, policy) {
     const label = `consumer record ${String(item?.candidateId)}`
     const base = ['candidateId', 'relationship', 'consumerState', 'localReconciliation', 'transitionHistory']
     if (!item || typeof item !== 'object' || Array.isArray(item)) { problems.push(`${label} must be an object`); continue }
-    const allowed = new Set([...base, 'authorityIdentity', 'viaAuthority', 'adoptionContract', 'adoptionEvidence', 'deferredDisposition', 'notApplicableReason'])
+    const allowed = new Set([...base, 'authorityIdentity', 'authorityEpoch', 'viaAuthority', 'adoptionContract', 'adoptionEvidence', 'deferredDisposition', 'notApplicableReason'])
     if (Object.keys(item).some((key) => !allowed.has(key)) || base.some((key) => !Object.hasOwn(item, key))) problems.push(`${label} has missing or unknown fields`)
     if (!CANDIDATE_ID.test(item.candidateId) || ids.has(item.candidateId)) problems.push(`${label} candidate ID is invalid or duplicated`)
     ids.add(item.candidateId)
     oneOf(item.relationship, policy.relationships ?? [], `${label} relationship`, problems)
     oneOf(item.consumerState, policy.consumerStates ?? [], `${label} consumerState`, problems)
     oneOf(item.localReconciliation, ['pending', 'complete', 'not-required'], `${label} localReconciliation`, problems)
+    if (Object.hasOwn(item, 'authorityEpoch')) {
+      if (exactKeys(item.authorityEpoch, ['sequence', 'identity'], `${label} authorityEpoch`, problems)) {
+        if (!Number.isSafeInteger(item.authorityEpoch.sequence) || item.authorityEpoch.sequence < 1) problems.push(`${label} authorityEpoch sequence is invalid`)
+        validateExactIdentity(item.authorityEpoch.identity, `${label} authorityEpoch identity`, problems)
+      }
+    }
     validateConsumerTransitionHistory(item, label, policy, problems)
     if (['pending-adoption', 'adopted', 'deferred'].includes(item.consumerState)) {
       validateAdoptionContract(item.adoptionContract, record.consumer, `${label} adoptionContract`, problems)
@@ -344,7 +390,7 @@ export function validateConsumerReconciliation(record, policy) {
       if (Object.hasOwn(item, 'authorityIdentity') || Object.hasOwn(item, 'notApplicableReason')) problems.push(`${label} via-authority relationship has forbidden relationship fields`)
     } else if (item.relationship === 'not-applicable') {
       if (item.consumerState !== 'not-applicable' || item.localReconciliation !== 'not-required' || !nonEmpty(item.notApplicableReason)) problems.push(`${label} not-applicable relationship lacks its reason and exact state`)
-      for (const key of ['authorityIdentity', 'viaAuthority', 'adoptionContract', 'adoptionEvidence', 'deferredDisposition']) if (Object.hasOwn(item, key)) problems.push(`${label} not-applicable relationship has forbidden ${key}`)
+      for (const key of ['authorityIdentity', 'authorityEpoch', 'viaAuthority', 'adoptionContract', 'adoptionEvidence', 'deferredDisposition']) if (Object.hasOwn(item, key)) problems.push(`${label} not-applicable relationship has forbidden ${key}`)
       continue
     }
     if (item.consumerState === 'adopted') {
@@ -385,6 +431,71 @@ function validateReceiptFileBinding(receipt, relativePath, bytes, label, problem
   if (entries.length !== 1 || !exactKeys(entries[0], ['path', 'sha256', 'bytes'], label, problems) || entries[0]?.sha256 !== sha256(bytes) || entries[0]?.bytes !== bytes.length) {
     problems.push(`${label} is not exactly bound by the containing projection receipt`)
   }
+}
+
+function exactIssuedEpochIdentity(repository, identity) {
+  return { kind: 'exact-artifact-receipt', repository, ...identity }
+}
+
+function exactIdentityFromIssuedEpoch(identity) {
+  return Object.fromEntries(REQUIRED_IDENTITY_DIMENSIONS.map((key) => [key, identity?.[key]]))
+}
+
+function authorityEpochRecord(candidate, authority, repository, epoch, authorityIdentity) {
+  return {
+    schema: 'compass.authority-epoch-resolution',
+    schemaVersion: 1,
+    authority,
+    repository,
+    candidateId: candidate.id,
+    sequence: epoch.sequence,
+    state: 'issued',
+    invariant: epoch.invariant,
+    canonicalSkillPath: epoch.canonicalSkillPath,
+    canonicalSkillSha256: epoch.canonicalSkillSha256,
+    supersedesSequence: epoch.supersedesSequence,
+    authorityIdentity,
+  }
+}
+
+function validateEpochSkillReceiptEntry(candidate, epoch, receipt, problems) {
+  const entries = (receipt?.includedFiles ?? []).filter(({ path: includedPath }) => includedPath === epoch.canonicalSkillPath)
+  if (entries.length !== 1 || !exactKeys(entries[0], ['path', 'sha256', 'bytes'], `authority candidate ${candidate.id} canonical skill receipt entry`, problems) || entries[0]?.sha256 !== epoch.canonicalSkillSha256 || !Number.isSafeInteger(entries[0]?.bytes) || entries[0].bytes < 1) {
+    problems.push(`authority candidate ${candidate.id} authority epoch is not bound to its exact canonical skill in the containing receipt`)
+    return false
+  }
+  return true
+}
+
+export function deriveAuthorityEpochResolution(candidate, authority, repository, identity, receipt, problems = []) {
+  const pending = (candidate?.authorityEpochs ?? []).filter(({ state }) => state === 'pending-containing-receipt')
+  if (pending.length !== 1 || candidate.authorityEpochs.at(-1) !== pending[0]) {
+    problems.push(`authority candidate ${String(candidate?.id)} does not have exactly one final pending epoch to resolve`)
+    return null
+  }
+  const epoch = pending[0]
+  if (!validateEpochSkillReceiptEntry(candidate, epoch, receipt, problems)) return null
+  return authorityEpochRecord(candidate, authority, repository, epoch, exactIssuedEpochIdentity(repository, identity))
+}
+
+function resolveAuthorityEpoch(candidate, authority, repository, identity, receipt, problems) {
+  if ((candidate.authorityEpochs ?? []).some(({ state }) => state === 'pending-containing-receipt')) return deriveAuthorityEpochResolution(candidate, authority, repository, identity, receipt, problems)
+  const epoch = candidate.authorityEpochs?.at(-1)
+  if (!epoch || epoch.state !== 'issued' || epoch.authorityIdentity?.kind !== 'exact-artifact-receipt') {
+    problems.push(`authority candidate ${String(candidate?.id)} does not have a resolvable active issued epoch`)
+    return null
+  }
+  if (!validateEpochSkillReceiptEntry(candidate, epoch, receipt, problems)) return null
+  return authorityEpochRecord(candidate, authority, repository, epoch, structuredClone(epoch.authorityIdentity))
+}
+
+export function validateAuthorityEpochResolution(record, candidate, authority, repository, identity, receipt) {
+  const problems = []
+  const expected = deriveAuthorityEpochResolution(candidate, authority, repository, identity, receipt, problems)
+  const keys = ['schema', 'schemaVersion', 'authority', 'repository', 'candidateId', 'sequence', 'state', 'invariant', 'canonicalSkillPath', 'canonicalSkillSha256', 'supersedesSequence', 'authorityIdentity']
+  if (!exactKeys(record, keys, 'authority epoch resolution', problems)) return problems
+  if (expected && !isDeepStrictEqual(record, expected)) problems.push('authority epoch resolution does not equal the containing receipt-derived issued epoch')
+  return problems
 }
 
 function sameExactIdentity(left, right) {
@@ -452,12 +563,21 @@ function loadAuthorityProjection(projectionRoot, { canonicalCompass = false, exp
   validateReceiptFileBinding(receipt, 'authority-registry.json', registryDocument.bytes, 'projected authority registry', problems)
   const bindings = (registry.candidates ?? [])
     .filter((candidate) => candidate.candidateState === 'issued')
-    .map((candidate) => candidate.authorityIdentity)
+    .map((candidate) => candidate.transitionHistory?.at(-1)?.identity)
   const binding = bindings[0]
   if (!binding || bindings.some((candidateBinding) => !isDeepStrictEqual(candidateBinding, binding))) {
     problems.push('issued candidates do not share one containing projection receipt binding')
   }
   const identity = resolveProjectionReceiptIdentity(receipt, receiptDocument.bytes, receiptDocument.path, binding, problems)
+  const epochResolutions = new Map()
+  if (identity) {
+    const repository = policy.authorities?.[registry.authority]?.repository
+    for (const candidate of registry.candidates ?? []) {
+      if (!candidate.authorityEpochs) continue
+      const resolution = resolveAuthorityEpoch(candidate, registry.authority, repository, identity, receipt, problems)
+      if (resolution) epochResolutions.set(candidate.id, resolution)
+    }
+  }
   if (identity && (registry.heldAuthoritySources ?? []).some((hold) => sameAuthoritySource(hold.source, binding?.repository, identity))) problems.push('containing projection source is historical-not-adoptable')
   if (identity && (registry.heldAuthorityIdentities ?? []).some((hold) => sameExactIdentity(hold.identity, identity))) problems.push('containing projection identity is historical-not-adoptable')
   if (canonicalCompass && registry.authority !== 'compass') problems.push('canonical Compass registry authority must be compass')
@@ -465,7 +585,7 @@ function loadAuthorityProjection(projectionRoot, { canonicalCompass = false, exp
   if (expectedAuthority && registry.authority !== expectedAuthority) problems.push(`upstream registry authority must be ${expectedAuthority}`)
   if (expectedAuthority && policy.authorities?.[expectedAuthority]?.repository !== expectedRepository) problems.push(`upstream policy authority ${expectedAuthority} does not match its trusted repository`)
   if (expectedRepository && binding?.repository !== expectedRepository) problems.push('upstream issued receipt binding does not match its trusted repository')
-  return { root, policy, registry, receipt, consumerSchema, hostedReceiptSchema, identity, binding, problems }
+  return { root, policy, registry, receipt, consumerSchema, hostedReceiptSchema, identity, binding, epochResolutions, problems }
 }
 
 function validateHostedReceipt(receipt, item, reconciliationPath, receiptSchema, label, problems) {
@@ -629,7 +749,7 @@ async function githubApi(token, pathname, { binaryRedirect = false, allowPaginat
       redirect: 'manual',
       signal,
       headers: {
-        accept: binaryRedirect ? 'application/vnd.github+json' : 'application/vnd.github+json',
+        accept: 'application/vnd.github+json',
         authorization: `Bearer ${token}`,
         'x-github-api-version': '2026-03-10',
         'user-agent': 'compass-authority-adoption-validator',
@@ -810,6 +930,12 @@ export async function validateAuthorityBundle({
   providerToken = process.env.GH_TOKEN || process.env.GITHUB_TOKEN,
   providerDeadlineMs = PROVIDER_DEADLINE_MS,
 }) {
+  let canonicalUpstreamRoots
+  try {
+    canonicalUpstreamRoots = canonicalizeUpstreamProjectionRoots(upstreamProjectionRoots)
+  } catch (error) {
+    return [error instanceof Error ? error.message : String(error)]
+  }
   const authority = loadAuthorityProjection(projectionRoot, { canonicalCompass: true })
   const problems = [...authority.problems]
   if (!authority.policy || !authority.registry || !authority.identity) return problems
@@ -824,7 +950,7 @@ export async function validateAuthorityBundle({
   problems.push(...validateJsonSchema(consumer, authority.consumerSchema).map((problem) => `consumer reconciliation schema: ${problem}`))
   problems.push(...validateConsumerReconciliation(consumer, authority.policy))
   const candidates = new Map((authority.registry.candidates ?? []).map((candidate) => [candidate.id, candidate]))
-  const upstream = upstreamProjectionRoots.map((root) => {
+  const upstream = canonicalUpstreamRoots.map((root) => {
     const discovered = loadAuthorityProjection(root)
     const authorityName = discovered.registry?.authority
     const expectedRepository = authority.policy.authorities?.[authorityName]?.repository
@@ -840,8 +966,13 @@ export async function validateAuthorityBundle({
       continue
     }
     if (candidate.candidateState !== 'issued') problems.push(`${label} candidate is not issued`)
-    if (!isDeepStrictEqual(candidate.authorityIdentity, authority.binding)) problems.push(`${label} candidate is not bound to the containing projection receipt`)
+    if (!isDeepStrictEqual(candidate.transitionHistory?.at(-1)?.identity, authority.binding)) problems.push(`${label} candidate is not bound to the containing projection receipt`)
     if (item.relationship === 'direct') {
+      const resolution = authority.epochResolutions?.get(item.candidateId)
+      if (candidate.authorityEpochs) {
+        if (!resolution) problems.push(`${label} pending authority epoch is unresolved by the containing projection receipt`)
+        else if (!exactKeys(item.authorityEpoch, ['sequence', 'identity'], `${label} authorityEpoch`, problems) || item.authorityEpoch?.sequence !== resolution.sequence || !sameExactIdentity(item.authorityEpoch?.identity, exactIdentityFromIssuedEpoch(resolution.authorityIdentity))) problems.push(`${label} authorityEpoch does not bind the resolved issued sequence and artifact identity`)
+      } else if (Object.hasOwn(item, 'authorityEpoch')) problems.push(`${label} has an authorityEpoch for a candidate without epoch history`)
       if ((authority.registry.heldAuthoritySources ?? []).some((hold) => sameAuthoritySource(hold.source, candidate.authorityIdentity?.repository, item.authorityIdentity))) problems.push(`${label} references a historical-not-adoptable authority source`)
       if ((authority.registry.heldAuthorityIdentities ?? []).some((hold) => sameExactIdentity(item.authorityIdentity, hold.identity))) problems.push(`${label} references a historical-not-adoptable authority identity`)
       if (!sameExactIdentity(item.authorityIdentity, authority.identity)) problems.push(`${label} direct authority identity does not equal the containing projection receipt`)
@@ -851,8 +982,11 @@ export async function validateAuthorityBundle({
       if (matching.length !== 1) problems.push(`${label} requires exactly one matching upstream authority bundle`)
       else {
         const upstreamCandidate = (matching[0].registry.candidates ?? []).find(({ id }) => id === item.candidateId)
-        if (!upstreamCandidate || upstreamCandidate.candidateState !== 'issued' || !isDeepStrictEqual(upstreamCandidate.authorityIdentity, matching[0].binding)) problems.push(`${label} candidate is not issued by the upstream authority bundle`)
+        if (!upstreamCandidate || upstreamCandidate.candidateState !== 'issued' || !isDeepStrictEqual(upstreamCandidate.transitionHistory?.at(-1)?.identity, matching[0].binding)) problems.push(`${label} candidate is not issued by the upstream authority bundle`)
         if (!sameExactIdentity(item.viaAuthority.identity, matching[0].identity)) problems.push(`${label} via-authority identity does not equal the upstream projection receipt`)
+        const upstreamResolution = matching[0].epochResolutions?.get(item.candidateId)
+        if (upstreamCandidate?.authorityEpochs && (!upstreamResolution || !exactKeys(item.authorityEpoch, ['sequence', 'identity'], `${label} authorityEpoch`, problems) || item.authorityEpoch?.sequence !== upstreamResolution.sequence || !sameExactIdentity(item.authorityEpoch?.identity, exactIdentityFromIssuedEpoch(upstreamResolution.authorityIdentity)))) problems.push(`${label} authorityEpoch does not bind the upstream resolved issued sequence and artifact identity`)
+        if (!upstreamCandidate?.authorityEpochs && Object.hasOwn(item, 'authorityEpoch')) problems.push(`${label} has an authorityEpoch for a candidate without upstream epoch history`)
       }
     }
     if (!authority.policy.relationships?.includes(item.relationship)) problems.push(`${label} relationship is not declared by policy`)
@@ -870,6 +1004,23 @@ export async function validateAuthorityBundle({
     }
   }
   return problems
+}
+
+export function canonicalizeUpstreamProjectionRoots(roots, resolver = (root) => resolveGovernedRoot(root, 'upstream projection root')) {
+  if (!Array.isArray(roots)) throw new Error('upstream projection roots must be an array')
+  if (roots.length > MAX_UPSTREAM_PROJECTION_ROOTS) {
+    throw new Error(`at most ${MAX_UPSTREAM_PROJECTION_ROOTS} upstream projection roots are supported`)
+  }
+  const seen = new Set()
+  const canonical = []
+  for (const root of roots) {
+    if (!nonEmpty(root)) throw new Error('upstream projection roots must be non-empty strings')
+    const resolved = resolver(root)
+    if (seen.has(resolved)) throw new Error(`duplicate canonical upstream projection root: ${resolved}`)
+    seen.add(resolved)
+    canonical.push(resolved)
+  }
+  return canonical
 }
 
 export function renderReviewTemplate(policy) {
@@ -946,21 +1097,46 @@ function parseJsonDocument(file) {
   return { value: JSON.parse(text), bytes, path: absolute }
 }
 
-function parseArguments(arguments_) {
+const CLI_VALUE_FIELDS = new Map([
+  ['--projection-root', 'projectionRoot'],
+  ['--consumer-root', 'consumerRoot'],
+  ['--reconciliation-path', 'reconciliationPath'],
+  ['--print-authority-epoch-resolution', 'printAuthorityEpochResolution'],
+])
+
+export function parseArguments(arguments_) {
   const options = { upstreamProjectionRoots: [] }
+  const seenSingletons = new Set()
   for (let index = 0; index < arguments_.length; index += 1) {
     const key = arguments_[index]
-    if (!['--projection-root', '--consumer-root', '--reconciliation-path', '--upstream-projection-root', '--print-review-template'].includes(key)) throw new Error('unsupported argument')
-    if (key === '--print-review-template') { options.printReviewTemplate = true; continue }
-    if (!arguments_[index + 1]) throw new Error(`missing value for ${key}`)
-    if (key === '--upstream-projection-root') options.upstreamProjectionRoots.push(arguments_[index + 1])
-    else options[key.slice(2).replaceAll('-', '')] = arguments_[index + 1]
+    if (key === '--print-review-template') {
+      if (seenSingletons.has(key)) throw new Error(`duplicate singleton argument: ${key}`)
+      seenSingletons.add(key)
+      options.printReviewTemplate = true
+      continue
+    }
+    if (key !== '--upstream-projection-root' && !CLI_VALUE_FIELDS.has(key)) throw new Error(`unsupported argument: ${key}`)
+    const value = arguments_[index + 1]
+    if (!value || value.startsWith('--')) throw new Error(`missing value for ${key}`)
+    if (key === '--upstream-projection-root') {
+      if (options.upstreamProjectionRoots.includes(value)) throw new Error(`duplicate upstream projection root: ${value}`)
+      if (options.upstreamProjectionRoots.length >= MAX_UPSTREAM_PROJECTION_ROOTS) {
+        throw new Error(`at most ${MAX_UPSTREAM_PROJECTION_ROOTS} upstream projection roots are supported`)
+      }
+      options.upstreamProjectionRoots.push(value)
+    } else {
+      if (seenSingletons.has(key)) throw new Error(`duplicate singleton argument: ${key}`)
+      seenSingletons.add(key)
+      options[CLI_VALUE_FIELDS.get(key)] = value
+    }
     index += 1
   }
-  if (!options.projectionroot) throw new Error('missing --projection-root')
-  if (options.printReviewTemplate && (options.consumerroot || options.reconciliationpath || options.upstreamProjectionRoots.length > 0)) throw new Error('template mode cannot validate consumer records')
-  if (!options.printReviewTemplate && !options.consumerroot) throw new Error('missing --consumer-root')
-  if (!options.printReviewTemplate && !options.reconciliationpath) throw new Error('missing --reconciliation-path')
+  if (!options.projectionRoot) throw new Error('missing --projection-root')
+  const outputMode = options.printReviewTemplate || options.printAuthorityEpochResolution
+  if (options.printReviewTemplate && options.printAuthorityEpochResolution) throw new Error('review-template and epoch-resolution output modes are mutually exclusive')
+  if (outputMode && (options.consumerRoot || options.reconciliationPath || options.upstreamProjectionRoots.length > 0)) throw new Error('output mode cannot validate consumer records')
+  if (!outputMode && !options.consumerRoot) throw new Error('missing --consumer-root')
+  if (!outputMode && !options.reconciliationPath) throw new Error('missing --reconciliation-path')
   return options
 }
 
@@ -972,18 +1148,24 @@ if (isMainModule()) {
   try {
     const options = parseArguments(process.argv.slice(2))
     if (options.printReviewTemplate) {
-      const authority = loadAuthorityProjection(options.projectionroot, { canonicalCompass: true })
+      const authority = loadAuthorityProjection(options.projectionRoot, { canonicalCompass: true })
       if (authority.problems.length > 0) throw new Error(authority.problems.join('; '))
       process.stdout.write(renderReviewTemplate(authority.policy))
+    } else if (options.printAuthorityEpochResolution) {
+      const authority = loadAuthorityProjection(options.projectionRoot, { canonicalCompass: true })
+      if (authority.problems.length > 0) throw new Error(authority.problems.join('; '))
+      const resolution = authority.epochResolutions.get(options.printAuthorityEpochResolution)
+      if (!resolution) throw new Error(`candidate has no receipt-resolved pending epoch: ${options.printAuthorityEpochResolution}`)
+      process.stdout.write(`${JSON.stringify(resolution, null, 2)}\n`)
     } else {
       const problems = await validateAuthorityBundle({
-        projectionRoot: options.projectionroot,
-        consumerRoot: options.consumerroot,
-        reconciliationPath: options.reconciliationpath,
+        projectionRoot: options.projectionRoot,
+        consumerRoot: options.consumerRoot,
+        reconciliationPath: options.reconciliationPath,
         upstreamProjectionRoots: options.upstreamProjectionRoots,
       })
       if (problems.length > 0) throw new Error(problems.join('; '))
-      console.log(`Authority bundle valid: ${path.join(path.resolve(options.consumerroot), options.reconciliationpath)}`)
+      console.log(`Authority bundle valid: ${path.join(path.resolve(options.consumerRoot), options.reconciliationPath)}`)
     }
   } catch (error) {
     console.error(`check-authority-record: ${error instanceof Error ? error.message : String(error)}`)

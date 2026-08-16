@@ -125,6 +125,16 @@ domain-specific states.
   receipt-bound issuance, source-wide holds for defective source bytes, exact
   artifact-local holds, and observed receipt evidence; it contains no shared
   consumer state.
+- **Authority epoch** — an immutable version of one authority candidate's
+  invariant and canonical skill bytes. An issued epoch binds its complete exact
+  artifact identity. Sequences are contiguous and unique; the latest issued
+  epoch remains active in the top-level mirror, and at most one final
+  pending-containing-receipt epoch may represent a future successor. The epoch
+  selection records the active and pending sequences separately. The canonical validator resolves a
+  pending epoch against the containing receipt and its exact skill digest into
+  an external issued-epoch record, which consumers bind by sequence and exact
+  artifact identity. The next source archives that resolved identity without
+  rewriting any prior epoch.
 - **Consumer reconciliation record** — a consumer-owned record that binds one
   candidate to its direct, via-authority, or truly inapplicable relationship,
   local reconciliation, exact authority identity when applicable, disposition,
@@ -169,6 +179,37 @@ domain-specific states.
   surface in isolated user and configuration state on each claimed platform;
   package inventory, template text, or an equivalent raw command is not a
   substitute.
+- **Reviewable implementation workspace** — the declared repository, mode,
+  exact base, branch, normalized local file worktree URI, writable scope,
+  runtime namespace, current
+  commit and tree, active writable owner, and human review surface in which
+  implementation bytes remain visible and recoverable.
+- **Writable lane** — one named scope with exactly one active writable ownership
+  principal and its declared process tree for one worktree. Owned formatters,
+  generators, tests, and hooks may run within that principal's authority;
+  read-only observers may inspect it. Ownership transfer is explicit and a
+  second simultaneous writable principal uses a distinct branch and worktree.
+- **Integration owner** — the single named owner that reviews and reconciles
+  concurrent writable lanes without allowing one lane to overwrite another.
+- **Human review surface** — the visible workspace diff, named branch, or draft
+  review request declared before editing as the place where a person can inspect
+  the complete implementation change.
+- **Proof worktree** — a clean, immutable-source, identity-bound, disposable
+  checkout used only for validation, packing, reconstruction, fixtures,
+  corruption, or idempotence evidence; fixes discovered there are reimplemented
+  in a declared writable lane.
+- **Runtime identity** — the declared repository, worktree, agent or run ID,
+  process or PID group, ports, IPC or socket names, and temporary, state, cache,
+  log, and artifact roots owned by one automated run.
+- **Run-owned resource** — a process, endpoint, path, socket, namespace, cache,
+  log, artifact, container, emulator, or descendant whose exact ownership is
+  bound to one runtime identity and whose cleanup cannot affect another run.
+- **Resource lease** — bounded serialization of shared CPU, memory, or I/O
+  pressure for performance stability; it is never a correctness prerequisite or
+  authority to reuse or delete another runtime's resources.
+- **Cleanup receipt** — run-identity-bound evidence naming the exact owned
+  resources considered, the resources removed or preserved, and the terminal
+  cleanup outcome without claiming authority over unowned resources.
 
 - **Field failure** — a defect first observed outside the normal local proof
   boundary, such as hosted CI, another platform, a generated consumer, a

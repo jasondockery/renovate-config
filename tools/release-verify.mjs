@@ -89,15 +89,18 @@ function expectedPreset(expectedSha) {
   return git(['show', `${expectedSha}:default.json`])
 }
 
-function taggedPreset(version, desired, client) {
-  return client
-    .get(`repos/${desired.repository}/contents/default.json?ref=${encodeURIComponent(version)}`)
-    .then((response) => {
-      if (response?.encoding !== 'base64' || typeof response?.content !== 'string') {
-        throw new Error('GitHub did not return base64 default.json content for the release tag')
-      }
-      return Buffer.from(response.content.replaceAll('\n', ''), 'base64').toString('utf8')
-    })
+// createGithubApiClient runs gh through spawnSync, so `get` returns the decoded
+// body directly rather than a promise. The other callers await it, and awaiting
+// a non-thenable is harmless, so only this one broke. It could not run until a
+// release existed, so publishing 1.0.0 was also its first real execution.
+export function taggedPreset(version, desired, client) {
+  const response = client.get(
+    `repos/${desired.repository}/contents/default.json?ref=${encodeURIComponent(version)}`
+  )
+  if (response?.encoding !== 'base64' || typeof response?.content !== 'string') {
+    throw new Error('GitHub did not return base64 default.json content for the release tag')
+  }
+  return Buffer.from(response.content.replaceAll('\n', ''), 'base64').toString('utf8')
 }
 
 function resolvePinnedPreset(version) {

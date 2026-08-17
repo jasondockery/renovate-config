@@ -95,6 +95,40 @@ test('rejects v-prefixed releases, existing tags, and mismatched intended SHAs',
   )
 })
 
+// The freeze protects preset content, not releasing. Refusing every later
+// release deadlocked the bootstrap: 1.0.0 is immutable, so broken release
+// tooling could never be repaired. A 1.0.x patch with an unchanged default.json
+// is permitted; anything implying a preset change still waits for the lift.
+test('a 1.0.x patch may follow 1.0.0 while the preset freeze holds', () => {
+  const problems = collectReleasePreflightProblems(
+    evidence({ version: '1.0.1', freeze: { lifted: false, problems: [] } })
+  )
+  assert.deepEqual(problems, [])
+})
+
+test('a new major or minor still waits for the freeze to lift', () => {
+  for (const version of ['1.1.0', '2.0.0']) {
+    assert.ok(
+      collectReleasePreflightProblems(
+        evidence({ version, freeze: { lifted: false, problems: [] } })
+      ).includes(
+        'during the preset freeze only a 1.0.x patch release may follow 1.0.0; a new major or minor requires the freeze to be lifted'
+      ),
+      `${version} must be refused while the freeze holds`
+    )
+  }
+})
+
+test('a patch release cannot smuggle a changed preset past the freeze', () => {
+  const problems = collectReleasePreflightProblems(
+    evidence({
+      version: '1.0.1',
+      freeze: { lifted: false, problems: ['default.json changed while the preset bootstrap freeze is in effect.'] },
+    })
+  )
+  assert.ok(problems.includes('default.json changed while the preset bootstrap freeze is in effect.'))
+})
+
 test('disabled controls and unavailable canonical Renovate evidence block preflight', () => {
   const problems = collectReleasePreflightProblems(
     evidence({

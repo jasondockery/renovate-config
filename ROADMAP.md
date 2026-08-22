@@ -260,3 +260,20 @@ policy to obtain green.
       small — a short Node or shell check — with exact file-level binary
       exceptions rather than directory exemptions. Verified 2026-07-20: this
       repo currently has zero affected files, so this is prevention.
+
+## Compass reconciliation
+
+- [ ] Reconcile `.compass/` from `f4745e19` (2026-08 series, pre-`repeatable-agent-execution`)
+      to Compass's current `main`. **State as of 2026-08-22:** this is the same
+      identity Roost carried before its own PR #50; Compass has since issued the
+      newest `repeatable-agent-execution` authority (bootstrap readiness,
+      actual-launcher identity, fail-closed Git-identity binding,
+      named-invariant proof targeting, staged-index attribution —
+      `.compass/COMPASS.md` → "Repeatable agent execution"), which this
+      checkout has no awareness of. Reconciliation steps (per `AGENTS.md`):
+      build the artifact and project it with `--replace`, add a sixth
+      `tools/compass-consumer-reconciliation.json` record at
+      `pending-adoption` for `sta-compass-repeatable-agent-execution`, run
+      `pnpm check:compass`, then the two-phase `pnpm compass:adoption:check`
+      hosted-evidence transition to `adopted`. Roost's PR #50 is the worked
+      example. Not started.

@@ -263,17 +263,20 @@ policy to obtain green.
 
 ## Compass reconciliation
 
-- [ ] Reconcile `.compass/` from `f4745e19` (2026-08 series, pre-`repeatable-agent-execution`)
-      to Compass's current `main`. **State as of 2026-08-22:** this is the same
-      identity Roost carried before its own PR #50; Compass has since issued the
+- [x] Reconcile `.compass/` from `f4745e19` (2026-08 series, pre-`repeatable-agent-execution`)
+      to Compass's current `main`. **State as of 2026-08-23:** reconciled to
+      `aaab049`, which brings in all six issued candidates including the
       newest `repeatable-agent-execution` authority (bootstrap readiness,
       actual-launcher identity, fail-closed Git-identity binding,
-      named-invariant proof targeting, staged-index attribution —
-      `.compass/COMPASS.md` → "Repeatable agent execution"), which this
-      checkout has no awareness of. Reconciliation steps (per `AGENTS.md`):
-      build the artifact and project it with `--replace`, add a sixth
-      `tools/compass-consumer-reconciliation.json` record at
-      `pending-adoption` for `sta-compass-repeatable-agent-execution`, run
-      `pnpm check:compass`, then the two-phase `pnpm compass:adoption:check`
-      hosted-evidence transition to `adopted`. Roost's PR #50 is the worked
-      example. Not started.
+      named-invariant proof targeting, staged-index attribution, write-session
+      branch-identity gate — `.compass/COMPASS.md` → "Repeatable agent
+      execution"). Built the artifact and projected it with `--replace`,
+      added a sixth `tools/compass-consumer-reconciliation.json` record at
+      `pending-adoption` for `sta-compass-repeatable-agent-execution`,
+      refreshed the five existing records' identity plus
+      `tools/compass-consumer-native-discovery.json`, and added the
+      `repeatable-agent-execution` skill-discovery pointer to `AGENTS.md`.
+      `pnpm check:compass` and `pnpm compass:adoption:check` both pass. The
+      two-phase hosted-evidence transition to `adopted` remains a separate,
+      later step — `pending-adoption` is the correct current state until that
+      hosted proof exists.

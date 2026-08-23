@@ -497,6 +497,111 @@
           }
         }
       ]
+    },
+    {
+      "id": "sta-compass-repeatable-agent-execution",
+      "invariant": "A repository establishes bootstrap readiness once through one entrypoint that does not require the tooling it establishes, binds the executable chain that actually performs the work and every version-control setting able to redirect repository identity, keeps task-produced outputs inside the mutation phase, exposes every verification invariant under a stable name, proves at most once per frozen content identity while reusing evidence whose required identities are unchanged, and never weakens an invariant or accepts a non-owner skip control to make a check pass.",
+      "origin": {
+        "repository": "SWORPS/sworps-mono",
+        "identity": {
+          "kind": "source",
+          "repository": "SWORPS/sworps-mono",
+          "commit": "0a06d70d4cc97c9947c6c94c8a6fa389ffa8498c"
+        }
+      },
+      "evidence": [
+        {
+          "id": "sworps-mono-execution-tax-0a06d70",
+          "type": "consumer-field-review",
+          "repository": "SWORPS/sworps-mono",
+          "sourceCommit": "0a06d70d4cc97c9947c6c94c8a6fa389ffa8498c",
+          "summary": "Agent transcripts showed repeated manual executable-path repair, a package manager resolving through an ambient interpreter despite an explicit version-manager selection, a validation prerequisite discovered during final proof, formatting applied after semantic proof, and whole-suite reruns while a few named invariants were under repair."
+        },
+        {
+          "id": "sworps-mono-break-glass-review-0a06d70",
+          "type": "field-failure-review",
+          "repository": "SWORPS/sworps-mono",
+          "sourceCommit": "0a06d70d4cc97c9947c6c94c8a6fa389ffa8498c",
+          "summary": "A deployment workflow retained a runtime skip input for its diff safety gate. The fail-closed local repair kept that control reachable without owner-only semantics or an audit receipt, which showed a missing shared rule rather than a single product defect."
+        },
+        {
+          "id": "owner-repeatable-execution-acceptance-9d95a65",
+          "type": "cross-repository-review",
+          "repository": "jasondockery/compass",
+          "sourceCommit": "9d95a65c0c566e47078fbc80f361391aed555c26",
+          "summary": "Owner review of the exact pushed 9d95a65 tree accepted the contract after two requested-changes rounds reconciled proof freshness with the proof-economy identities, separated bootstrap readiness from task-produced outputs, bound the canonical launcher that repository commands actually resolve, removed a per-session runtime override, and held distribution until this issuance."
+        },
+        {
+          "id": "compass-local-repair-named-invariants-and-index-attribution",
+          "type": "dogfood-implementation",
+          "repository": "jasondockery/compass",
+          "sourceCommit": "816e2e02714c1ad78080cfe6ab20cecb46c2ba94",
+          "summary": "Closed Compass's own two dogfood gaps identified during acceptance review: scripts/validate-source.mjs now exposes every named invariant for targeted execution via check-source.mjs --check, and scripts/agent-readiness --baseline distinguishes pre-existing dirty paths from task-attributable ones instead of leaving index-state attribution unrecorded."
+        }
+      ],
+      "affectedScope": [
+        "compass-doctrine-and-procedure",
+        "compass-readiness-entrypoint-dogfooding",
+        "roost-reusable-and-generated-repository-entrypoints",
+        "groundwork-developer-environment-acceptance",
+        "renovate-config-automation",
+        "hatch-via-roost-acceptance",
+        "generated-consumers",
+        "future-agent-tools"
+      ],
+      "localRepairStatus": "complete",
+      "authorityReconciliation": "complete",
+      "incorporationStatus": "complete",
+      "proposedAuthority": "compass",
+      "ownershipReason": "Readiness ordering, actually-executing runtime and launcher identity, fail-closed version-control identity binding, mutation-phase boundaries, named-invariant targeting, identity-scoped proof freshness, and break-glass semantics are generic across repositories, languages, toolchains, version managers, agents, frameworks, providers, and products.",
+      "consumerOwnedRemainder": "Consumers own the entrypoint name, command surface, language, runtime and launcher resolution mechanism, version-control binding mechanics, formatter, check inventory, receipt storage, and platform mechanics.",
+      "candidateState": "issued",
+      "authorityIdentity": {
+        "kind": "containing-projection-receipt",
+        "path": ".compass/receipt.json",
+        "schema": "compass.artifact-receipt",
+        "repository": "jasondockery/compass"
+      },
+      "supersedes": null,
+      "transitionHistory": [
+        {
+          "sequence": 1,
+          "state": "local",
+          "identity": {
+            "kind": "source",
+            "repository": "SWORPS/sworps-mono",
+            "commit": "0a06d70d4cc97c9947c6c94c8a6fa389ffa8498c"
+          }
+        },
+        {
+          "sequence": 2,
+          "state": "nominated",
+          "identity": {
+            "kind": "source",
+            "repository": "jasondockery/compass",
+            "commit": "9d95a65c0c566e47078fbc80f361391aed555c26"
+          }
+        },
+        {
+          "sequence": 3,
+          "state": "accepted",
+          "identity": {
+            "kind": "source",
+            "repository": "jasondockery/compass",
+            "commit": "9d95a65c0c566e47078fbc80f361391aed555c26"
+          }
+        },
+        {
+          "sequence": 4,
+          "state": "issued",
+          "identity": {
+            "kind": "containing-projection-receipt",
+            "path": ".compass/receipt.json",
+            "schema": "compass.artifact-receipt",
+            "repository": "jasondockery/compass"
+          }
+        }
+      ]
     }
   ],
   "heldAuthoritySources": [

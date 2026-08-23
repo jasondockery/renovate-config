@@ -519,6 +519,109 @@ identity; an unresolved pending epoch is never consumable as issued. The next
 successor archives the derived identity before adding another pending epoch,
 without rewriting any earlier epoch.
 
+## Repeatable agent execution
+
+A repository teaches its execution contract once, mechanically. Repeated manual
+environment repair, bootstrap prerequisites discovered during proof,
+normalization performed after a retained proof, and heavy proof repeated while
+its required identities are unchanged are repository defects, not agent
+defects.
+
+One repository-owned entrypoint establishes readiness before dependent work. It
+must not require the package manager, dependency graph, or generated tooling it
+exists to establish. Readiness covers bootstrap prerequisites only: the
+canonical command launcher, runtime and toolchain identity, baseline dependency
+state, workspace identity, and the environment required to execute repository
+commands. Lockfiles, generated source, schemas, build metadata, and formatting
+are task-produced outputs that belong to the mutation phase, not to readiness.
+Readiness reports repository, worktree, branch, base and current commit and
+tree, working-tree and index cleanliness, bound version-control environment,
+required and actually executing runtime and launcher identity, baseline
+dependency state, and prepared bootstrap prerequisites. A new worktree reaches
+that same ready state through the same entrypoint. A task that needs to
+distinguish pre-existing dirty paths from ones it produces records a starting
+workspace baseline outside the repository; a dirty path present at that
+baseline is pre-existing, and a baseline that exists but cannot be parsed fails
+closed rather than being treated as absent.
+
+A write-intending session proves branch identity before it proceeds: detached
+HEAD is rejected, a repository-declared protected branch is rejected, and a
+declared expected branch that does not match the actual branch is rejected. A
+read-only or proof-only session is exempt from the detached-HEAD and
+protected-branch checks; an expected-branch mismatch is checked regardless of
+session intent. This check runs before every other readiness action and before
+any action with a side effect. A dedicated worktree remains the preferred way
+to avoid this failure entirely; it is not a substitute for the check, and its
+absence is not itself a failure.
+
+Required runtime identity is proven by the executable chain that actually
+performs the work, not by a version manager's declaration, a shim's presence, a
+configuration file, or an interpreter reached through a different launch path.
+That chain includes the package manager or command runner and the interpreter it
+starts. The repository owns the exact required versions; version managers are
+interchangeable ways to satisfy them and are never the contract. Every
+version-control environment setting capable of redirecting repository, worktree,
+index, object, or configuration identity is explicitly bound to the resolved
+workspace identity or rejected fail-closed; reporting an inherited setting is
+not binding it. An unresolvable runtime, launcher, baseline dependency state, or
+environment fails with one actionable remediation instead of continuing under an
+ambient runtime. Hand-editing the executable search path or inventing
+per-session setup is a symptom to repair at the entrypoint.
+
+Readiness invalidation is selective. When a task intentionally changes the
+runtime, package manager, dependency graph, or command contract, only the
+affected readiness facts and their dependents are refreshed; an indiscriminate
+setup pass is waste.
+
+Work proceeds in one coherent mutation phase per task, containing as many narrow
+focused checks as the work needs. Iterative narrow proof is the cheap boundary
+and is encouraged; repeating a heavy aggregate proof for feedback is not.
+Normalization, formatting, and every task-produced output complete before any
+proof whose evidence is retained. A formatting, generation, or lockfile change
+after that proof invalidates the content evidence it depended on.
+
+An aggregate verification suite exposes each invariant under a stable name and
+supports executing a named invariant or declared scope directly. Debugging one
+invariant must not require executing every check, and a failure names the exact
+violated invariant instead of requiring output filtering. Convergence inspects
+the completed diff and runs the one final proof the verification-selection
+contract selects, exactly once; a full gate is not stacked on top of sufficient
+affected proof.
+
+Proof freshness is defined by the identity dimensions a claim requires, not by
+session order. Content identity is frozen when the mutation phase completes, and
+each required heavy proof runs at most once while every identity dimension its
+claim requires stays unchanged. Distinct claims are not duplicate proof: the
+same frozen content may legitimately require hosted proof on each claimed
+platform, artifact generation, and deployment acceptance, because those claims
+require different identity tuples; waste is repeating one claim's proof, not
+establishing another claim. Committing that frozen tree changes provenance
+identity, not content identity: the new commit or reference is established by
+the cheap provenance check its claim requires while the existing content
+evidence is reused. A receipt is stale when it no longer describes the current
+tree and is never presented as current evidence; evidence is invalidated only
+when an identity dimension its claim requires actually changed. A prior green
+run is never evidence for changed content, and a summary of an earlier run is
+never a receipt.
+
+Never add a flag, environment variable, repository variable, skip input,
+fallback, or relaxed assertion so that a check passes. A break-glass control is
+owner-only, named as break-glass, fails closed toward the unsafe
+interpretation, and binds an audit receipt to each use. A control that can make
+a destructive plan appear safe is a defect regardless of intent.
+
+Execution waste is measurable. Record environment repair attempts, manual
+runtime or path correction, bootstrap prerequisites discovered during proof,
+normalization or generation performed after a retained proof, and heavy proof
+repeated for a claim whose required identities never changed. The steady state
+is zero of all five.
+
+`skills/repeatable-agent-execution/SKILL.md` supplies the procedure, composing
+with the proof-economy identity contract rather than replacing it. Compass owns
+the readiness, ordering, targeting, freshness, and break-glass contract.
+Consumers own the entrypoint name, command surface, language, runtime and
+launcher resolution mechanism, formatter, check inventory, and receipt storage.
+
 ## Shift to Authority
 
 Move a recurring standard, contract, implementation, or proof requirement from

@@ -3,13 +3,13 @@
   "schemaVersion": 1,
   "source": {
     "repository": "jasondockery/compass",
-    "commit": "f4745e19e1408ee19734a303332a9e3c966f9b7f",
-    "tree": "4a3e1bbbfede536ffa2ca11a2f7a5b20efd876e3",
-    "fingerprintSha256": "b52c007c599419d668d500e20e35fddd5fea2eadf1a1e2302863f13804893aba",
+    "commit": "aaab0491035f35e952e2c40aa4f9e0f2e4195481",
+    "tree": "a5a3e523eaba23f97920b4cb5c8fd21f55aabb1d",
+    "fingerprintSha256": "ba5806a819407e00377ea24066c99b56ab560ba5ac0c2cff3e67659462b617ad",
     "dirty": false
   },
-  "artifactSha256": "fac8d5d863cccde66903320db6abb251e4875afac4b83a2c9238c6bd19d56335",
-  "artifactBytes": 568892,
+  "artifactSha256": "a1282df3dec13ab146ffbaa7e3a45e119d7dd546e5eb32407a87d35cfff1e440",
+  "artifactBytes": 602751,
   "includedFiles": [
     {
       "path": ".agents/skills/accessible-product-development/SKILL.md",
@@ -65,6 +65,11 @@
       "path": ".agents/skills/privacy-by-design/SKILL.md",
       "sha256": "8435848ee474cbca36e5608ee63f68efcd308e81fcfb18502bf68d3451a61c6b",
       "bytes": 483
+    },
+    {
+      "path": ".agents/skills/repeatable-agent-execution/SKILL.md",
+      "sha256": "38751ee323cb45252c93d11d4dea2f8c0848d14a1f44e2089e70d0366478e26a",
+      "bytes": 676
     },
     {
       "path": ".agents/skills/reviewable-agent-workspaces/SKILL.md",
@@ -142,6 +147,11 @@
       "bytes": 483
     },
     {
+      "path": ".claude/skills/repeatable-agent-execution/SKILL.md",
+      "sha256": "38751ee323cb45252c93d11d4dea2f8c0848d14a1f44e2089e70d0366478e26a",
+      "bytes": 676
+    },
+    {
       "path": ".claude/skills/reviewable-agent-workspaces/SKILL.md",
       "sha256": "02dc95c668c4bcd1ea314dae48adeeba3bbe48a226d8db7969426f08bbe774c9",
       "bytes": 772
@@ -163,8 +173,8 @@
     },
     {
       "path": "COMPASS.md",
-      "sha256": "cb17a4845870fd3342199b17d10f25d3a73d56692d6dc935bfed71b102fc0a6e",
-      "bytes": 36339
+      "sha256": "f71a9ba1c80cc2e37d391f0c1152e67df4f340a9ffc27abd201a7242f8d00da0",
+      "bytes": 42900
     },
     {
       "path": "TERMINOLOGY.md",
@@ -173,8 +183,8 @@
     },
     {
       "path": "agent-routing-surfaces.json",
-      "sha256": "c5ea98ca7a5b62fd13c711870f1786c2026e1a080162bdf4d742d29249579cbe",
-      "bytes": 11388
+      "sha256": "ab8768a51a9871ca828db3249d27d1c358c12cc6385760a626d55ee11e2536a1",
+      "bytes": 11808
     },
     {
       "path": "ai-workload-policy.json",
@@ -188,8 +198,8 @@
     },
     {
       "path": "authority-registry.json",
-      "sha256": "ebe342228ebc6a9d160b29b5302d2e83c1950dfbcac6c7b3ff8d6fa38d2f2988",
-      "bytes": 37403
+      "sha256": "52868beb9790965221d7ed426c5d7ecdc0695a4f65bb26aa2ae2d9bd881ed491",
+      "bytes": 43284
     },
     {
       "path": "authority-registry.schema.json",
@@ -233,8 +243,8 @@
     },
     {
       "path": "scripts/check-projection.mjs",
-      "sha256": "3c35a06ff08b7da01a4203a5568033f30e142a2edc61fdaed85a74b1780da37f",
-      "bytes": 80063
+      "sha256": "53d05740e00d131850fe205e6e4ca791d1d3f62d429ce4daaa7344316be5cf3e",
+      "bytes": 81048
     },
     {
       "path": "scripts/validate-json-schema.mjs",
@@ -352,6 +362,16 @@
       "bytes": 204
     },
     {
+      "path": "skills/repeatable-agent-execution/SKILL.md",
+      "sha256": "cb94cf5a877a32703f20da73dd08ab5a38b6e8c5fe29b4bc626be4161b84abb1",
+      "bytes": 9203
+    },
+    {
+      "path": "skills/repeatable-agent-execution/agents/openai.yaml",
+      "sha256": "7ddc0a27e88281e10536c34764b209341c5a2680a8f93922300b3d191248a2ed",
+      "bytes": 360
+    },
+    {
       "path": "skills/reviewable-agent-workspaces/SKILL.md",
       "sha256": "cc663ed8100e3049a4f1d4f7261dcb429ece04bf22ec4224a2341f9a7d757edb",
       "bytes": 7182
@@ -394,7 +414,7 @@
   ],
   "validation": {
     "result": "passed",
-    "receiptSha256": "f3d7d028e44784997d2ea5afa719e13b31a8960bca0b2f512c30cadbe8e3131f",
+    "receiptSha256": "ac47b69e8691c95de911c4750409b8c2f15fbf7fc14641703f7ade5e15334dd7",
     "command": "scripts/validate-compass"
   }
 }

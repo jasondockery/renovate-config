@@ -43,7 +43,10 @@ an implementation workspace, worktree writer, review surface, ownership
 handoff, or proof-only temporary checkout. Load
 `skills/concurrent-agent-runtimes/SKILL.md` before starting or diagnosing
 processes, services, endpoints, containers, sockets, temporary state, or other
-runtime resources shared with concurrent repositories and agents.
+runtime resources shared with concurrent repositories and agents. Load
+`skills/repeatable-agent-execution/SKILL.md` before the first edit in a
+checkout or worktree, before final proof, and whenever setup, a check suite,
+or a skip control is costing repeated rework.
 The complete receipt-bound shared-skill inventory is discoverable through both
 `.agents/skills` and `.claude/skills`; those adapters resolve to the same
 canonical `skills/` tree and are checked mechanically.

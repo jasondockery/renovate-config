@@ -34,11 +34,17 @@ export const COMPASS_SKILL_NAMES = Object.freeze([
   'internationalization-first',
   'performance-sensitive-change',
   'privacy-by-design',
+  'repeatable-agent-execution',
   'reviewable-agent-workspaces',
   'secure-by-design',
   'shift-to-authority',
   'verification-selection',
 ])
+// A nominated Shift to Authority candidate is reviewable in source but is not
+// projected, routed, or discoverable by a consumer. Consumer movement begins
+// only after an issued identity-bound handoff, so distribution waits for
+// issuance rather than following the draft.
+export const COMPASS_PRE_ISSUANCE_SKILL_NAMES = Object.freeze([])
 export const COMPASS_AGENT_ROUTING_AUTHORITIES = Object.freeze([
   Object.freeze({ candidateId: 'sta-compass-reviewable-agent-workspaces', canonicalSkillPath: 'skills/reviewable-agent-workspaces/SKILL.md', canonicalSkillSha256: 'cc663ed8100e3049a4f1d4f7261dcb429ece04bf22ec4224a2341f9a7d757edb', versionBinding: 'canonical-skill-sha256-and-receipt-source-identity' }),
   Object.freeze({ candidateId: 'sta-compass-concurrent-agent-runtimes', canonicalSkillPath: 'skills/concurrent-agent-runtimes/SKILL.md', canonicalSkillSha256: 'bd48f511a5c6a6e7af64d7613113c018be68206aba5ff23d2198cea32a818158', versionBinding: 'canonical-skill-sha256-and-receipt-source-identity' }),
@@ -55,6 +61,7 @@ export const COMPASS_AGENT_ROUTING_SKILLS = Object.freeze([
   Object.freeze({ name: 'internationalization-first', canonicalSkillPath: 'skills/internationalization-first/SKILL.md', canonicalSkillSha256: '8d3916165311db1afd23fe01567decd4c14da5e8bded0de66d5889c67017c99f' }),
   Object.freeze({ name: 'performance-sensitive-change', canonicalSkillPath: 'skills/performance-sensitive-change/SKILL.md', canonicalSkillSha256: '7ba39bdba1a07077e367d81e167de7db1ad4cc5e74226c43e70345e7f349802a' }),
   Object.freeze({ name: 'privacy-by-design', canonicalSkillPath: 'skills/privacy-by-design/SKILL.md', canonicalSkillSha256: '86939dc78d5410c163cd540e514534ca2240558fc0736ab20a47f5c05d73f493' }),
+  Object.freeze({ name: 'repeatable-agent-execution', canonicalSkillPath: 'skills/repeatable-agent-execution/SKILL.md', canonicalSkillSha256: 'cb94cf5a877a32703f20da73dd08ab5a38b6e8c5fe29b4bc626be4161b84abb1' }),
   Object.freeze({ name: 'reviewable-agent-workspaces', canonicalSkillPath: 'skills/reviewable-agent-workspaces/SKILL.md', canonicalSkillSha256: 'cc663ed8100e3049a4f1d4f7261dcb429ece04bf22ec4224a2341f9a7d757edb' }),
   Object.freeze({ name: 'secure-by-design', canonicalSkillPath: 'skills/secure-by-design/SKILL.md', canonicalSkillSha256: '031c59c6fbcd6209d6d07fa5ae46e800b14ad6540c3af6e3ab750bc6df57d8fe' }),
   Object.freeze({ name: 'shift-to-authority', canonicalSkillPath: 'skills/shift-to-authority/SKILL.md', canonicalSkillSha256: '4a28d226a46510671f2692e2e66e7c25499bfc8d36f5f41c2282fc13d5413af8' }),
@@ -62,7 +69,12 @@ export const COMPASS_AGENT_ROUTING_SKILLS = Object.freeze([
 ])
 export const COMPASS_AGENT_ROUTING_AUTHORITY = COMPASS_AGENT_ROUTING_AUTHORITIES[1]
 export const COMPASS_AGENT_ROUTED_SKILLS = COMPASS_SKILL_NAMES
-const COMPASS_AGENT_INSTRUCTION_SKILLS = Object.freeze(['reviewable-agent-workspaces', 'concurrent-agent-runtimes'])
+const COMPASS_AGENT_INSTRUCTION_SKILLS = Object.freeze(['reviewable-agent-workspaces', 'concurrent-agent-runtimes', 'repeatable-agent-execution'])
+const COMPASS_INSTRUCTION_COPIED_POLICY_PHRASES = Object.freeze({
+  'reviewable-agent-workspaces': 'Assign exactly one active writable ownership principal and its declared process tree to each worktree.',
+  'concurrent-agent-runtimes': 'Correctness must never require an otherwise idle host.',
+  'repeatable-agent-execution': 'A repository teaches its execution contract once, mechanically.',
+})
 export const COMPASS_AGENT_ROUTING_PHYSICAL_ROUTES = Object.freeze([
   Object.freeze({ id: 'agents-md', canonicalPaths: Object.freeze(['AGENTS.md']), routingMechanism: 'instruction-pointer', ownership: 'consumer-owned-route-only', distribution: 'consumer-reconciliation', routedSkills: COMPASS_AGENT_INSTRUCTION_SKILLS, exactValidation: 'compass-simulated-consumer-instruction-discovery' }),
   Object.freeze({ id: 'agents-skills', canonicalPaths: Object.freeze(COMPASS_SKILL_NAMES.map((name) => `.agents/skills/${name}/SKILL.md`)), routingMechanism: 'skill-directory-adapter', ownership: 'compass-projected-route-only', distribution: 'projected', routedSkills: COMPASS_AGENT_ROUTED_SKILLS, exactValidation: 'receipt-bound-executable-discovery' }),
@@ -744,10 +756,9 @@ export function inspectAgentRoutingDiscovery(root, inventory, { includeSourceOnl
           const count = instructionText.split(pointer).length - 1
           if (count !== 1) problems.push(`agent discovery instruction pointer count differs for ${ecosystem.id}/${skillName}: ${count}`)
           else discovered.push({ kind: 'instruction-pointer', path: instructionPath, identity: expectedIdentity })
-          const copiedPolicyPhrase = skillName === 'reviewable-agent-workspaces'
-            ? 'Assign exactly one active writable ownership principal and its declared process tree to each worktree.'
-            : 'Correctness must never require an otherwise idle host.'
-          if (instructionText.includes(copiedPolicyPhrase)) problems.push(`agent discovery instruction pointer copies canonical policy for ${ecosystem.id}/${skillName}`)
+          const copiedPolicyPhrase = COMPASS_INSTRUCTION_COPIED_POLICY_PHRASES[skillName]
+          if (!copiedPolicyPhrase) problems.push(`agent discovery instruction pointer has no copied-policy probe for ${ecosystem.id}/${skillName}`)
+          else if (instructionText.includes(copiedPolicyPhrase)) problems.push(`agent discovery instruction pointer copies canonical policy for ${ecosystem.id}/${skillName}`)
         } else {
           for (const candidatePath of route.canonicalPaths.filter((candidatePath) => candidatePath.endsWith(`/skills/${skillName}/SKILL.md`))) {
             if (!fs.existsSync(path.join(discoveryRoot, candidatePath))) continue

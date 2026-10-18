@@ -141,6 +141,28 @@ export function summarizeChecks(statusCheckRollup) {
   if (values.some((value) => ['', 'EXPECTED', 'PENDING', 'QUEUED', 'IN_PROGRESS', 'REQUESTED', 'WAITING'].includes(value))) {
     return 'pending'
   }
+  if (values.some((value) => !['SUCCESS', 'NEUTRAL', 'SKIPPED'].includes(value))) return 'unknown'
+  return 'passed'
+}
+
+export function summarizeConsumerCi(pr) {
+  const observed = summarizeChecks(pr.statusCheckRollup)
+  if (observed !== 'passed') return observed
+  const evidence = pr.ciEvidence
+  if (!evidence?.complete || evidence.headSha !== pr.headRefOid || evidence.baseRefName !== pr.baseRefName ||
+      !Array.isArray(evidence.requiredChecks) || evidence.requiredChecks.length === 0 || !Array.isArray(evidence.checks)) return 'unknown'
+  const state = summarizeChecks(evidence.checks)
+  if (state !== 'passed') return state
+  for (const required of evidence.requiredChecks) {
+    if (typeof required.context !== 'string' || !required.context ||
+        (required.appId !== null && (!Number.isSafeInteger(required.appId) || required.appId <= 0))) return 'unknown'
+    const matches = evidence.checks.filter((check) => check.name === required.context &&
+      check.headSha === pr.headRefOid && (required.appId === null || check.appId === required.appId))
+    if (matches.length === 0) return 'pending'
+    // A required gate must execute successfully. A skipped or neutral gate is
+    // not consumer acceptance even where GitHub permits merging it.
+    if (matches.some((check) => check.status !== 'COMPLETED' || check.conclusion !== 'SUCCESS')) return 'pending'
+  }
   return 'passed'
 }
 
@@ -337,7 +359,8 @@ export function auditSystem({ run, receipt, repositories, policy }) {
       state: prState(pr),
       closedAt: pr.closedAt ?? null,
       mergedAt: pr.mergedAt ?? null,
-      checks: summarizeChecks(pr.statusCheckRollup),
+      checks: summarizeConsumerCi(pr),
+      checkEvidenceProblem: pr.ciEvidence?.problem ?? null,
     }))
     const matchedOpenBranches = new Set(observedPrs.filter((pr) =>
       prState(pr) === 'OPEN' &&
@@ -349,7 +372,7 @@ export function auditSystem({ run, receipt, repositories, policy }) {
 
     for (const pr of attributable) {
       if (pr.checks === 'failed') problems.push(`PR #${pr.number} consumer CI failed`)
-      if (pr.checks === 'pending' || pr.checks === 'unknown') pending.push(`PR #${pr.number} consumer checks are ${pr.checks}`)
+      if (pr.checks === 'pending' || pr.checks === 'unknown') pending.push(`PR #${pr.number} consumer checks are ${pr.checks}; required gates at the exact PR head are not established${pr.checkEvidenceProblem ? `: ${pr.checkEvidenceProblem}` : ''}`)
     }
     if (counts.pendingStatusChecks > 0) pending.push('pending internal checks do not prove publication age')
     if (counts.rateLimited > 0) pending.push('Renovate was rate limited')
@@ -528,6 +551,83 @@ function readDownloadedReceipt(run, gh) {
   }
 }
 
+const CONSUMER_CI_QUERY = `query($owner: String!, $name: String!, $branch: String!, $head: GitObjectID!) {
+  repository(owner: $owner, name: $name) {
+    ref(qualifiedName: $branch) {
+      branchProtectionRule { requiresStatusChecks requiredStatusChecks { context app { databaseId } } }
+    }
+    object(oid: $head) { ... on Commit {
+      oid
+      statusCheckRollup { contexts(first: 100) {
+        pageInfo { hasNextPage }
+        nodes {
+          __typename
+          ... on CheckRun { name status conclusion checkSuite { headSha app { databaseId } } }
+          ... on StatusContext { context state commit { oid } }
+        }
+      } }
+    } }
+  }
+}`
+
+export function collectPrCiEvidence(repository, pr, gh) {
+  const identity = { headSha: pr.headRefOid, baseRefName: pr.baseRefName }
+  try {
+    if (!/^[a-f0-9]{40}$/u.test(pr.headRefOid ?? '') || typeof pr.baseRefName !== 'string' || !pr.baseRefName) throw new Error('PR head or base identity is missing')
+    const [owner, name] = repository.split('/')
+    const response = parseJson(gh([
+      'api', 'graphql', '-f', `query=${CONSUMER_CI_QUERY}`,
+      '-f', `owner=${owner}`, '-f', `name=${name}`,
+      '-f', `branch=refs/heads/${pr.baseRefName}`, '-f', `head=${pr.headRefOid}`,
+    ]), `${repository} required-check evidence`)
+    const source = response.data?.repository
+    if (response.errors?.length || !source?.ref || source.object?.oid !== pr.headRefOid) throw new Error('required-check response does not bind the requested head and base')
+    const classic = source.ref.branchProtectionRule
+    if (classic !== null && typeof classic?.requiresStatusChecks !== 'boolean') throw new Error('classic branch protection is unreadable')
+    const requiredChecks = []
+    const addRequired = (context, appId) => {
+      if (typeof context !== 'string' || !context || (appId !== null && (!Number.isSafeInteger(appId) || appId <= 0))) throw new Error('required-check contract is malformed')
+      if (!requiredChecks.some((entry) => entry.context === context && entry.appId === appId)) requiredChecks.push({ context, appId })
+    }
+    if (classic?.requiresStatusChecks) {
+      if (!Array.isArray(classic.requiredStatusChecks)) throw new Error('classic required-check list is unreadable')
+      for (const check of classic.requiredStatusChecks) addRequired(check.context, check.app === null ? null : check.app?.databaseId)
+    }
+    // This endpoint resolves active repository and inherited rules for the
+    // actual base branch; evaluate/disabled rules are not acceptance authority.
+    const pages = parseJson(gh([
+      'api', '--paginate', '--slurp',
+      `repos/${repository}/rules/branches/${encodeURIComponent(pr.baseRefName)}?per_page=100`,
+    ]), `${repository} applicable branch rules`)
+    if (!Array.isArray(pages) || pages.length === 0 || pages.some((page) => !Array.isArray(page))) throw new Error('applicable branch rules are unreadable')
+    for (const rule of pages.flat()) {
+      if (rule.type === 'workflows') throw new Error('required-workflow rules need separate workflow acceptance evidence')
+      if (rule.type !== 'required_status_checks') continue
+      if (!Array.isArray(rule.parameters?.required_status_checks)) throw new Error('ruleset required-check list is unreadable')
+      for (const check of rule.parameters.required_status_checks) addRequired(check.context, check.integration_id ?? null)
+    }
+    const rollup = source.object.statusCheckRollup
+    const contexts = rollup?.contexts
+    if (rollup !== null && (!Array.isArray(contexts?.nodes) || contexts.pageInfo?.hasNextPage !== false)) throw new Error('exact-head check collection is missing or truncated')
+    const checks = (contexts?.nodes ?? []).map((check) => {
+      if (check.__typename === 'CheckRun') return {
+        name: check.name, status: check.status, conclusion: check.conclusion,
+        headSha: check.checkSuite?.headSha, appId: check.checkSuite?.app?.databaseId ?? null,
+      }
+      if (check.__typename === 'StatusContext') return {
+        name: check.context, status: 'COMPLETED', conclusion: check.state,
+        headSha: check.commit?.oid, appId: null,
+      }
+      throw new Error('unrecognized exact-head check type')
+    })
+    return { ...identity, complete: true, requiredChecks, checks,
+      problem: requiredChecks.length === 0 ? 'base branch declares no required CI gate' : null }
+  } catch (error) {
+    return { ...identity, complete: false, requiredChecks: [], checks: [],
+      problem: String(error instanceof Error ? error.message : error).slice(0, 300) }
+  }
+}
+
 function collectRepository(repository, gh) {
   const issues = parseJson(gh([
     'issue', 'list', '--repo', repository, '--state', 'open',
@@ -543,6 +643,9 @@ function collectRepository(repository, gh) {
   const refs = parseJson(gh([
     'api', `repos/${repository}/git/matching-refs/heads/${BRANCH_PREFIX}`,
   ]), `${repository} Renovate branches`)
+  for (const pr of pullRequests) {
+    if (pr.headRefName?.startsWith(BRANCH_PREFIX) && validRenovatePrIdentity(pr)) pr.ciEvidence = collectPrCiEvidence(repository, pr, gh)
+  }
   return {
     repository,
     dashboard: dashboards[0] ?? null,

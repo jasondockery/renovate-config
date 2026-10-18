@@ -172,7 +172,9 @@ sanitized artifact to the exact workflow run, then reports per consumer:
   age comparison is required before calling a pending check "too young";
 - open Renovate branches plus open, merged, and closed pull requests bound to
   bot author, base, head SHA, state, and selected-run timing; only an open PR
-  requires its remote branch to remain present;
+  requires its remote branch to remain present. A PR closed without merge is
+  lifecycle evidence only: historical red CI on a superseded update is not a
+  current acceptance failure, and its closure never proves consumer compatibility;
 - exact-head PR check state bound to the union of classic and active ruleset
   required checks, including any required App identity; optional success cannot
   replace an absent gate, and unknown or skipped required results do not prove

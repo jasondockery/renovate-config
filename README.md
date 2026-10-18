@@ -59,13 +59,13 @@ receipt.
 
 Shared dependency-update automation for the owner's repositories.
 
-This repo has seven moving pieces:
+The main pieces are:
 
 - `AI_THESIS.md` is the enduring goal and real-world definition of success;
   `CHARTER.md` owns detailed scope, governance, and proof boundaries.
 
 - `default.json` is the shared Renovate preset consumed by owner repos such as
-  `jasondockery/roost` and `jasondockery/groundwork`.
+  `jasondockery/roost` and the maintained `groundwork-*` environments.
 - `runner.json` is the self-hosted Renovate runner config. It contains only
   runner behavior, not dependency policy.
 - `.github/workflows/renovate.yml` runs self-hosted Renovate once daily plus
@@ -73,15 +73,36 @@ This repo has seven moving pieces:
   creation on every daily run after the reviewed strict five-day floor for
   normal npm major, minor, and patch updates.
 - `specs/renovate-system-acceptance.md` defines the observable end-to-end
-  contract across the runner and all three consumers.
+  contract across the runner and every managed repository.
 - `dependency-coverage.json`, the pinned-runtime fixture, and the bounded
   convention scanner define the reviewed ownership model. A separate
   manual-only latest-head compatibility workflow maps actual extraction for
-  all three repositories and records their exact tested identities. Its daily
+  the three Node/pnpm engines in `compatibility-targets.json` and records their
+  exact tested identities. Its daily
   schedule activates only after both consumer inventories land.
 - `.github/workflows/security-hygiene.yml` is the public reusable
-  implementation of the read-only security inbox for the same three
-  repositories. A private caller owns all execution and output.
+  implementation of the read-only security inbox for its separate
+  `SOURCE_POLICY` repository scope. A private caller owns all execution and output.
+
+## Groundwork repository split
+
+`managed-repositories.json` owns the runner's update targets and explicit retired
+repositories. The workflow and audit command must match it exactly. The original
+`jasondockery/groundwork` stays available for curriculum and history; this runner
+must not update it. Platform repositories own provisioning and migration from
+that checkout. Omarchy defaults and macOS equivalents are maintained there.
+
+Two other scopes have different purposes. `compatibility-targets.json` contains
+only the three Node/pnpm engines (`renovate-config`, `roost`, `groundwork-mac`)
+whose toolchain extraction is exercised by the compatibility watch. The smaller
+Groundwork repositories and Compass rely on their own relevant CI and real
+Renovate PR acceptance; they do not acquire Node or pnpm merely to be managed.
+`SOURCE_POLICY` retains the separate three-repository read-only security inbox,
+including historical Groundwork. Its private caller contract is unchanged.
+
+Repository additions, App installation access, consumer preset configuration,
+and a successful live run are separate activation prerequisites. New targets
+are not accepted as working until their own eligible Renovate PR passes CI.
 
 ## Runner identity & permissions
 
@@ -134,24 +155,21 @@ App setup (owner, one-time):
    added, widen the policy, workflow, installation grant, and this table in one
    reviewed change.
 3. Generate a private key (downloads a `.pem`).
-4. Install the App on exactly `renovate-config`, `roost`, and
-   `groundwork` — never "all repositories"; the install list is the
-   blast-radius boundary.
-   - First-time path after creating the app: open the app's settings page,
-     choose **Install App** in the left sidebar, then choose
-     **Install** next to `jasondockery`.
-   - If you are already on GitHub settings later:
-     Settings → Applications → Installed GitHub Apps → find this app →
-     **Configure**. Ignore unrelated installed apps such as Netlify,
-     Railway, or Vercel.
-   - On the install/configure screen, choose **Only select repositories**.
-   - Select exactly:
-     - `jasondockery/renovate-config`
-     - `jasondockery/roost`
-     - `jasondockery/groundwork`
-   - Save with **Install** or **Save**. If a new owner repo should be
-     managed later, add it here and update `RENOVATE_REPOSITORIES` in the
-     workflow in the same change.
+4. Configure **Only select repositories** for this App installation. Include
+   the union of `managed-repositories.json#repositories` (write/update targets)
+   and `tools/security-policy.mjs#SOURCE_POLICY` (read-only alert sources).
+   `groundwork` remains an alert source for historical security visibility; it
+   is excluded from the Renovate runner and receives no update commits or PRs.
+   - Settings → Applications → Installed GitHub Apps → this App → Configure.
+   - Add each selected repository explicitly, including the private Linux and
+     Windows repositories after they exist. Save the installation change.
+   - Keep the reviewed permission union above. Each minted job token narrows
+     its repository scope to its own canonical inventory; installation access
+     alone does not add a repository to either job.
+   - Before merging a target expansion, verify private repository existence and
+     installation access. After merging, manually run Renovate and inspect a
+     passed receipt row for every managed repository. Source validation and
+     synthetic fixtures do not prove installation grants or live processing.
 5. In this repo's `renovate` environment, add one variable and one secret:
    - Variable `RENOVATE_APP_CLIENT_ID`: the Client ID from the app's settings/About
      page. This is not the numeric installation ID in a URL such as

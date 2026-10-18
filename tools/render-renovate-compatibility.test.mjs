@@ -9,7 +9,7 @@ const fingerprint = `sha256:${'b'.repeat(64)}`
 const repositories = [
   'jasondockery/renovate-config',
   'jasondockery/roost',
-  'jasondockery/groundwork',
+  'jasondockery/groundwork-mac',
 ].map((repository) => ({
   repository,
   extractionTupleCount: 2,

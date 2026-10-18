@@ -1,5 +1,13 @@
 # Roadmap
 
+Current Groundwork split: `managed-repositories.json` owns the expanded update
+scope; original Groundwork is retired from update writes and retained as history.
+`compatibility-targets.json` remains the three-engine extraction scope. Historical
+three-consumer observations below are not acceptance for the expanded inventory.
+Private Linux/Windows creation, App installation grants, live run receipts, and
+real consumer PR CI remain required before claiming the expansion works.
+
+
 Follow-ups for this repository. `CHARTER.md` owns scope and distribution;
 `AGENTS.md` owns operating behavior. Check a box only after the work is
 verified, never aspirationally.

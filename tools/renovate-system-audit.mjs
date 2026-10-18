@@ -359,8 +359,10 @@ export function auditSystem({ run, receipt, repositories, policy }) {
       state: prState(pr),
       closedAt: pr.closedAt ?? null,
       mergedAt: pr.mergedAt ?? null,
-      checks: summarizeConsumerCi(pr),
-      checkEvidenceProblem: pr.ciEvidence?.problem ?? null,
+      checks: prState(pr) === 'CLOSED' ? 'unknown' : summarizeConsumerCi(pr),
+      checkEvidenceProblem: prState(pr) === 'CLOSED'
+        ? 'closed without merge; lifecycle evidence does not establish consumer compatibility'
+        : pr.ciEvidence?.problem ?? null,
     }))
     const matchedOpenBranches = new Set(observedPrs.filter((pr) =>
       prState(pr) === 'OPEN' &&
@@ -562,7 +564,7 @@ const CONSUMER_CI_QUERY = `query($owner: String!, $name: String!, $branch: Strin
         pageInfo { hasNextPage }
         nodes {
           __typename
-          ... on CheckRun { name status conclusion checkSuite { headSha app { databaseId } } }
+          ... on CheckRun { name status conclusion checkSuite { commit { oid } app { databaseId } } }
           ... on StatusContext { context state commit { oid } }
         }
       } }
@@ -619,7 +621,7 @@ export function collectPrCiEvidence(repository, pr, gh, { requirementCache = new
     const checks = (contexts?.nodes ?? []).map((check) => {
       if (check.__typename === 'CheckRun') return {
         name: check.name, status: check.status, conclusion: check.conclusion,
-        headSha: check.checkSuite?.headSha, appId: check.checkSuite?.app?.databaseId ?? null,
+        headSha: check.checkSuite?.commit?.oid, appId: check.checkSuite?.app?.databaseId ?? null,
       }
       if (check.__typename === 'StatusContext') return {
         name: check.context, status: 'COMPLETED', conclusion: check.state,
@@ -659,7 +661,9 @@ export function collectRepository(repository, gh, run) {
   const finished = new Date(run.updatedAt)
   const requirementCache = new Map()
   for (const pr of pullRequests) {
-    if (attributablePr(pr, branchByName, started, finished)) pr.ciEvidence = collectPrCiEvidence(repository, pr, gh, { requirementCache })
+    if (prState(pr) !== 'CLOSED' && attributablePr(pr, branchByName, started, finished)) {
+      pr.ciEvidence = collectPrCiEvidence(repository, pr, gh, { requirementCache })
+    }
   }
   return {
     repository,

@@ -38,7 +38,7 @@ jobs:
       LOG_FILE_LEVEL: debug
       # Every targeted repo carries its own renovate.json; never open
       # onboarding PRs from this runner.
-      RENOVATE_REPOSITORIES: jasondockery/renovate-config,jasondockery/roost,jasondockery/groundwork
+      RENOVATE_REPOSITORIES: jasondockery/renovate-config,jasondockery/roost,jasondockery/groundwork-mac,jasondockery/groundwork-core,jasondockery/groundwork-omarchy-mac-arm64,jasondockery/compass,jasondockery/groundwork-linux,jasondockery/groundwork-windows
     steps:
       - name: Record runner start
         id: job-start
@@ -106,7 +106,7 @@ jobs:
 
       - name: Install Node
         id: node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .node-version
 
@@ -161,12 +161,12 @@ jobs:
 
       - name: Mint runner token (GitHub App)
         id: app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           client-id: ${{ vars.RENOVATE_APP_CLIENT_ID }}
           private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
           owner: jasondockery
-          repositories: renovate-config,roost,groundwork
+          repositories: renovate-config,roost,groundwork-mac,groundwork-core,groundwork-omarchy-mac-arm64,compass,groundwork-linux,groundwork-windows
           permission-administration: read
           permission-checks: write
           permission-contents: write
@@ -195,7 +195,7 @@ jobs:
 
       - name: Run Renovate
         id: renovate
-        uses: renovatebot/github-action@e09d604f8f803bb527bd8321ed5be06c460b8682 # v46.2.2
+        uses: renovatebot/github-action@f0f41e5f2e706165f6814b1d0f0d0e319de7d1d9 # v46.3.8
         with:
           # Root inside the container must never receive a writable mount of
           # the checked-out source tree. The action mounts this disposable
@@ -317,7 +317,7 @@ jobs:
 
       - name: Upload sanitized run receipt
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: renovate-run-receipt-${{ github.run_id }}-${{ github.run_attempt }}
           path: renovate-run-receipt.json

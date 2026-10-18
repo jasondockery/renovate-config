@@ -2,3 +2,4 @@
 # must not synthesize a lockfile, modules directory, or local store.
 verifyDepsBeforeRun: false
 enableModulesDir: false
+lockfile: false

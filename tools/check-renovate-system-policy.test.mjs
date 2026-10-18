@@ -16,6 +16,7 @@ const required = [
   'package.json',
   'dependency-coverage.json',
   'compatibility-targets.json',
+  'managed-repositories.json',
   '.github/workflows/renovate.yml',
   '.github/workflows/renovate-compatibility.yml',
   '.github/workflows/security-hygiene.yml',
@@ -95,8 +96,8 @@ test('rejects schedule, activation, scope, security, and manager-coverage drift'
   await context.test('consumer scope', (subcontext) => {
     const root = fixture(subcontext)
     const file = path.join(root, '.github/workflows/renovate.yml')
-    fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace(',jasondockery/groundwork', ''))
-    assert.match(collectRenovateSystemPolicyProblems(root).join('\n'), /must exactly match compatibility-targets\.json/)
+    fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace(',jasondockery/groundwork-mac', ''))
+    assert.match(collectRenovateSystemPolicyProblems(root).join('\n'), /must exactly match its canonical repository inventory/)
   })
 
   await context.test('latest-head compatibility scope', (subcontext) => {
@@ -146,8 +147,9 @@ test('rejects schedule, activation, scope, security, and manager-coverage drift'
 
 test('binds every GitHub App repository scope to compatibility-targets.json', async (context) => {
   const runnerFile = '.github/workflows/renovate.yml'
-  const canonicalSlugs = 'jasondockery/renovate-config,jasondockery/roost,jasondockery/groundwork'
-  const canonicalNames = 'renovate-config,roost,groundwork'
+  const managed = JSON.parse(fs.readFileSync(path.join(repoRoot, 'managed-repositories.json'), 'utf8')).repositories
+  const canonicalSlugs = managed.join(',')
+  const canonicalNames = managed.map((repository) => repository.split('/')[1]).join(',')
   const runnerScopeMutations = {
     missing: 'jasondockery/renovate-config,jasondockery/roost',
     extra: `${canonicalSlugs},jasondockery/unmanaged`,
@@ -173,11 +175,11 @@ test('binds every GitHub App repository scope to compatibility-targets.json', as
     [runnerFile, 'Mint runner token (GitHub App)', 'roost,groundwork', /Mint runner token/],
     [runnerFile, 'Mint runner token (GitHub App)', `${canonicalNames},unmanaged`, /Mint runner token/],
     [runnerFile, 'Mint runner token (GitHub App)', `${canonicalNames},roost`, /duplicate repository/],
-    [runnerFile, 'Mint runner token (GitHub App)', 'roost,renovate-config,groundwork', /repository order differs/],
+    [runnerFile, 'Mint runner token (GitHub App)', [...managed].reverse().map((repository) => repository.split('/')[1]).join(','), /repository order differs/],
     [runnerFile, 'Mint runner token (GitHub App)', 'renovate-config,INVALID,groundwork', /malformed repository/],
-    ['.github/workflows/renovate-compatibility.yml', 'Mint read-only consumer token', 'groundwork,roost', /repository order differs/],
+    ['.github/workflows/renovate-compatibility.yml', 'Mint read-only consumer token', 'groundwork-mac,roost', /repository order differs/],
     ['.github/workflows/security-hygiene.yml', 'Mint alerts token (GitHub App)', 'renovate-config,roost', /Mint alerts token/],
-    ['.github/workflows/security-hygiene.yml', 'Mint code-scanning token (GitHub App)', 'renovate-config,groundwork,roost', /repository order differs/],
+    ['.github/workflows/security-hygiene.yml', 'Mint code-scanning token (GitHub App)', 'renovate-config,roost,groundwork', /repository order differs/],
     ['.github/workflows/security-hygiene.yml', 'Mint secret-scanning token (GitHub App)', `${canonicalNames},unmanaged`, /Mint secret-scanning token/],
   ]
   for (const [relativePath, stepName, repositories, expected] of tokenCases) {
@@ -193,7 +195,7 @@ test('binds every GitHub App repository scope to compatibility-targets.json', as
     const file = path.join(root, runnerFile)
     const source = fs.readFileSync(file, 'utf8')
     fs.writeFileSync(file, source.replace('          owner: jasondockery\n', '          owner: other-owner\n'))
-    assert.match(collectRenovateSystemPolicyProblems(root).join('\n'), /owner must match compatibility-targets\.json/)
+    assert.match(collectRenovateSystemPolicyProblems(root).join('\n'), /owner must match the canonical inventory/)
   })
 })
 

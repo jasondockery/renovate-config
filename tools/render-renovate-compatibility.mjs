@@ -6,7 +6,7 @@ import { isMainModule } from './is-main.mjs'
 const EXPECTED_REPOSITORIES = Object.freeze([
   'jasondockery/renovate-config',
   'jasondockery/roost',
-  'jasondockery/groundwork',
+  'jasondockery/groundwork-mac',
 ])
 const SHA = /^[0-9a-f]{40}$/u
 const FINGERPRINT = /^sha256:[0-9a-f]{64}$/u

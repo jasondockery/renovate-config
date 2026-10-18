@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "repositories": [
+    "jasondockery/renovate-config",
+    "jasondockery/roost",
+    "jasondockery/groundwork-mac",
+    "jasondockery/groundwork-core",
+    "jasondockery/groundwork-omarchy-mac-arm64",
+    "jasondockery/compass",
+    "jasondockery/groundwork-linux",
+    "jasondockery/groundwork-windows"
+  ],
+  "retiredRepositories": ["jasondockery/groundwork"]
+}

@@ -57,7 +57,7 @@ observable contract and evidence matrix are in
 - The cross-repository acceptance contract, read-only post-run audit, and
   controlled canary design
 - The read-only security-hygiene source policy, report implementation, and
-  reusable workflow for the same enumerated repositories
+  reusable workflow for the separately enumerated alert sources
 
 ## Does not own
 
@@ -90,10 +90,19 @@ caller independently proves its source scope and explicit named delivery.
 
 ## Consumers
 
-`jasondockery/renovate-config`, `jasondockery/roost`, and
-`jasondockery/groundwork`, enumerated in `RENOVATE_REPOSITORIES` in the runner
-workflow and `SOURCE_POLICY` in `tools/security-policy.mjs`. Each consumer
-carries its own `renovate.json`; the runner never opens onboarding PRs.
+`managed-repositories.json` is the canonical write/update scope. The runner
+workflow and system audit match that inventory exactly. Each consumer carries
+its own Renovate configuration; the runner never opens onboarding PRs.
+`jasondockery/groundwork` is explicitly retired from this update scope and stays
+available for historical curriculum without source changes.
+
+`compatibility-targets.json` separately enumerates the three Node/pnpm engines
+whose extraction is checked by the compatibility workflow. It is a subset of
+the managed inventory, not a universal runtime prerequisite. Other repositories
+prove their relevant dependencies through their own CI and real update PRs.
+`SOURCE_POLICY` in `tools/security-policy.mjs` independently owns the read-only
+security inbox scope; historical Groundwork remains there. App installation
+access covers the union, while each job token is narrowed to its own scope.
 
 Global `allowedCommands` applies to every consumer, and an allowlisted
 repository-owned script executes inside Renovate's trust context. The
@@ -176,7 +185,7 @@ same thing in all three, so each says what it actually exercised.
    the exact `.renovate-version` once, exercise synthetic extraction, and
    strict-validate configs. It proves only the exact
    renovate-config SHA. **Latest-head compatibility** is a separate
-   activation-gated watch that maps actual extraction from all three checkouts
+   activation-gated watch that maps actual extraction from the three engine checkouts
    to their inventories and records exact consumer SHAs plus before/after status
    and bounded fingerprints. Its result is exact for the recorded checkout
    identities, not reusable proof for later default-branch heads.

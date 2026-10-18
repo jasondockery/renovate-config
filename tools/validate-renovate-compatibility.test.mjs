@@ -9,7 +9,7 @@ import {
   validateCompatibilityReportPath,
 } from './validate-renovate-compatibility.mjs'
 
-const REPOSITORIES = ['jasondockery/renovate-config', 'jasondockery/roost', 'jasondockery/groundwork']
+const REPOSITORIES = ['jasondockery/renovate-config', 'jasondockery/roost', 'jasondockery/groundwork-mac']
 const PREFIX = 'RENOVATE_COVERAGE_EVIDENCE '
 
 function evidenceLine(rows) {
@@ -80,7 +80,7 @@ test('coverage evidence rejects duplicate, missing, and non-integer counts', () 
   for (const bad of [{ tuples: -1 }, { tuples: 1.5 }, { declarations: null }, { scanHits: '3' }]) {
     assert.throws(
       () => parseCoverageEvidence(evidenceLine(rows({ [REPOSITORIES[2]]: bad })), REPOSITORIES),
-      /invalid for jasondockery\/groundwork/
+      /invalid for jasondockery\/groundwork-mac/
     )
   }
 })

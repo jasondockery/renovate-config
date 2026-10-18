@@ -4,6 +4,8 @@ import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { isMainModule } from './is-main.mjs'
+import { loadManagedRepositories } from './managed-repositories.mjs'
+import { SOURCE_POLICY } from './security-policy.mjs'
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const EXPECTED_CRON = '17 1 * * *'
@@ -48,7 +50,7 @@ function requireExactRepositoryOrder(actual, expected, label, problems) {
     extra.length > 0 ? `extra ${extra.join(', ')}` : '',
     sameMembers ? 'repository order differs' : '',
   ].filter(Boolean).join('; ')
-  problems.push(`${label} must exactly match compatibility-targets.json in order${detail ? `: ${detail}` : ''}.`)
+  problems.push(`${label} must exactly match its canonical repository inventory in order${detail ? `: ${detail}` : ''}.`)
 }
 
 function workflowStepBlocks(workflow) {
@@ -69,7 +71,7 @@ function checkTokenRepositoryScopes(workflow, relativePath, expectedOwner, expec
     const label = `${relativePath} ${name}`
     const owner = /^\s+owner:\s*([^\s#]+).*$/mu.exec(step)?.[1]
     if (owner !== expectedOwner) {
-      problems.push(`${label} owner must match compatibility-targets.json owner ${expectedOwner}.`)
+      problems.push(`${label} owner must match the canonical inventory owner ${expectedOwner}.`)
     }
     const rawRepositories = /^\s+repositories:\s*([^#\n]+?)(?:\s+#.*)?$/mu.exec(step)?.[1]?.trim()
     const repositories = parseRepositoryList(rawRepositories, `${label} repositories`, problems, REPOSITORY_NAME)
@@ -134,7 +136,17 @@ export function collectRenovateSystemPolicyProblems(root = repositoryRoot) {
   const targetOwners = [...new Set(targetRepositories.map((repository) => repository.split('/')[0]))]
   const targetOwner = targetOwners.length === 1 ? targetOwners[0] : ''
   if (!targetOwner) problems.push('compatibility-targets.json repositories must share one GitHub owner.')
-  const targetNames = targetRepositories.map((repository) => repository.split('/')[1])
+  let managedRepositories = []
+  try {
+    managedRepositories = loadManagedRepositories(root)
+    if (targetRepositories.some((repository) => !managedRepositories.includes(repository))) {
+      problems.push('compatibility targets must be a subset of managed dependency-update repositories.')
+    }
+  } catch (error) {
+    problems.push(`managed repository scope is invalid: ${error.message}`)
+  }
+  const managedOwner = managedRepositories[0]?.split('/')[0]
+  const managedNames = managedRepositories.map((repository) => repository.split('/')[1])
   try {
     thesis = read(root, 'AI_THESIS.md')
     agentInstructions = read(root, 'AGENTS.md')
@@ -199,11 +211,11 @@ export function collectRenovateSystemPolicyProblems(root = repositoryRoot) {
     )
     requireExactRepositoryOrder(
       repositories,
-      targetRepositories,
+      managedRepositories,
       '.github/workflows/renovate.yml RENOVATE_REPOSITORIES',
       problems
     )
-    checkTokenRepositoryScopes(workflow, '.github/workflows/renovate.yml', targetOwner, targetNames, problems)
+    checkTokenRepositoryScopes(workflow, '.github/workflows/renovate.yml', managedOwner, managedNames, problems)
     if (!/cancel-in-progress:\s*false/u.test(workflow)) {
       problems.push('Renovate concurrency must keep cancel-in-progress false.')
     }
@@ -248,8 +260,8 @@ export function collectRenovateSystemPolicyProblems(root = repositoryRoot) {
     checkTokenRepositoryScopes(
       securityHygieneWorkflow,
       '.github/workflows/security-hygiene.yml',
-      targetOwner,
-      targetNames,
+      Object.keys(SOURCE_POLICY)[0].split('/')[0],
+      Object.keys(SOURCE_POLICY).map((repository) => repository.split('/')[1]),
       problems
     )
   }
@@ -263,7 +275,7 @@ export function collectRenovateSystemPolicyProblems(root = repositoryRoot) {
     !compatibilityWorkflow.includes('pnpm renovate:compatibility') ||
     !compatibilityWorkflow.includes('RENOVATE_COMPATIBILITY_REPORT') ||
     !compatibilityWorkflow.includes('repository: jasondockery/roost') ||
-    !compatibilityWorkflow.includes('repository: jasondockery/groundwork') ||
+    !compatibilityWorkflow.includes('repository: jasondockery/groundwork-mac') ||
     !compatibilityWorkflow.includes('permission-contents: read') ||
     !compatibilityWorkflow.includes('retention-days: 30') ||
     !compatibilityWorkflow.includes('path: renovate-config') ||

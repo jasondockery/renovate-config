@@ -202,7 +202,7 @@ test('daily creation rejects routine calendar deferral but retains weekly lockfi
 
 test('keeps stale dashboard evidence pending and fails absent or unrecognized evidence', () => {
   const stale = repositories({
-    'jasondockery/groundwork': {
+    'jasondockery/groundwork-mac': {
       dashboard: dashboard({ 'Detected Dependencies': 0 }, '2026-08-03T01:17:00Z'),
     },
   })
@@ -211,12 +211,12 @@ test('keeps stale dashboard evidence pending and fails absent or unrecognized ev
   assert.match(renderAudit(staleAudit), /predates the selected run/)
 
   const unrecognized = repositories({
-    'jasondockery/groundwork': { dashboard: dashboard({ Unknown: 1 }) },
+    'jasondockery/groundwork-mac': { dashboard: dashboard({ Unknown: 1 }) },
   })
   assert.equal(auditSystem({ run, receipt, repositories: unrecognized }).result, 'failed')
 
   const laterRun = repositories({
-    'jasondockery/groundwork': {
+    'jasondockery/groundwork-mac': {
       dashboard: dashboard({ 'Detected Dependencies': 0 }, '2026-08-04T02:00:00Z'),
     },
   })
@@ -239,7 +239,7 @@ test('parses real dashboard problem, error, migration, and blocked section shape
   assert.equal(counts.ignoredOrBlocked, 2)
 
   const state = repositories({
-    'jasondockery/groundwork': { dashboard: { ...dashboard({}), body: fixture.body } },
+    'jasondockery/groundwork-mac': { dashboard: { ...dashboard({}), body: fixture.body } },
   })
   const audit = auditSystem({ run, receipt, repositories: state })
   assert.equal(audit.result, 'failed')
@@ -428,7 +428,7 @@ test('fails an orphan branch and an old green PR cannot satisfy the current run'
       branches: [{ name: 'self-hosted-renovate/orphan', sha: 'c'.repeat(40) }],
       pullRequests: [],
     },
-    'jasondockery/groundwork': {
+    'jasondockery/groundwork-mac': {
       dashboard: dashboard({ Open: 1 }),
       branches: [{ name: 'self-hosted-renovate/old', sha: 'd'.repeat(40) }],
       pullRequests: [renovatePr({
@@ -442,7 +442,7 @@ test('fails an orphan branch and an old green PR cannot satisfy the current run'
   const audit = auditSystem({ run, receipt, repositories: state })
   assert.equal(audit.result, 'failed')
   assert.match(renderAudit(audit), /branch without a matching open PR/)
-  assert.equal(audit.repositories.find(({ repository }) => repository.endsWith('/groundwork')).result, 'pending')
+  assert.equal(audit.repositories.find(({ repository }) => repository.endsWith('/groundwork-mac')).result, 'pending')
 })
 
 test('fails closed on receipt identity or cleanup drift', () => {

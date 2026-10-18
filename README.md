@@ -86,6 +86,11 @@ The main pieces are:
 
 ## Groundwork repository split
 
+The repository runs the latest supported Node 24 LTS patch because the pinned
+Renovate runtime requires Node `^24.11.0`. Current Node 26 is outside that
+upstream range. Dependency-free verification disables pnpm's implicit installs,
+modules directory, and lockfile output; CI checks that it leaves the tree clean.
+
 `managed-repositories.json` owns the runner's update targets and explicit retired
 repositories. The workflow and audit command must match it exactly. The original
 `jasondockery/groundwork` stays available for curriculum and history; this runner

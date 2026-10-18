@@ -125,7 +125,7 @@ App setup (owner, one-time):
 
 1. GitHub → Settings → Developer settings → GitHub Apps → New GitHub App.
    Use these form values:
-   - **GitHub App name:** `jasondockery_renovate`.
+   - **GitHub App name:** `jasondockery-renovate`.
    - **Description:** `Self-hosted Renovate runner for jasondockery repos.`
    - **Homepage URL:** `https://github.com/jasondockery/renovate-config`
    - **Callback URL:** leave blank; this runner does not use user OAuth.
@@ -160,14 +160,16 @@ App setup (owner, one-time):
    added, widen the policy, workflow, installation grant, and this table in one
    reviewed change.
 3. Generate a private key (downloads a `.pem`).
-4. Configure **Only select repositories** for this App installation. Include
-   the union of `managed-repositories.json#repositories` (write/update targets)
-   and `tools/security-policy.mjs#SOURCE_POLICY` (read-only alert sources).
+4. For this personal account, **All repositories** is supported and makes new
+   repositories available to the App without another installation edit.
+   **Only select repositories** is also supported; include the union of
+   `managed-repositories.json#repositories` (write/update targets) and
+   `tools/security-policy.mjs#SOURCE_POLICY` (read-only alert sources).
    `groundwork` remains an alert source for historical security visibility; it
    is excluded from the Renovate runner and receives no update commits or PRs.
    - Settings → Applications → Installed GitHub Apps → this App → Configure.
-   - Add each selected repository explicitly, including the private Linux and
-     Windows repositories after they exist. Save the installation change.
+   - Choose the intended access option and save. With selected access, add
+     the private Linux and Windows repositories explicitly after they exist.
    - Keep the reviewed permission union above. Each minted job token narrows
      its repository scope to its own canonical inventory; installation access
      alone does not add a repository to either job.

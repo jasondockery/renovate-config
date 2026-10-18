@@ -219,10 +219,14 @@ function requiredCheckProvider({ classic = true, rules = [], truncated = false, 
     if (args.includes('graphql')) {
       assert.ok(args.includes(`head=${'b'.repeat(40)}`))
       assert.ok(args.includes('branch=refs/heads/main'))
+      // GitHub's live CheckSuite schema exposes commit.oid, not headSha.
+      const query = args.find((arg) => arg.startsWith('query='))
+      assert.match(query, /checkSuite\s*\{\s*commit\s*\{\s*oid\s*\}/u)
+      assert.doesNotMatch(query, /\bheadSha\b/u)
       return JSON.stringify({ ...(graphError ? { errors: [{ message: 'denied' }] } : {}), data: { repository: {
         ref: { branchProtectionRule: classic ? { requiresStatusChecks: true, requiredStatusChecks: [{ context: 'ci-gate', app: { databaseId: 15368 } }] } : null },
         object: { oid: 'b'.repeat(40), statusCheckRollup: { contexts: {
-          pageInfo: { hasNextPage: truncated }, nodes: [{ __typename: 'CheckRun', name: 'ci-gate', status: 'COMPLETED', conclusion: 'SUCCESS', checkSuite: { headSha: 'b'.repeat(40), app: { databaseId: 15368 } } }],
+          pageInfo: { hasNextPage: truncated }, nodes: [{ __typename: 'CheckRun', name: 'ci-gate', status: 'COMPLETED', conclusion: 'SUCCESS', checkSuite: { commit: { oid: 'b'.repeat(40) }, app: { databaseId: 15368 } } }],
         } } },
       } } })
     }
@@ -446,7 +450,31 @@ test('retains merged and closed current-run PR evidence without a live branch', 
     const row = audit.repositories.find(({ repository }) => repository.endsWith('/roost'))
     assert.equal(row.pullRequests.length, 1, stateName)
     assert.equal(row.pullRequests[0].state, stateName)
+    assert.equal(row.pullRequests[0].checks, stateName === 'CLOSED' ? 'unknown' : 'passed')
   }
+})
+
+test('superseded closures retain lifecycle evidence without inheriting historical red CI', () => {
+  const closed = renovatePr({
+    state: 'CLOSED', createdAt: '2026-07-01T01:00:00Z',
+    closedAt: '2026-08-04T01:20:00Z', mergedAt: null,
+    statusCheckRollup: [{ conclusion: 'FAILURE' }], ciEvidence: undefined,
+  })
+  const calls = []
+  const source = collectRepository('jasondockery/roost', (args) => {
+    calls.push(args)
+    if (args[0] === 'issue') return JSON.stringify([{ title: 'Dependency Dashboard', ...dashboard({ Open: 0 }) }])
+    if (args[0] === 'pr') return JSON.stringify([closed])
+    if (args.some((arg) => arg.includes('/git/matching-refs/'))) return '[]'
+    throw new Error('a closed PR must not fetch acceptance CI')
+  }, run)
+  const state = repositories({ 'jasondockery/roost': source })
+  const row = auditSystem({ run, receipt, repositories: state }).repositories.find(({ repository }) => repository.endsWith('/roost'))
+  assert.equal(row.pullRequests.length, 1)
+  assert.equal(row.result, 'pending')
+  assert.equal(row.problems.length, 0)
+  assert.match(row.pending.join('\n'), /closed without merge; lifecycle evidence/)
+  assert.equal(calls.some((args) => args.includes('graphql') || args.includes('--slurp')), false)
 })
 
 test('historical closed PR metadata edits do not create attribution or identity failures', () => {

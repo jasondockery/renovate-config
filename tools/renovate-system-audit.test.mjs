@@ -7,12 +7,15 @@ import {
   RENOVATE_BOT_LOGIN,
   TARGET_REPOSITORIES,
   auditBudget,
+  collectPrCiEvidence,
+  collectRepository,
   auditSystem as auditSystemImplementation,
   parseArguments,
   parseDashboard,
   renderAudit,
   routineCreationCadence,
   summarizeChecks,
+  summarizeConsumerCi,
 } from './renovate-system-audit.mjs'
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -70,7 +73,7 @@ function repositories(overrides = {}) {
 }
 
 function renovatePr(overrides = {}) {
-  return {
+  const pr = {
     number: 35,
     title: 'update dependencies',
     url: 'https://github.com/jasondockery/roost/pull/35',
@@ -83,9 +86,15 @@ function renovatePr(overrides = {}) {
     state: 'OPEN',
     closedAt: null,
     mergedAt: null,
-    statusCheckRollup: [{ conclusion: 'SUCCESS' }],
+    statusCheckRollup: [{ name: 'ci-gate', conclusion: 'SUCCESS' }],
     ...overrides,
   }
+  if (!Object.hasOwn(overrides, 'ciEvidence')) pr.ciEvidence = {
+    headSha: pr.headRefOid, baseRefName: pr.baseRefName, complete: true,
+    requiredChecks: [{ context: 'ci-gate', appId: 15368 }],
+    checks: [{ name: 'ci-gate', status: 'COMPLETED', conclusion: 'SUCCESS', headSha: pr.headRefOid, appId: 15368 }],
+  }
+  return pr
 }
 
 test('parses recognized dashboard evidence without treating unknown sections as proof', () => {
@@ -170,6 +179,115 @@ test('summarizes GitHub check states without treating an empty check set as gree
   assert.equal(summarizeChecks([{ status: 'IN_PROGRESS' }]), 'pending')
   assert.equal(summarizeChecks([{ conclusion: 'SUCCESS' }, { conclusion: 'NEUTRAL' }]), 'passed')
   assert.equal(summarizeChecks([{ conclusion: 'SUCCESS' }, { conclusion: 'FAILURE' }]), 'failed')
+  assert.equal(summarizeChecks([{ conclusion: 'COMPLETED' }]), 'unknown')
+  assert.equal(summarizeChecks([{ conclusion: 'FUTURE_RESULT' }]), 'unknown')
+})
+
+test('optional success cannot replace a missing required gate at the exact PR head', () => {
+  const pr = renovatePr()
+  pr.statusCheckRollup = [{ name: 'optional-lint', conclusion: 'SUCCESS' }]
+  pr.ciEvidence.checks = [{ name: 'optional-lint', status: 'COMPLETED', conclusion: 'SUCCESS', headSha: pr.headRefOid, appId: 15368 }]
+  assert.equal(summarizeConsumerCi(pr), 'pending')
+  const state = repositories({ 'jasondockery/roost': {
+    dashboard: dashboard({ Open: 1 }), branches: [{ name: pr.headRefName, sha: pr.headRefOid }], pullRequests: [pr],
+  } })
+  assert.equal(auditSystem({ run, receipt, repositories: state }).result, 'pending')
+})
+
+test('consumer CI rejects unavailable, unbound, skipped, and wrong-app evidence', () => {
+  assert.equal(summarizeConsumerCi(renovatePr()), 'passed')
+  for (const mutate of [
+    (pr) => { delete pr.ciEvidence },
+    (pr) => { pr.ciEvidence.complete = false },
+    (pr) => { pr.ciEvidence.requiredChecks = [] },
+    (pr) => { pr.ciEvidence.headSha = 'c'.repeat(40) },
+    (pr) => { pr.ciEvidence.baseRefName = 'other' },
+    (pr) => { pr.ciEvidence.checks[0].headSha = 'c'.repeat(40) },
+    (pr) => { pr.ciEvidence.checks[0].appId = 1 },
+    (pr) => { pr.ciEvidence.checks[0].conclusion = 'SKIPPED' },
+    (pr) => { pr.ciEvidence.checks[0].conclusion = 'NEUTRAL' },
+    (pr) => { pr.ciEvidence.checks[0].status = 'IN_PROGRESS' },
+    (pr) => { pr.ciEvidence.checks[0].conclusion = 'FUTURE_RESULT' },
+  ]) {
+    const pr = renovatePr(); mutate(pr)
+    assert.notEqual(summarizeConsumerCi(pr), 'passed')
+  }
+})
+
+function requiredCheckProvider({ classic = true, rules = [], truncated = false, graphError = false } = {}) {
+  return (args) => {
+    if (args.includes('graphql')) {
+      assert.ok(args.includes(`head=${'b'.repeat(40)}`))
+      assert.ok(args.includes('branch=refs/heads/main'))
+      return JSON.stringify({ ...(graphError ? { errors: [{ message: 'denied' }] } : {}), data: { repository: {
+        ref: { branchProtectionRule: classic ? { requiresStatusChecks: true, requiredStatusChecks: [{ context: 'ci-gate', app: { databaseId: 15368 } }] } : null },
+        object: { oid: 'b'.repeat(40), statusCheckRollup: { contexts: {
+          pageInfo: { hasNextPage: truncated }, nodes: [{ __typename: 'CheckRun', name: 'ci-gate', status: 'COMPLETED', conclusion: 'SUCCESS', checkSuite: { headSha: 'b'.repeat(40), app: { databaseId: 15368 } } }],
+        } } },
+      } } })
+    }
+    assert.ok(args.includes('repos/jasondockery/roost/rules/branches/main?per_page=100'))
+    return JSON.stringify([rules])
+  }
+}
+
+test('collector binds classic and active ruleset requirements to exact-head checks', () => {
+  const pr = renovatePr()
+  pr.ciEvidence = collectPrCiEvidence('jasondockery/roost', pr, requiredCheckProvider({ rules: [
+    { type: 'required_status_checks', parameters: { required_status_checks: [{ context: 'build', integration_id: 15368 }] } },
+  ] }))
+  assert.equal(pr.ciEvidence.complete, true)
+  assert.deepEqual(pr.ciEvidence.requiredChecks, [{ context: 'ci-gate', appId: 15368 }, { context: 'build', appId: 15368 }])
+  assert.equal(summarizeConsumerCi(pr), 'pending')
+  pr.ciEvidence = collectPrCiEvidence('jasondockery/roost', pr, requiredCheckProvider())
+  assert.equal(summarizeConsumerCi(pr), 'passed')
+})
+
+test('collector never converts inaccessible, truncated, unsupported, or absent contracts into CI acceptance', () => {
+  for (const provider of [
+    requiredCheckProvider({ classic: false }),
+    requiredCheckProvider({ truncated: true }),
+    requiredCheckProvider({ graphError: true }),
+    requiredCheckProvider({ rules: [{ type: 'workflows' }] }),
+    () => { throw new Error('HTTP 403') },
+  ]) {
+    const pr = renovatePr()
+    pr.ciEvidence = collectPrCiEvidence('jasondockery/roost', pr, provider)
+    assert.notEqual(summarizeConsumerCi(pr), 'passed')
+    assert.ok(pr.ciEvidence.problem)
+  }
+})
+
+test('historical PRs trigger no CI APIs and current PRs reuse applicable branch rules', () => {
+  const historical = Array.from({ length: 98 }, (_, index) => renovatePr({
+    number: index + 100, headRefName: `self-hosted-renovate/history-${index}`,
+    state: index % 2 ? 'CLOSED' : 'MERGED',
+    createdAt: '2026-07-01T01:00:00Z', closedAt: '2026-07-02T01:00:00Z',
+    mergedAt: index % 2 ? null : '2026-07-02T01:00:00Z',
+    updatedAt: run.startedAt, ciEvidence: undefined,
+  }))
+  for (const currentCount of [0, 2]) {
+    const current = Array.from({ length: currentCount }, (_, index) => renovatePr({
+      number: index + 1, headRefName: `self-hosted-renovate/current-${index}`, ciEvidence: undefined,
+    }))
+    const calls = []
+    const provider = requiredCheckProvider()
+    const gh = (args) => {
+      if (args[0] === 'issue') return '[]'
+      if (args[0] === 'pr') return JSON.stringify([...historical, ...current])
+      if (args.some((arg) => arg.includes('/git/matching-refs/'))) return JSON.stringify(current.map((pr) => ({
+        ref: `refs/heads/${pr.headRefName}`, object: { sha: pr.headRefOid },
+      })))
+      calls.push(args)
+      return provider(args)
+    }
+    const result = collectRepository('jasondockery/roost', gh, run)
+    assert.equal(result.pullRequests.length, historical.length + current.length)
+    assert.equal(calls.filter((args) => args.includes('graphql')).length, currentCount)
+    assert.equal(calls.filter((args) => args.includes('--slurp')).length, currentCount ? 1 : 0)
+    assert.ok(result.pullRequests.slice(0, 98).every((pr) => pr.ciEvidence === undefined))
+    assert.ok(result.pullRequests.slice(98).every((pr) => pr.ciEvidence.complete))
+  }
 })
 
 test('accepts a fresh out-of-window dashboard explanation', () => {

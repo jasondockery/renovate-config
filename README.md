@@ -334,6 +334,15 @@ Renovate branches and PR checks without mutating GitHub:
 pnpm renovate:audit --run <run-id>
 ```
 
+Use a GitHub credential with read access to the personal repositories and their
+branch rules, checks, statuses, and runner artifacts. If another GitHub account
+is active, select the personal credential for this command without changing the
+global default. The audit also retrieves classic protection and active branch
+rules, then verifies their required gates at each exact PR head, including an
+App binding where specified. Optional green checks alone cannot establish CI.
+Missing, unreadable, truncated, or undeclared required-gate evidence stays
+pending; this read-only command does not configure branch protection.
+
 The current receipt does not yet encode an authoritative no-eligible-update
 result. The audit therefore reports a dashboard-only negative conclusion as
 pending instead of converting `Detected Dependencies` into proof of a no-op.

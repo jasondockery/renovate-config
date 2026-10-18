@@ -173,7 +173,11 @@ sanitized artifact to the exact workflow run, then reports per consumer:
 - open Renovate branches plus open, merged, and closed pull requests bound to
   bot author, base, head SHA, state, and selected-run timing; only an open PR
   requires its remote branch to remain present;
-- aggregate PR check state;
+- exact-head PR check state bound to the union of classic and active ruleset
+  required checks, including any required App identity; optional success cannot
+  replace an absent gate, and unknown or skipped required results do not prove
+  acceptance. An inaccessible, truncated, or empty required-gate contract stays
+  pending without changing repository governance;
 - the selected no-PR explanation or unexpected integration state. Unknown
   actionable sections fail; other unknown sections and a Detected Dependencies
   heading without structured no-update evidence remain pending.

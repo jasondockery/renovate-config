@@ -8,6 +8,7 @@ import {
   TARGET_REPOSITORIES,
   auditBudget,
   collectPrCiEvidence,
+  collectRepository,
   auditSystem as auditSystemImplementation,
   parseArguments,
   parseDashboard,
@@ -254,6 +255,38 @@ test('collector never converts inaccessible, truncated, unsupported, or absent c
     pr.ciEvidence = collectPrCiEvidence('jasondockery/roost', pr, provider)
     assert.notEqual(summarizeConsumerCi(pr), 'passed')
     assert.ok(pr.ciEvidence.problem)
+  }
+})
+
+test('historical PRs trigger no CI APIs and current PRs reuse applicable branch rules', () => {
+  const historical = Array.from({ length: 98 }, (_, index) => renovatePr({
+    number: index + 100, headRefName: `self-hosted-renovate/history-${index}`,
+    state: index % 2 ? 'CLOSED' : 'MERGED',
+    createdAt: '2026-07-01T01:00:00Z', closedAt: '2026-07-02T01:00:00Z',
+    mergedAt: index % 2 ? null : '2026-07-02T01:00:00Z',
+    updatedAt: run.startedAt, ciEvidence: undefined,
+  }))
+  for (const currentCount of [0, 2]) {
+    const current = Array.from({ length: currentCount }, (_, index) => renovatePr({
+      number: index + 1, headRefName: `self-hosted-renovate/current-${index}`, ciEvidence: undefined,
+    }))
+    const calls = []
+    const provider = requiredCheckProvider()
+    const gh = (args) => {
+      if (args[0] === 'issue') return '[]'
+      if (args[0] === 'pr') return JSON.stringify([...historical, ...current])
+      if (args.some((arg) => arg.includes('/git/matching-refs/'))) return JSON.stringify(current.map((pr) => ({
+        ref: `refs/heads/${pr.headRefName}`, object: { sha: pr.headRefOid },
+      })))
+      calls.push(args)
+      return provider(args)
+    }
+    const result = collectRepository('jasondockery/roost', gh, run)
+    assert.equal(result.pullRequests.length, historical.length + current.length)
+    assert.equal(calls.filter((args) => args.includes('graphql')).length, currentCount)
+    assert.equal(calls.filter((args) => args.includes('--slurp')).length, currentCount ? 1 : 0)
+    assert.ok(result.pullRequests.slice(0, 98).every((pr) => pr.ciEvidence === undefined))
+    assert.ok(result.pullRequests.slice(98).every((pr) => pr.ciEvidence.complete))
   }
 })
 

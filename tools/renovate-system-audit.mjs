@@ -570,7 +570,7 @@ const CONSUMER_CI_QUERY = `query($owner: String!, $name: String!, $branch: Strin
   }
 }`
 
-export function collectPrCiEvidence(repository, pr, gh) {
+export function collectPrCiEvidence(repository, pr, gh, { requirementCache = new Map() } = {}) {
   const identity = { headSha: pr.headRefOid, baseRefName: pr.baseRefName }
   try {
     if (!/^[a-f0-9]{40}$/u.test(pr.headRefOid ?? '') || typeof pr.baseRefName !== 'string' || !pr.baseRefName) throw new Error('PR head or base identity is missing')
@@ -595,10 +595,17 @@ export function collectPrCiEvidence(repository, pr, gh) {
     }
     // This endpoint resolves active repository and inherited rules for the
     // actual base branch; evaluate/disabled rules are not acceptance authority.
-    const pages = parseJson(gh([
-      'api', '--paginate', '--slurp',
-      `repos/${repository}/rules/branches/${encodeURIComponent(pr.baseRefName)}?per_page=100`,
-    ]), `${repository} applicable branch rules`)
+    const cacheKey = `${repository}\0${pr.baseRefName}`
+    if (!requirementCache.has(cacheKey)) {
+      try {
+        requirementCache.set(cacheKey, parseJson(gh([
+          'api', '--paginate', '--slurp',
+          `repos/${repository}/rules/branches/${encodeURIComponent(pr.baseRefName)}?per_page=100`,
+        ]), `${repository} applicable branch rules`))
+      } catch (error) { requirementCache.set(cacheKey, error) }
+    }
+    const pages = requirementCache.get(cacheKey)
+    if (pages instanceof Error) throw pages
     if (!Array.isArray(pages) || pages.length === 0 || pages.some((page) => !Array.isArray(page))) throw new Error('applicable branch rules are unreadable')
     for (const rule of pages.flat()) {
       if (rule.type === 'workflows') throw new Error('required-workflow rules need separate workflow acceptance evidence')
@@ -628,7 +635,7 @@ export function collectPrCiEvidence(repository, pr, gh) {
   }
 }
 
-function collectRepository(repository, gh) {
+export function collectRepository(repository, gh, run) {
   const issues = parseJson(gh([
     'issue', 'list', '--repo', repository, '--state', 'open',
     '--search', 'Dependency Dashboard in:title', '--limit', '10',
@@ -643,17 +650,22 @@ function collectRepository(repository, gh) {
   const refs = parseJson(gh([
     'api', `repos/${repository}/git/matching-refs/heads/${BRANCH_PREFIX}`,
   ]), `${repository} Renovate branches`)
+  const branches = refs.map((entry) => ({
+    name: String(entry.ref).replace(/^refs\/heads\//u, ''),
+    sha: String(entry.object?.sha ?? ''),
+  }))
+  const branchByName = new Map(branches.map(({ name, sha }) => [name, sha]))
+  const started = new Date(run.startedAt)
+  const finished = new Date(run.updatedAt)
+  const requirementCache = new Map()
   for (const pr of pullRequests) {
-    if (pr.headRefName?.startsWith(BRANCH_PREFIX) && validRenovatePrIdentity(pr)) pr.ciEvidence = collectPrCiEvidence(repository, pr, gh)
+    if (attributablePr(pr, branchByName, started, finished)) pr.ciEvidence = collectPrCiEvidence(repository, pr, gh, { requirementCache })
   }
   return {
     repository,
     dashboard: dashboards[0] ?? null,
     pullRequests,
-    branches: refs.map((entry) => ({
-      name: String(entry.ref).replace(/^refs\/heads\//u, ''),
-      sha: String(entry.object?.sha ?? ''),
-    })),
+    branches,
   }
 }
 
@@ -668,7 +680,7 @@ export function collectLiveAudit(runId, { gh, budget = auditBudget() } = {}) {
     `repos/${RUNNER_REPOSITORY}/contents/default.json?ref=${run.headSha}`,
   ]), 'run policy')
   const receipt = readDownloadedReceipt(run, invokeGh)
-  const repositories = TARGET_REPOSITORIES.map((repository) => collectRepository(repository, invokeGh))
+  const repositories = TARGET_REPOSITORIES.map((repository) => collectRepository(repository, invokeGh, run))
   return auditSystem({ run, receipt, repositories, policy })
 }
 

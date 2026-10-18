@@ -37,12 +37,12 @@ jobs:
           fetch-depth: 0
 
       - name: Install Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .node-version
 
       - name: Enable Corepack
-        run: corepack enable
+        run: tools/enable-corepack.sh
 
       - name: Test
         id: tests
@@ -118,12 +118,12 @@ jobs:
           fetch-depth: 0
 
       - name: Install Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .node-version
 
       - name: Enable Corepack
-        run: corepack enable
+        run: tools/enable-corepack.sh
 
       - name: Validate repository configuration
         id: validate
@@ -214,12 +214,12 @@ jobs:
           persist-credentials: false
 
       - name: Install Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .node-version
 
       - name: Enable Corepack
-        run: corepack enable
+        run: tools/enable-corepack.sh
 
       - name: Prove synthetic extraction and accepted configuration
         id: integration
@@ -304,7 +304,7 @@ jobs:
       - name: Check workflow security (SARIF upload)
         id: zizmor_sarif
         continue-on-error: true
-        uses: zizmorcore/zizmor-action@3dc1ecc9bcb9e94e9b2c709687979e1298497054 # v0.6.2
+        uses: zizmorcore/zizmor-action@85b2b9fb8e3325e7a23d7d0a9d7ba5ae0f999e3e # v0.7.1
         with:
           persona: pedantic
           advanced-security: true
@@ -312,7 +312,7 @@ jobs:
       - name: Check workflow security (gate)
         id: zizmor_gate
         continue-on-error: true
-        uses: zizmorcore/zizmor-action@3dc1ecc9bcb9e94e9b2c709687979e1298497054 # v0.6.2
+        uses: zizmorcore/zizmor-action@85b2b9fb8e3325e7a23d7d0a9d7ba5ae0f999e3e # v0.7.1
         with:
           persona: pedantic
           advanced-security: false
@@ -377,7 +377,7 @@ jobs:
           persist-credentials: false
 
       - name: Install Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .node-version
 
@@ -588,7 +588,7 @@ jobs:
 
       - name: Upload CI receipt
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: renovate-config-ci-receipt-${{ github.run_id }}-${{ github.run_attempt }}
           path: |

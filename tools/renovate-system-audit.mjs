@@ -6,6 +6,7 @@ import process from 'node:process'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { isMainModule } from './is-main.mjs'
+import { loadManagedRepositories } from './managed-repositories.mjs'
 
 const moduleRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const botIdentityFixture = JSON.parse(fs.readFileSync(
@@ -23,11 +24,7 @@ if (
 ) throw new Error('Renovate PR-author fixture is invalid')
 
 export const RUNNER_REPOSITORY = 'jasondockery/renovate-config'
-export const TARGET_REPOSITORIES = Object.freeze([
-  'jasondockery/renovate-config',
-  'jasondockery/roost',
-  'jasondockery/groundwork',
-])
+export const TARGET_REPOSITORIES = loadManagedRepositories(moduleRoot)
 export const RENOVATE_BOT_LOGIN = botIdentityFixture.response.author.login
 const BRANCH_PREFIX = botIdentityFixture.response.headRefName.slice(
   0,

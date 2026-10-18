@@ -79,8 +79,8 @@ test('the inventory covers every active extraction-manager family and truthful p
     assert.equal(managers.has(expected), true, expected)
   }
   const sharedPreset = inventory.surfaces.find(({ id }) => id === 'shared-preset-reference')
-  assert.equal(sharedPreset.classification, 'intentional-manual')
-  assert.equal(sharedPreset.manager, 'versioned-distribution-owner-gate')
+  assert.equal(sharedPreset.classification, 'built-in')
+  assert.equal(sharedPreset.manager, 'renovate-config')
   const config = JSON.parse(fs.readFileSync(path.join(repoRoot, 'renovate.json'), 'utf8'))
   assert.deepEqual(config.ignorePaths, ['.nvmrc', 'mise.toml', 'tools/fixtures/**'])
   assert.deepEqual(config.customManagers[0].managerFilePatterns, ['/^\\.renovate-version$/'])

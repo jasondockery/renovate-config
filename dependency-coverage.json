@@ -75,16 +75,16 @@
     },
     {
       "id": "shared-preset-reference",
-      "classification": "intentional-manual",
-      "manager": "versioned-distribution-owner-gate",
+      "classification": "built-in",
+      "manager": "renovate-config",
       "paths": ["renovate.json"],
       "canonical": "renovate.json#extends",
       "agePolicy": "not-applicable",
-      "compensatingControl": "The bootstrap freeze blocks shared-preset changes until all consumers use an owner-approved immutable tag.",
+      "compensatingControl": "Immutable preset releases, consumer CI, and human review govern reference updates. The shared source freeze remains a separate publisher control.",
       "extractionMatchers": [
         { "manager": "renovate-config", "packageFilePattern": "^renovate.json$", "depNamePattern": "^jasondockery/renovate-config$" }
       ],
-      "note": "Renovate detects the unversioned reference but cannot update it until versioned distribution is owner-approved and a tag is present."
+      "note": "The reference pins the immutable 1.0.0 release and allows reviewable preset-version PRs."
     },
     {
       "id": "toolchain-mirrors",
@@ -111,6 +111,24 @@
         { "pathPattern": "^tools/fixtures/dependency-extraction/", "pattern": "digest" }
       ],
       "note": "Fixture-only versions cover every claimed manager family without being accepted as live consumer evidence."
+    },
+    {
+      "id": "corepack-bootstrap",
+      "classification": "intentional-manual",
+      "manager": "repository-review",
+      "paths": [
+        "tools/enable-corepack.sh"
+      ],
+      "canonical": "tools/enable-corepack.sh#COREPACK_VERSION",
+      "agePolicy": "external-tool-policy",
+      "compensatingControl": "Owner reviews Corepack compatibility with the canonical Node and pnpm versions. Hosted bootstrap warms the verified native pnpm binary and checks offline authority before proof.",
+      "scanMatchers": [
+        {
+          "pathPattern": "^tools/enable-corepack\\.sh$",
+          "pattern": "version-assignment"
+        }
+      ],
+      "note": "Corepack is the pnpm selection owner; it is not another pnpm installation authority."
     }
   ]
 }

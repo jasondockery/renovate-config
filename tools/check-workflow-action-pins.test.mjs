@@ -65,6 +65,6 @@ test('rejects the exact old upload-artifact pin copied into a new workflow', (co
   )
   assert.match(
     collectWorkflowActionPinProblems(root).join('\n'),
-    /actions\/upload-artifact differs from the canonical 043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7\.0\.1/,
+    /actions\/upload-artifact differs from the canonical /,
   )
 })

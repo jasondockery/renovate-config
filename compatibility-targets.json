@@ -13,8 +13,8 @@
       "ignoredPaths": []
     },
     {
-      "repository": "jasondockery/groundwork",
-      "directory": "../groundwork",
+      "repository": "jasondockery/groundwork-mac",
+      "directory": "../groundwork-mac",
       "ignoredPaths": []
     }
   ]

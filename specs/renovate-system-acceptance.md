@@ -11,8 +11,17 @@ acceptance remains separate.
 
 Owner: `jasondockery/renovate-config`
 
-Consumers: `jasondockery/renovate-config`, `jasondockery/roost`, and
-`jasondockery/groundwork`
+Update consumers: `managed-repositories.json#repositories`. Its retired list
+excludes historical `jasondockery/groundwork` from all update writes.
+
+Toolchain compatibility targets: the three Node/pnpm engines in
+`compatibility-targets.json`. Security inbox sources: the independent
+`SOURCE_POLICY` scope in `tools/security-policy.mjs`.
+
+Groundwork-family expansion: source implementation pending live acceptance.
+Verify repository creation, App installation grants, consumer preset references,
+one passed run receipt per managed repository, and eligible PR CI before claiming
+activation success. No synthetic fixture establishes these external facts.
 
 ## Outcome
 
@@ -67,14 +76,14 @@ independently of when the runner executes.
    config without reading mutable consumer branches. The active policy has a
    separate exact-boundary proof. A manual-only latest-head
    compatibility watch maps
-   actual extraction for all three repositories, records each exact tested SHA,
+   actual extraction for the three engine repositories, records each exact tested SHA,
    status, tracked fingerprint, and relevant ignored-output fingerprint, and
    rejects any before/after identity change.
 3. **Runner execution:** the live receipt proves authentication, all repository
    visits, structured evidence, and cleanup.
 4. **Renovate behavior:** the private npm canary proves eligible branch and PR
    creation, update, closure, and recreation.
-5. **Consumer compatibility:** eligible real PRs in all three consumers contain
+5. **Consumer compatibility:** eligible real PRs in every managed consumer contain
    correct artifacts and pass required CI.
 
 No lower level implies a higher one. In particular, a green runner at level 3

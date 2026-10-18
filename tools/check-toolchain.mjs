@@ -190,6 +190,9 @@ export function collectToolchainProblems({
         'verification does not write node_modules metadata.'
     )
   }
+  if (!/^lockfile:\s*false\s*$/m.test(workspace ?? '')) {
+    problems.push('pnpm-workspace.yaml must disable lockfile so dependency-free verification cannot write pnpm-lock.yaml.')
+  }
 
   const actualNode = nodeVersion.replace(/^v/, '')
   if (actualNode !== expectedNode) {

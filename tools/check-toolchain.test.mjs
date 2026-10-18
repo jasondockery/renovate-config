@@ -30,7 +30,7 @@ function fixture(files = {}) {
     '.node-version': `${FIXTURE_NODE_VERSION}\n`,
     '.nvmrc': `${FIXTURE_NODE_VERSION}\n`,
     'mise.toml': `[tools]\nnode = "${FIXTURE_NODE_VERSION}"\n`,
-    'pnpm-workspace.yaml': 'verifyDepsBeforeRun: false\nenableModulesDir: false\n',
+    'pnpm-workspace.yaml': 'verifyDepsBeforeRun: false\nenableModulesDir: false\nlockfile: false\n',
     'package.json': `${JSON.stringify({
       packageManager: `pnpm@${FIXTURE_PNPM_VERSION}`,
       engines: { node: FIXTURE_NODE_VERSION, pnpm: FIXTURE_PNPM_VERSION },
@@ -160,6 +160,16 @@ test('rejects dependency-free pnpm scripts that can write node_modules metadata'
     }).join('\n'),
     /must disable enableModulesDir/
   )
+})
+
+test('rejects dependency-free pnpm scripts that can synthesize a lockfile', (context) => {
+  const repoRoot = fixture({
+    'pnpm-workspace.yaml': 'verifyDepsBeforeRun: false\nenableModulesDir: false\n',
+  })
+  context.after(() => fs.rmSync(repoRoot, { recursive: true, force: true }))
+  assert.match(collectToolchainProblems({
+    repoRoot, nodeVersion: 'v20.11.1', userAgent: 'pnpm/9.15.5 npm/? node/v20.11.1 darwin arm64',
+  }).join('\n'), /must disable lockfile/u)
 })
 
 function probeReturning(versions) {

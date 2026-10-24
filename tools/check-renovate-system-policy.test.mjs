@@ -138,6 +138,16 @@ test('rejects schedule, activation, scope, security, and manager-coverage drift'
     assert.match(collectRenovateSystemPolicyProblems(root).join('\n'), /required human merge review/)
   })
 
+  await context.test('python line-bump approval', (subcontext) => {
+    const root = fixture(subcontext)
+    mutateJson(root, 'default.json', (preset) => {
+      const rule = preset.packageRules.find((entry) => JSON.stringify(entry.matchPackageNames) === JSON.stringify(['python/cpython']))
+      rule.dependencyDashboardApproval = false
+      rule.automerge = true
+    })
+    assert.match(collectRenovateSystemPolicyProblems(root).join('\n'), /Python minor\/major line-bump approval/)
+  })
+
   await context.test('built-in manager narrowing', (subcontext) => {
     const root = fixture(subcontext)
     mutateJson(root, 'default.json', (preset) => { preset.enabledManagers = ['npm'] })

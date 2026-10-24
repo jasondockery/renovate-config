@@ -37,7 +37,11 @@ observable contract and evidence matrix are in
   creation after the reviewed strict five-day npm floor and preserve the
   explicit vulnerability-alert age, schedule, and rate-limit bypass. Security
   PRs require human merge review; Renovate and the platform have no automerge
-  authority for them. The freeze checksum binds that exact policy while
+  authority for them. Python minor and major line bumps resolved as
+  `github-tags` package `python/cpython` (mise and asdf) require Dependency
+  Dashboard approval and never automerge; patch bumps within a line keep the
+  existing policy. The gate does not apply to Docker `python` images, pyenv
+  pins, or PyPI `python`. The freeze checksum binds that exact policy while
   consumers still follow the default branch.
 - **Current evidence:** policy activation is not end-to-end acceptance. The
   live runner receipt, replacement/current pull requests, consumer CI, and

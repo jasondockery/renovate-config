@@ -5,9 +5,11 @@ Contract status: active
 System acceptance: not achieved
 
 Policy activation: active. The owner-approved preset exception supplies the
-daily routine-creation policy, later strict five-day npm rule, and explicit
-vulnerability-alert schedule, age, and routine rate-limit bypass. Field
-acceptance remains separate.
+daily routine-creation policy, later strict five-day npm rule, explicit
+vulnerability-alert schedule, age, and routine rate-limit bypass, and the
+Python runtime line-bump gate: minor and major `python/cpython` updates wait
+for Dependency Dashboard approval and never automerge, while in-line patches
+keep the five-day policy. Field acceptance remains separate.
 
 Owner: `jasondockery/renovate-config`
 
@@ -44,6 +46,7 @@ These clocks solve different problems and must remain independent:
 | Normal routine updates and branches | Every daily run after applicable maturity and approval gates |
 | Normal release age | Five days with `internalChecksFilter: strict` where timestamps and update types support it; inventories name exceptions |
 | Vulnerability-alert PRs | Bypass normal age and PR schedules; observed on the next daily run |
+| Python runtime line bumps | Minor and major updates to `python/cpython` wait for Dependency Dashboard approval and never automerge; patch bumps within a line keep the existing policy |
 | Lockfile maintenance | Weekly; Renovate release-age checks do not apply directly, while consumer package-manager policy still governs generated resolution where configured |
 
 The workflow cadence determines discovery latency. It never replaces or extends

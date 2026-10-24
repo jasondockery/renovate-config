@@ -295,6 +295,9 @@ summary so scheduled runs are triageable at a glance.
   A later npm package rule overrides `config:best-practices`' inherited
   three-day npm floor with five days and strict internal checks. Vulnerability
   alerts explicitly bypass the normal age, schedule, and routine rate limits.
+  Python minor and major line bumps resolved as `github-tags` package
+  `python/cpython` require Dependency Dashboard approval and never automerge;
+  patch bumps within a line keep the existing policy.
 - **Proof boundary:** `pnpm renovate:policy` proves the resolved pinned-runtime
   policy. End-to-end acceptance still requires a green live runner receipt and
   correct consumer pull requests; a valid preset alone is not system proof.
@@ -322,6 +325,7 @@ The process and routine update clocks are intentionally separate:
 | Normal release age | Five days with strict internal checks where the datasource supplies timestamps and the update type supports age enforcement |
 | Pins, digests, replacements, and lockfile maintenance | No universal Renovate age guarantee; consumer inventories name their package-manager, integrity, CI, and review controls |
 | Vulnerability-alert PRs | Next daily run; explicit configuration bypasses normal age, schedule, and routine rate limits |
+| Python runtime line bumps | Minor and major updates to `python/cpython` wait for Dependency Dashboard approval and never automerge; patch bumps within a line keep the existing policy |
 | Lockfile maintenance | Weekly through the retained best-practices maintenance lane |
 
 A green runner receipt proves execution and cleanup, not that dependency
@@ -384,20 +388,24 @@ with SemVer tags that carry no `v` prefix, and consumers pin an exact tag such a
 `github>jasondockery/renovate-config#1.0.0`.
 
 The initial pinning bootstrap is in progress. Owner-approved exceptions now bind
-the reviewed five-day policy, daily mature-update creation, and immediate
-human-reviewed security PR behavior before the first immutable preset release;
+the reviewed five-day policy, daily mature-update creation, immediate
+human-reviewed security PR behavior, and Python minor/major line-bump approval
+before later consumers pin `1.1.0`;
 `.preset-bootstrap-freeze` protects that exact accepted state. See `ROADMAP.md`
 for the ordered owner gates and `CONTRIBUTING.md` for
 the executable `release:controls:check`, `release:preflight`, and
 `release:verify` procedure. The reviewed policy remains captured in
 `tools/fixtures/preset/default-five-day-policy.json` and documented in
-`specs/preset-freeze-exception.md`.
+`specs/preset-freeze-exception.md`. The owner prepares immutable release
+`1.1.0` after this change lands; tags carry no `v` prefix and are never
+moved.
 
 ## Policy Boundary
 
 `default.json` contains only policy that should remain identical across owner
-repos: schedule, cooldown, PR limits, rebase behavior, labels, and the security
-PR base. Repo-specific package rules stay local in each consumer.
+repos: schedule, cooldown, PR limits, rebase behavior, labels, the security
+PR base, and the Python runtime line-bump approval gate. Repo-specific package
+rules stay local in each consumer.
 
 The runner explicitly targets:
 

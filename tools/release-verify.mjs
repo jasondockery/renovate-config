@@ -1,10 +1,12 @@
 #!/usr/bin/env node
+import { createHash } from 'node:crypto'
 import { spawnSync } from 'node:child_process'
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { createGithubApiClient, readDesiredReleaseControls } from './release-controls.mjs'
 import { isMainModule } from './is-main.mjs'
+import { freezeReleasePresetDigest } from './release-preflight.mjs'
 import {
   compareRepositorySnapshots,
   snapshotRepository,
@@ -42,6 +44,15 @@ export function collectReleaseVerificationProblems({
   if (release?.immutable !== true) problems.push('GitHub Release is not immutable')
   if (typeof taggedPreset !== 'string' || taggedPreset !== expectedPreset) {
     problems.push('tagged default.json does not match the expected release commit')
+  }
+  const requiredDigest = freezeReleasePresetDigest(version)
+  if (requiredDigest !== undefined) {
+    const actual = createHash('sha256').update(expectedPreset ?? '').digest('hex')
+    if (actual !== requiredDigest) {
+      problems.push(
+        `release ${version} may ship only while default.json hashes to ${requiredDigest}; tagged preset digest is ${actual}`
+      )
+    }
   }
   if (presetResolved !== true) {
     problems.push('Renovate could not resolve and validate the version-pinned preset')

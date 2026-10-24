@@ -20,11 +20,31 @@ import {
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const STABLE_VERSION = /^(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)$/u
 const SHA = /^[0-9a-f]{40}$/u
-// The bootstrap line. While the preset freeze is in effect, later releases are
-// limited to 1.0.x tooling patches plus the owner-approved 1.1.0 Python
-// line-bump exception (issue #30). See collectReleasePreflightProblems.
-const FREEZE_PATCH_VERSION = /^1\.0\.(?:[1-9][0-9]*)$/u
-const FREEZE_PYTHON_LINE_BUMP_VERSION = '1.1.0'
+// sha256(default.json) at the 1.0.0 five-day policy. 1.0.x patches may ship
+// only this digest; a later policy under a 1.0.x tag would rewrite #1.0.0 pins.
+export const PRESET_DIGEST_1_0_0 = 'e62535b203f7beed6bf242178ff26d710179ea4d475b187aef5b5eb51108ad0f'
+// sha256(default.json) at the reviewed 1.1.0 Python line-bump policy (issue #30).
+export const PRESET_DIGEST_1_1_0 = 'd913658716e5ee2a22708a808345b9017a11836c3a7ff8fa64c7e0094965a8a0'
+// While the freeze holds, each later release is bound to one exact preset
+// digest. Add a row with a reason when the owner approves another exception.
+const FREEZE_RELEASE_PRESETS = Object.freeze([
+  {
+    // Tooling patches on the 1.0 line. Allowed only while default.json still
+    // hashes to the 1.0.0 five-day policy.
+    versions: /^1\.0\.(?:[1-9][0-9]*)$/u,
+    digest: PRESET_DIGEST_1_0_0,
+  },
+  {
+    // Owner-approved Python line-bump exception (issue #30). Exactly 1.1.0,
+    // and only the reviewed 1.1.0 digest.
+    versions: /^1\.1\.0$/u,
+    digest: PRESET_DIGEST_1_1_0,
+  },
+])
+
+export function freezeReleasePresetDigest(version) {
+  return FREEZE_RELEASE_PRESETS.find((entry) => entry.versions.test(version))?.digest
+}
 
 export function collectCiReceiptProblems(receipt, expectedSha) {
   const problems = []
@@ -98,28 +118,29 @@ export function collectReleasePreflightProblems({
   }
   // The freeze protects preset CONTENT, not the act of releasing: consumers
   // resolve the default branch, so a changed default.json would reach them
-  // silently. collectPresetFreezeProblems reports no problems exactly when
-  // default.json still hashes to the frozen digest, and any mismatch is already
-  // recorded above, so a release reaching this point cannot alter consumer
-  // policy regardless of what else it carries.
+  // silently. Matching the freeze file is not enough: a 1.0.x tag of a later
+  // policy tree would still rewrite #1.0.0 pins as a patch. Each freeze-era
+  // allowance is therefore bound to one exact default.json digest.
   //
   // Refusing every later release outright deadlocked the bootstrap. The first
   // release is immutable, so a defect in the release TOOLING could never be
   // repaired: step 4 needs a working verifier, 1.0.0 shipped a broken one, and
   // 1.0.1 was refused until a freeze that only lifts after step 4 passes.
-  // Patch releases on the 1.0.x line stay available for exactly that repair.
-  // Issue #30 is the owner-approved exception that also allows exactly 1.1.0:
-  // the freeze digest was updated to the reviewed Python line-bump policy, and
-  // the freeze itself stays in place. Any other new major or minor still waits.
-  if (
-    version !== '1.0.0' &&
-    freeze?.lifted === false &&
-    !FREEZE_PATCH_VERSION.test(version) &&
-    version !== FREEZE_PYTHON_LINE_BUMP_VERSION
-  ) {
-    problems.push(
-      'during the preset freeze only a 1.0.x patch or the owner-approved 1.1.0 Python line-bump exception may follow 1.0.0; any other new major or minor requires the freeze to be lifted'
-    )
+  // Patch releases on the 1.0.x line stay available for exactly that repair,
+  // and only while default.json still hashes to the 1.0.0 digest. Issue #30
+  // also allows exactly 1.1.0 at the reviewed Python line-bump digest. The
+  // freeze itself stays in place. Any other new major or minor still waits.
+  if (version !== '1.0.0' && freeze?.lifted === false) {
+    const requiredDigest = freezeReleasePresetDigest(version)
+    if (requiredDigest === undefined) {
+      problems.push(
+        'during the preset freeze only a 1.0.x patch or the owner-approved 1.1.0 Python line-bump exception may follow 1.0.0; any other new major or minor requires the freeze to be lifted'
+      )
+    } else if (freeze?.digest !== requiredDigest) {
+      problems.push(
+        `during the preset freeze ${version} may ship only while default.json hashes to ${requiredDigest}; current digest is ${freeze?.digest ?? 'missing'}`
+      )
+    }
   }
   problems.push(...collectCiReceiptProblems(ciReceipt, expectedSha))
   return [...new Set(problems)]

@@ -1,9 +1,13 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { collectPresetFreezeProblems } from './check-preset-freeze.mjs'
 import {
   collectCiReceiptProblems,
   collectReleasePreflightProblems,
+  freezeReleasePresetDigest,
   parseReleasePreflightArguments,
+  PRESET_DIGEST_1_0_0,
+  PRESET_DIGEST_1_1_0,
   runReleasePreflight,
 } from './release-preflight.mjs'
 
@@ -54,7 +58,7 @@ function evidence(overrides = {}) {
     localTagShas: [],
     remoteTagShas: [],
     controlsReceipt: { result: 'passed', drift: [] },
-    freeze: { lifted: false, problems: [] },
+    freeze: { lifted: false, problems: [], digest: PRESET_DIGEST_1_0_0 },
     ciReceipt: ciReceipt(),
     ...overrides,
   }
@@ -65,7 +69,7 @@ function dependencies(overrides = {}) {
   const values = {
     checkControls: async () => ({ result: 'passed', drift: [] }),
     ciReceipt: async () => ciReceipt(),
-    freeze: () => ({ lifted: false, problems: [] }),
+    freeze: () => ({ lifted: false, problems: [], digest: PRESET_DIGEST_1_0_0 }),
     localTags: () => [],
     remoteTags: () => [],
     runVerify: () => {
@@ -97,31 +101,78 @@ test('rejects v-prefixed releases, existing tags, and mismatched intended SHAs',
 
 // The freeze protects preset content, not releasing. Refusing every later
 // release deadlocked the bootstrap: 1.0.0 is immutable, so broken release
-// tooling could never be repaired. A 1.0.x patch with a matching freeze digest
-// is permitted. Issue #30 also authorizes exactly 1.1.0 after the digest was
-// updated to the reviewed Python line-bump policy. Any other new major or
-// minor still waits for the lift.
-test('a 1.0.x patch may follow 1.0.0 while the preset freeze holds', () => {
+// tooling could never be repaired. A 1.0.x patch is permitted only while
+// default.json still hashes to the 1.0.0 digest. Issue #30 also authorizes
+// exactly 1.1.0 at the reviewed Python line-bump digest. Any other new major
+// or minor still waits for the lift.
+test('a 1.0.x patch may follow 1.0.0 only at the 1.0.0 preset digest', () => {
   const problems = collectReleasePreflightProblems(
-    evidence({ version: '1.0.1', freeze: { lifted: false, problems: [] } })
+    evidence({
+      version: '1.0.1',
+      freeze: { lifted: false, problems: [], digest: PRESET_DIGEST_1_0_0 },
+    })
   )
   assert.deepEqual(problems, [])
 })
 
-test('the owner-approved 1.1.0 Python line-bump exception may follow 1.0.0 while the freeze holds', () => {
+test('a python-policy tree may not be tagged as a 1.0.x patch', () => {
+  for (const version of ['1.0.1', '1.0.2']) {
+    const problems = collectReleasePreflightProblems(
+      evidence({
+        version,
+        freeze: { lifted: false, problems: [], digest: PRESET_DIGEST_1_1_0 },
+      })
+    )
+    assert.ok(
+      problems.includes(
+        `during the preset freeze ${version} may ship only while default.json hashes to ${PRESET_DIGEST_1_0_0}; current digest is ${PRESET_DIGEST_1_1_0}`
+      ),
+      `${version} of the python-policy tree must be refused`
+    )
+  }
+})
+
+test('the owner-approved 1.1.0 Python line-bump exception may follow 1.0.0 at the reviewed digest', () => {
   assert.deepEqual(
     collectReleasePreflightProblems(
-      evidence({ version: '1.1.0', freeze: { lifted: false, problems: [] } })
+      evidence({
+        version: '1.1.0',
+        freeze: { lifted: false, problems: [], digest: PRESET_DIGEST_1_1_0 },
+      })
     ),
     []
   )
+})
+
+test('1.1.0 is refused when the preset digest is not the reviewed 1.1.0 policy', () => {
+  for (const digest of [PRESET_DIGEST_1_0_0, 'a'.repeat(64)]) {
+    const problems = collectReleasePreflightProblems(
+      evidence({
+        version: '1.1.0',
+        freeze: { lifted: false, problems: [], digest },
+      })
+    )
+    assert.ok(
+      problems.includes(
+        `during the preset freeze 1.1.0 may ship only while default.json hashes to ${PRESET_DIGEST_1_1_0}; current digest is ${digest}`
+      ),
+      `1.1.0 with digest ${digest} must be refused`
+    )
+  }
+})
+
+test('the live freeze digest is the reviewed 1.1.0 allowance', () => {
+  assert.equal(collectPresetFreezeProblems().digest, PRESET_DIGEST_1_1_0)
+  assert.equal(freezeReleasePresetDigest('1.1.0'), PRESET_DIGEST_1_1_0)
+  assert.equal(freezeReleasePresetDigest('1.0.1'), PRESET_DIGEST_1_0_0)
+  assert.equal(freezeReleasePresetDigest('1.0.2'), PRESET_DIGEST_1_0_0)
 })
 
 test('a new major or unreviewed minor still waits for the freeze to lift', () => {
   for (const version of ['1.1.1', '1.2.0', '2.0.0']) {
     assert.ok(
       collectReleasePreflightProblems(
-        evidence({ version, freeze: { lifted: false, problems: [] } })
+        evidence({ version, freeze: { lifted: false, problems: [], digest: PRESET_DIGEST_1_1_0 } })
       ).includes(
         'during the preset freeze only a 1.0.x patch or the owner-approved 1.1.0 Python line-bump exception may follow 1.0.0; any other new major or minor requires the freeze to be lifted'
       ),
@@ -134,7 +185,11 @@ test('a patch release cannot smuggle a changed preset past the freeze', () => {
   const problems = collectReleasePreflightProblems(
     evidence({
       version: '1.0.1',
-      freeze: { lifted: false, problems: ['default.json changed while the preset bootstrap freeze is in effect.'] },
+      freeze: {
+        lifted: false,
+        problems: ['default.json changed while the preset bootstrap freeze is in effect.'],
+        digest: PRESET_DIGEST_1_0_0,
+      },
     })
   )
   assert.ok(problems.includes('default.json changed while the preset bootstrap freeze is in effect.'))

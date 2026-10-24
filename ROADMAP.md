@@ -23,8 +23,8 @@ verified, never aspirationally.
 > human merge review (2026-08-13), and Python minor/major line-bump Dependency
 > Dashboard approval with automerge disabled (2026-10-24, [issue #30](https://github.com/jasondockery/renovate-config/issues/30)).
 > The updated checksum binds that policy, including the reviewed `1.1.0` Python
-> rule. No further effective preset change is authorized during the bootstrap
-> sequence below.
+> rule. Publishing `1.1.0` does not lift the freeze. No further effective preset
+> change is authorized during the bootstrap sequence below.
 >
 > The executable reviewed fixture demonstrates why the exception was necessary:
 > `config:best-practices` contributes a later three-day npm rule, so the frozen
@@ -67,14 +67,14 @@ Bootstrap sequence, in this order:
 - [ ] 8. Confirm Renovate proposes a later tagged preset bump in a consumer, and
       record that PR as the receipt that distribution actually works. Renovate
       proposes preset-version updates only once the reference is already pinned.
-- [ ] 9. Lift the freeze and note it here.
-- [ ] After the Python line-bump policy (issue #30) reaches `main`, publish
-      immutable GitHub Release **`1.1.0`** — no `v` prefix. Owner action:
-      prepare a draft, pass
+- [ ] 9. After the Python line-bump policy (issue #30) reaches `main`, publish
+      immutable GitHub Release **`1.1.0`** — no `v` prefix. Publishing `1.1.0`
+      does not lift the freeze. Owner action: prepare a draft, pass
       `pnpm release:preflight --version 1.1.0 --expected-sha <40-char-sha>`
       on that merged commit, publish it, then
       `pnpm release:verify --version 1.1.0 --expected-sha <40-char-sha>`.
       The policy PR must not create the tag or release.
+- [ ] 10. Lift the freeze and note it here.
 - [x] Document the release procedure in `CONTRIBUTING.md`, pointing at the
       charter's patch/minor/major contract rather than restating it.
 

@@ -15,7 +15,7 @@
   "internalChecksFilter": "strict",
   "packageRules": [
     {
-      "description": "Python runtime line bumps are owner-reviewed. Renovate's mise manager resolves python to github-tags package python/cpython, and asdf uses that same package, so this rule matches that identity rather than the mise tool key alone. Minor and major updates such as 3.13 to 3.15 require Dependency Dashboard approval and never automerge. Patch bumps within a line keep the existing policy, including the five-day floor.",
+      "description": "Python runtime line bumps are owner-reviewed. Renovate's mise manager resolves python to github-tags package python/cpython, and asdf uses that same package, so this rule matches that identity rather than the mise tool key alone. Minor and major updates such as 3.13 to 3.15 require Dependency Dashboard approval. automerge is left explicitly false as a guard against inherited automerge, not because it changes Renovate's default. Patch bumps within a line keep the existing policy, including the five-day floor.",
       "matchPackageNames": ["python/cpython"],
       "matchDatasources": ["github-tags"],
       "matchUpdateTypes": ["minor", "major"],

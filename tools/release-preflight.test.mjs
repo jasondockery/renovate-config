@@ -98,9 +98,9 @@ test('rejects v-prefixed releases, existing tags, and mismatched intended SHAs',
 // The freeze protects preset content, not releasing. Refusing every later
 // release deadlocked the bootstrap: 1.0.0 is immutable, so broken release
 // tooling could never be repaired. A 1.0.x patch with a matching freeze digest
-// is permitted. Issue #30 also authorizes 1.1.x after the digest was updated
-// to the reviewed Python line-bump policy. Any other new major or minor still
-// waits for the lift.
+// is permitted. Issue #30 also authorizes exactly 1.1.0 after the digest was
+// updated to the reviewed Python line-bump policy. Any other new major or
+// minor still waits for the lift.
 test('a 1.0.x patch may follow 1.0.0 while the preset freeze holds', () => {
   const problems = collectReleasePreflightProblems(
     evidence({ version: '1.0.1', freeze: { lifted: false, problems: [] } })
@@ -108,25 +108,22 @@ test('a 1.0.x patch may follow 1.0.0 while the preset freeze holds', () => {
   assert.deepEqual(problems, [])
 })
 
-test('the owner-approved 1.1.x Python line-bump exception may follow 1.0.0 while the freeze holds', () => {
-  for (const version of ['1.1.0', '1.1.1']) {
-    assert.deepEqual(
-      collectReleasePreflightProblems(
-        evidence({ version, freeze: { lifted: false, problems: [] } })
-      ),
-      [],
-      `${version} is the reviewed freeze-exception line`
-    )
-  }
+test('the owner-approved 1.1.0 Python line-bump exception may follow 1.0.0 while the freeze holds', () => {
+  assert.deepEqual(
+    collectReleasePreflightProblems(
+      evidence({ version: '1.1.0', freeze: { lifted: false, problems: [] } })
+    ),
+    []
+  )
 })
 
 test('a new major or unreviewed minor still waits for the freeze to lift', () => {
-  for (const version of ['1.2.0', '2.0.0']) {
+  for (const version of ['1.1.1', '1.2.0', '2.0.0']) {
     assert.ok(
       collectReleasePreflightProblems(
         evidence({ version, freeze: { lifted: false, problems: [] } })
       ).includes(
-        'during the preset freeze only a 1.0.x patch or the owner-approved 1.1.x Python line-bump exception may follow 1.0.0; any other new major or minor requires the freeze to be lifted'
+        'during the preset freeze only a 1.0.x patch or the owner-approved 1.1.0 Python line-bump exception may follow 1.0.0; any other new major or minor requires the freeze to be lifted'
       ),
       `${version} must be refused while the freeze holds`
     )

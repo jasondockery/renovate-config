@@ -21,6 +21,7 @@ const EXPECTED = Object.freeze([
   { manager: 'nvm', depName: 'node' },
   { manager: 'mise', depName: 'node' },
   { manager: 'mise', depName: 'pnpm' },
+  { manager: 'mise', depName: 'python' },
   { manager: 'renovate-config', depName: 'jasondockery/renovate-config' },
   { manager: 'custom.regex', depName: 'renovate' },
   { manager: 'custom.regex', depName: '@opennextjs/aws' },

@@ -3,12 +3,15 @@
 Design status: **approved**
 
 Activation status: **active through the owner-approved 2026-08-04 age-policy,
-2026-08-09 daily-creation, and 2026-08-13 human-security-merge changes**
+2026-08-09 daily-creation, 2026-08-13 human-security-merge, and 2026-10-24
+Python line-bump approval changes**
 
 Scope: `default.json` effective release-age, routine creation cadence,
-vulnerability-alert timing, and vulnerability-alert merge authority only
+vulnerability-alert timing, vulnerability-alert merge authority, and Python
+runtime line-bump approval only
 Activation condition: **achieved**; the isolated policy commit and freeze
-checksum change were owner-authorized and passed the exact-boundary proof
+checksum change were owner-authorized and passed the exact-boundary proof.
+The 2026-10-24 Python line-bump exception follows the same pattern for issue #30.
 Remaining exit condition: every consumer uses an immutable released preset
 reference, after which the bootstrap freeze can be retired as defined in the
 roadmap
@@ -21,7 +24,7 @@ rule. Renovate applies matching package rules after root configuration, so that
 previous preset did not establish the claimed five-day npm behavior.
 
 The reviewed fixture in
-`tools/fixtures/preset/default-five-day-policy.json` adds one later rule for normal npm major,
+`tools/fixtures/preset/default-five-day-policy.json` keeps the later rule for normal npm major,
 minor, and patch updates. It also makes the existing security exception
 explicit: vulnerability alerts run at any time, ignore normal rate limits, and
 do not inherit a minimum release age. Pins, digests, replacements, and lockfile
@@ -42,6 +45,17 @@ creation and the schedule, age, and routine-rate bypass while setting both
 the maturity-bypassed fix. The supporting decision record is
 `docs/vulnerability-alert-automerge-decision.md`.
 
+The owner-approved 2026-10-24 exception ([issue #30](https://github.com/jasondockery/renovate-config/issues/30))
+adds one package rule for Python runtime line bumps. At the pinned Renovate
+runtime, the mise manager resolves `python` to `github-tags` package
+`python/cpython`; asdf maps the same package, so the rule matches that identity
+rather than the mise tool key alone. Minor and major updates such as 3.13 to
+3.15 set `dependencyDashboardApproval: true` and `automerge: false`. Patch
+bumps within a line keep the existing policy. The five-day `minimumReleaseAge`
+is unchanged and is not restated on this rule. This ships as preset `1.1.0`;
+the freeze digest is updated to the reviewed `default.json` and the freeze
+remains in effect.
+
 ## Activation, risk, and rollback
 
 Consumers still follow this repository's default branch. Accepting the
@@ -55,8 +69,8 @@ and the corresponding `.preset-bootstrap-freeze` update. The marker remains:
 its new checksum prevents any unreviewed effective change while consumers still
 follow the default branch. `pnpm renovate:policy` strict-validates the active
 preset and proves its resolved daily-creation, five-day, inherited
-bump/rollback, immediate-security, and human-merge boundaries with the pinned
-runtime.
+bump/rollback, immediate-security, human-merge, and Python line-bump approval
+boundaries with the pinned runtime.
 
 The durable rollback for the 2026-08-13 choice is the prior security block with
 both automerge fields enabled; restoring it would again be a major, explicitly

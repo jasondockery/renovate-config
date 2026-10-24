@@ -83,6 +83,21 @@ function dependency(config, overrides = {}) {
   }
 }
 
+function pythonRuntime(config, overrides = {}) {
+  return {
+    ...config,
+    currentValue: '3.13.5',
+    currentVersion: '3.13.5',
+    datasource: 'github-tags',
+    depName: 'python',
+    packageName: 'python/cpython',
+    manager: 'mise',
+    versioning: 'semver',
+    extractVersion: '^v(?<version>\\S+)',
+    ...overrides,
+  }
+}
+
 async function policyResult(filterInternalChecks, versioning, config, millisecondsOld) {
   return filterInternalChecks(config, versioning, 'minor', [release(millisecondsOld)])
 }
@@ -194,7 +209,69 @@ export async function checkEffectivePolicy({
   }), 'lockfile-proof')
   assert.equal(lockfile.minimumReleaseAge, null, 'Renovate lockfile maintenance must not claim release-age enforcement')
 
-  output.log(`ok: Renovate ${expectedVersion} resolved daily mature updates, five-day normal age, unenforceable bump/rollback age declined, human-reviewed security bypass, and weekly lockfile maintenance`)
+  const pythonMinor = await applyPackageRules(
+    pythonRuntime(resolved, { updateType: 'minor' }),
+    'python-mise-minor-proof'
+  )
+  assert.equal(
+    pythonMinor.dependencyDashboardApproval,
+    true,
+    'a Python 3.13 to 3.15 mise bump must wait for Dependency Dashboard approval'
+  )
+  assert.equal(pythonMinor.automerge, false, 'a Python 3.13 to 3.15 mise bump must never automerge')
+  assert.equal(
+    pythonMinor.minimumReleaseAge,
+    '5 days',
+    'Python line-bump approval must not loosen the five-day floor'
+  )
+
+  const pythonMajor = await applyPackageRules(
+    pythonRuntime(resolved, { updateType: 'major' }),
+    'python-mise-major-proof'
+  )
+  assert.equal(pythonMajor.dependencyDashboardApproval, true, 'a Python major line bump must wait for Dependency Dashboard approval')
+  assert.equal(pythonMajor.automerge, false, 'a Python major line bump must never automerge')
+
+  const pythonPatch = await applyPackageRules(
+    pythonRuntime(resolved, { updateType: 'patch' }),
+    'python-mise-patch-proof'
+  )
+  assert.notEqual(
+    pythonPatch.dependencyDashboardApproval,
+    true,
+    'a Python patch bump within a line must not require Dependency Dashboard approval'
+  )
+  assert.equal(
+    pythonPatch.minimumReleaseAge,
+    '5 days',
+    'a Python patch bump must keep the five-day floor'
+  )
+
+  const pythonAsdfMinor = await applyPackageRules(
+    pythonRuntime(resolved, { manager: 'asdf', updateType: 'minor' }),
+    'python-asdf-minor-proof'
+  )
+  assert.equal(
+    pythonAsdfMinor.dependencyDashboardApproval,
+    true,
+    'asdf Python maps to the same python/cpython package, so a minor line bump needs dashboard approval'
+  )
+  assert.equal(pythonAsdfMinor.automerge, false, 'asdf Python minor line bumps must never automerge')
+
+  const pypiPython = await applyPackageRules(dependency(resolved, {
+    datasource: 'pypi',
+    depName: 'python',
+    packageName: 'python',
+    manager: 'pip_requirements',
+    updateType: 'minor',
+  }), 'pypi-python-proof')
+  assert.notEqual(
+    pypiPython.dependencyDashboardApproval,
+    true,
+    'a PyPI package named python must not inherit the CPython runtime line-bump gate'
+  )
+
+  output.log(`ok: Renovate ${expectedVersion} resolved daily mature updates, five-day normal age, unenforceable bump/rollback age declined, human-reviewed security bypass, weekly lockfile maintenance, and Python line-bump dashboard approval`)
   return { ok: true, version: expectedVersion }
 }
 

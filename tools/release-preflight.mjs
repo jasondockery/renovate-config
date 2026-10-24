@@ -20,9 +20,10 @@ import {
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const STABLE_VERSION = /^(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)$/u
 const SHA = /^[0-9a-f]{40}$/u
-// The bootstrap line. Only a patch on it may follow 1.0.0 while the preset
-// freeze is in effect; see the freeze rule in collectReleasePreflightProblems.
-const FREEZE_PATCH_VERSION = /^1\.0\.(?:[1-9][0-9]*)$/u
+// The bootstrap line. While the preset freeze is in effect, later releases are
+// limited to 1.0.x tooling patches plus the owner-approved 1.1.x Python
+// line-bump exception (issue #30). See collectReleasePreflightProblems.
+const FREEZE_ALLOWED_VERSION = /^(?:1\.0\.(?:[1-9][0-9]*)|1\.1\.\d+)$/u
 
 export function collectCiReceiptProblems(receipt, expectedSha) {
   const problems = []
@@ -106,11 +107,12 @@ export function collectReleasePreflightProblems({
   // repaired: step 4 needs a working verifier, 1.0.0 shipped a broken one, and
   // 1.0.1 was refused until a freeze that only lifts after step 4 passes.
   // Patch releases on the 1.0.x line stay available for exactly that repair.
-  // A new major or minor implies a preset change the freeze has not reviewed,
-  // so it still waits for the freeze to lift.
-  if (version !== '1.0.0' && freeze?.lifted === false && !FREEZE_PATCH_VERSION.test(version)) {
+  // Issue #30 is the owner-approved exception that also allows 1.1.x: the
+  // freeze digest was updated to the reviewed Python line-bump policy, and the
+  // freeze itself stays in place. Any other new major or minor still waits.
+  if (version !== '1.0.0' && freeze?.lifted === false && !FREEZE_ALLOWED_VERSION.test(version)) {
     problems.push(
-      'during the preset freeze only a 1.0.x patch release may follow 1.0.0; a new major or minor requires the freeze to be lifted'
+      'during the preset freeze only a 1.0.x patch or the owner-approved 1.1.x Python line-bump exception may follow 1.0.0; any other new major or minor requires the freeze to be lifted'
     )
   }
   problems.push(...collectCiReceiptProblems(ciReceipt, expectedSha))

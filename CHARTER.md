@@ -37,8 +37,10 @@ observable contract and evidence matrix are in
   creation after the reviewed strict five-day npm floor and preserve the
   explicit vulnerability-alert age, schedule, and rate-limit bypass. Security
   PRs require human merge review; Renovate and the platform have no automerge
-  authority for them. The freeze checksum binds that exact policy while
-  consumers still follow the default branch.
+  authority for them. Python minor and major line bumps wait for Dependency
+  Dashboard approval and never automerge; patch bumps within a line keep the
+  existing policy. The freeze checksum binds that exact policy while consumers
+  still follow the default branch.
 - **Current evidence:** policy activation is not end-to-end acceptance. The
   live runner receipt, replacement/current pull requests, consumer CI, and
   security-alert reconciliation remain required evidence.

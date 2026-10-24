@@ -38,11 +38,21 @@ test('accepts only the exact owner-reviewed active policy', () => {
 test('rejects weakened age/filter policy or expanded security merge authority', () => {
   const degradations = {
     'later npm rule below five days': (value) => {
-      value.packageRules.at(-1).minimumReleaseAge = '3 days'
+      value.packageRules.find((rule) => JSON.stringify(rule.matchDatasources) === JSON.stringify(['npm']))
+        .minimumReleaseAge = '3 days'
     },
     'top-level age below five days': (value) => { value.minimumReleaseAge = '3 days' },
     'npm rule no longer failing closed': (value) => {
-      value.packageRules.at(-1).internalChecksFilter = 'none'
+      value.packageRules.find((rule) => JSON.stringify(rule.matchDatasources) === JSON.stringify(['npm']))
+        .internalChecksFilter = 'none'
+    },
+    'python line-bump rule losing dashboard approval': (value) => {
+      value.packageRules.find((rule) => JSON.stringify(rule.matchPackageNames) === JSON.stringify(['python/cpython']))
+        .dependencyDashboardApproval = false
+    },
+    'python line-bump rule gaining automerge': (value) => {
+      value.packageRules.find((rule) => JSON.stringify(rule.matchPackageNames) === JSON.stringify(['python/cpython']))
+        .automerge = true
     },
     'top-level internal checks relaxed': (value) => { value.internalChecksFilter = 'none' },
     'security updates inheriting an age floor': (value) => {

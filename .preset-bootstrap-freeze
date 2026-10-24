@@ -15,12 +15,15 @@
 # removing the redundant weekly calendar delay while retaining bounded PR
 # limits and weekly lockfile maintenance. On 2026-08-13 the owner retained
 # immediate vulnerability PRs but required human merge review by disabling
-# both automerge paths. This digest binds that exact reviewed policy. Further
-# effective changes remain frozen until consumers use a released preset
-# reference.
+# both automerge paths. On 2026-10-24 the owner approved a further freeze
+# exception so the shared preset can require Dependency Dashboard approval and
+# disable automerge for Python minor and major line bumps (issue #30:
+# https://github.com/jasondockery/renovate-config/issues/30). This digest binds
+# that reviewed 1.1.0 policy. Further effective changes remain frozen until
+# consumers use a released preset reference.
 #
 # Lift the freeze by deleting this file and its CI step in the SAME commit that
 # records all consumers pinned (ROADMAP.md, "Versioned distribution", step 8).
 #
 # sha256(default.json)
-e62535b203f7beed6bf242178ff26d710179ea4d475b187aef5b5eb51108ad0f
+557d4364a7b6b23a04913944be28414bc1f11d5322243e0f157cb8a07a33e299

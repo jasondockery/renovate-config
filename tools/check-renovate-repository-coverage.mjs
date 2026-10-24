@@ -566,9 +566,12 @@ const PRESET_KEYS = new Set([
 const PACKAGE_RULE_KEYS = new Set([
   'description',
   'matchDatasources',
+  'matchPackageNames',
   'matchUpdateTypes',
   'minimumReleaseAge',
   'internalChecksFilter',
+  'dependencyDashboardApproval',
+  'automerge',
 ])
 const VULNERABILITY_KEYS = new Set([
   'enabled',
@@ -638,9 +641,13 @@ export function assertExtractionNeutralPreset(preset) {
       assertAllowedKeys(rule, PACKAGE_RULE_KEYS, base)
       if ('description' in rule) assertString(rule.description, [...base, 'description'])
       if ('matchDatasources' in rule) assertStringArray(rule.matchDatasources, [...base, 'matchDatasources'])
+      if ('matchPackageNames' in rule) assertStringArray(rule.matchPackageNames, [...base, 'matchPackageNames'])
       if ('matchUpdateTypes' in rule) assertStringArray(rule.matchUpdateTypes, [...base, 'matchUpdateTypes'])
       if ('minimumReleaseAge' in rule) assertString(rule.minimumReleaseAge, [...base, 'minimumReleaseAge'])
       if ('internalChecksFilter' in rule) assertString(rule.internalChecksFilter, [...base, 'internalChecksFilter'])
+      for (const key of ['dependencyDashboardApproval', 'automerge']) {
+        if (key in rule && typeof rule[key] !== 'boolean') failPresetShape([...base, key], 'expected a boolean')
+      }
     }
   }
   if ('vulnerabilityAlerts' in preset) {

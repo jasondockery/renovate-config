@@ -7,12 +7,21 @@
     "vulnerabilityAlerts explicitly bypasses the routine schedule, rate limits, and release-age floor; security updates are evaluated on the next daily run but always require human merge review.",
     "Routine version updates are evaluated for branch and PR creation on every daily run after their maturity floor; bounded PR limits control noise without adding a second weekly calendar delay.",
     "Normal major, minor, and patch releases use a strict 5-day floor where their datasource supplies release timestamps. pnpm independently enforces a timestamp-exact 4-day floor during resolution.",
-    "config:best-practices includes a 3-day npm rule. The later npm package rule below deliberately raises effective normal npm updates to 5 days without claiming support for pins, lockfile maintenance, replacements, or digests."
+    "config:best-practices includes a 3-day npm rule. The later npm package rule below deliberately raises effective normal npm updates to 5 days without claiming support for pins, lockfile maintenance, replacements, or digests.",
+    "Python runtime line bumps wait for owner approval. Renovate's mise manager resolves python to github-tags package python/cpython; asdf maps the same package, so the rule matches that identity. Minor and major updates such as 3.13 to 3.15 require Dependency Dashboard approval and never automerge. Patch bumps within a line keep the existing policy, including the five-day floor."
   ],
   "extends": ["config:best-practices"],
   "minimumReleaseAge": "5 days",
   "internalChecksFilter": "strict",
   "packageRules": [
+    {
+      "description": "Python runtime line bumps are owner-reviewed. Renovate's mise manager resolves python to github-tags package python/cpython, and asdf uses that same package, so this rule matches that identity rather than the mise tool key alone. Minor and major updates such as 3.13 to 3.15 require Dependency Dashboard approval and never automerge. Patch bumps within a line keep the existing policy, including the five-day floor.",
+      "matchPackageNames": ["python/cpython"],
+      "matchDatasources": ["github-tags"],
+      "matchUpdateTypes": ["minor", "major"],
+      "dependencyDashboardApproval": true,
+      "automerge": false
+    },
     {
       "description": "Raise normal npm version updates above config:best-practices' three-day npm floor; update types without Renovate release-age support remain governed by their repository inventory controls.",
       "matchDatasources": ["npm"],

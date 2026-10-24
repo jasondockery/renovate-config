@@ -1,10 +1,15 @@
 import assert from 'node:assert/strict'
+import { execFileSync } from 'node:child_process'
+import fs from 'node:fs'
+import path from 'node:path'
 import test from 'node:test'
+import { fileURLToPath } from 'node:url'
 import { collectPresetFreezeProblems } from './check-preset-freeze.mjs'
 import {
   collectCiReceiptProblems,
   collectReleasePreflightProblems,
   freezeReleasePresetDigest,
+  hashPreset,
   parseReleasePreflightArguments,
   PRESET_DIGEST_1_0_0,
   PRESET_DIGEST_1_1_0,
@@ -12,6 +17,12 @@ import {
 } from './release-preflight.mjs'
 
 const SHA = '0123456789abcdef0123456789abcdef01234567'
+const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+const pythonPolicy = fs.readFileSync(path.join(repositoryRoot, 'default.json'), 'utf8')
+const preset1_0_0 = execFileSync('git', ['show', '1.0.0:default.json'], {
+  cwd: repositoryRoot,
+  encoding: 'utf8',
+})
 
 function snapshot(overrides = {}) {
   return {
@@ -59,6 +70,7 @@ function evidence(overrides = {}) {
     remoteTagShas: [],
     controlsReceipt: { result: 'passed', drift: [] },
     freeze: { lifted: false, problems: [], digest: PRESET_DIGEST_1_0_0 },
+    expectedPreset: pythonPolicy,
     ciReceipt: ciReceipt(),
     ...overrides,
   }
@@ -69,6 +81,7 @@ function dependencies(overrides = {}) {
   const values = {
     checkControls: async () => ({ result: 'passed', drift: [] }),
     ciReceipt: async () => ciReceipt(),
+    expectedPreset: () => pythonPolicy,
     freeze: () => ({ lifted: false, problems: [], digest: PRESET_DIGEST_1_0_0 }),
     localTags: () => [],
     remoteTags: () => [],
@@ -110,6 +123,7 @@ test('a 1.0.x patch may follow 1.0.0 only at the 1.0.0 preset digest', () => {
     evidence({
       version: '1.0.1',
       freeze: { lifted: false, problems: [], digest: PRESET_DIGEST_1_0_0 },
+      expectedPreset: preset1_0_0,
     })
   )
   assert.deepEqual(problems, [])
@@ -121,11 +135,12 @@ test('a python-policy tree may not be tagged as a 1.0.x patch', () => {
       evidence({
         version,
         freeze: { lifted: false, problems: [], digest: PRESET_DIGEST_1_1_0 },
+        expectedPreset: pythonPolicy,
       })
     )
     assert.ok(
       problems.includes(
-        `during the preset freeze ${version} may ship only while default.json hashes to ${PRESET_DIGEST_1_0_0}; current digest is ${PRESET_DIGEST_1_1_0}`
+        `release ${version} may ship only while default.json hashes to ${PRESET_DIGEST_1_0_0}; current digest is ${PRESET_DIGEST_1_1_0}`
       ),
       `${version} of the python-policy tree must be refused`
     )
@@ -138,6 +153,7 @@ test('the owner-approved 1.1.0 Python line-bump exception may follow 1.0.0 at th
       evidence({
         version: '1.1.0',
         freeze: { lifted: false, problems: [], digest: PRESET_DIGEST_1_1_0 },
+        expectedPreset: pythonPolicy,
       })
     ),
     []
@@ -145,27 +161,85 @@ test('the owner-approved 1.1.0 Python line-bump exception may follow 1.0.0 at th
 })
 
 test('1.1.0 is refused when the preset digest is not the reviewed 1.1.0 policy', () => {
-  for (const digest of [PRESET_DIGEST_1_0_0, 'a'.repeat(64)]) {
+  for (const expectedPreset of [preset1_0_0, '{"extends":[]}\n']) {
     const problems = collectReleasePreflightProblems(
       evidence({
         version: '1.1.0',
-        freeze: { lifted: false, problems: [], digest },
+        freeze: { lifted: false, problems: [], digest: hashPreset(expectedPreset) },
+        expectedPreset,
       })
     )
     assert.ok(
       problems.includes(
-        `during the preset freeze 1.1.0 may ship only while default.json hashes to ${PRESET_DIGEST_1_1_0}; current digest is ${digest}`
+        `release 1.1.0 may ship only while default.json hashes to ${PRESET_DIGEST_1_1_0}; current digest is ${hashPreset(expectedPreset)}`
       ),
-      `1.1.0 with digest ${digest} must be refused`
+      `1.1.0 with digest ${hashPreset(expectedPreset)} must be refused`
     )
   }
 })
 
 test('the live freeze digest is the reviewed 1.1.0 allowance', () => {
+  assert.equal(hashPreset(pythonPolicy), PRESET_DIGEST_1_1_0)
+  assert.equal(hashPreset(preset1_0_0), PRESET_DIGEST_1_0_0)
   assert.equal(collectPresetFreezeProblems().digest, PRESET_DIGEST_1_1_0)
   assert.equal(freezeReleasePresetDigest('1.1.0'), PRESET_DIGEST_1_1_0)
   assert.equal(freezeReleasePresetDigest('1.0.1'), PRESET_DIGEST_1_0_0)
   assert.equal(freezeReleasePresetDigest('1.0.2'), PRESET_DIGEST_1_0_0)
+})
+
+test('a mapped version with the wrong digest is refused after the freeze marker is lifted', () => {
+  for (const version of ['1.0.1', '1.1.0']) {
+    const required = freezeReleasePresetDigest(version)
+    const problems = collectReleasePreflightProblems(
+      evidence({
+        version,
+        freeze: { lifted: true, problems: [] },
+        expectedPreset: '{"extends":[]}\n',
+      })
+    )
+    assert.ok(
+      problems.includes(
+        `release ${version} may ship only while default.json hashes to ${required}; current digest is ${hashPreset('{"extends":[]}\n')}`
+      ),
+      `${version} with the wrong digest must be refused after lift`
+    )
+  }
+})
+
+test('a mapped version with the right digest is accepted after the freeze marker is lifted', () => {
+  assert.deepEqual(
+    collectReleasePreflightProblems(
+      evidence({
+        version: '1.0.1',
+        freeze: { lifted: true, problems: [] },
+        expectedPreset: preset1_0_0,
+      })
+    ),
+    []
+  )
+  assert.deepEqual(
+    collectReleasePreflightProblems(
+      evidence({
+        version: '1.1.0',
+        freeze: { lifted: true, problems: [] },
+        expectedPreset: pythonPolicy,
+      })
+    ),
+    []
+  )
+})
+
+test('an unmapped version such as 1.2.0 is allowed once the freeze marker is lifted', () => {
+  assert.deepEqual(
+    collectReleasePreflightProblems(
+      evidence({
+        version: '1.2.0',
+        freeze: { lifted: true, problems: [] },
+        expectedPreset: pythonPolicy,
+      })
+    ),
+    []
+  )
 })
 
 test('a new major or unreviewed minor still waits for the freeze to lift', () => {

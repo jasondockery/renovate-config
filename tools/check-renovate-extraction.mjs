@@ -22,6 +22,8 @@ const EXPECTED = Object.freeze([
   { manager: 'mise', depName: 'node' },
   { manager: 'mise', depName: 'pnpm' },
   { manager: 'mise', depName: 'python' },
+  { manager: 'asdf', depName: 'python' },
+  { manager: 'pyenv', depName: 'python' },
   { manager: 'renovate-config', depName: 'jasondockery/renovate-config' },
   { manager: 'custom.regex', depName: 'renovate' },
   { manager: 'custom.regex', depName: '@opennextjs/aws' },
@@ -108,6 +110,8 @@ function copyFixture(targetRoot, repoRoot) {
     ['.node-version.fixture', '.node-version'],
     ['.nvmrc.fixture', '.nvmrc'],
     ['mise.toml.fixture', 'mise.toml'],
+    ['.tool-versions.fixture', '.tool-versions'],
+    ['.python-version.fixture', '.python-version'],
     ['opennext.ts.fixture', 'packages/aws/src/opennext.ts'],
   ]
   for (const [source, destination] of copies) {

@@ -94,6 +94,32 @@ function pythonRuntime(config, extracted, overrides = {}) {
   }
 }
 
+function pythonFromExtract(extracted, {
+  manager,
+  expectedPackageName,
+  expectedDatasource,
+  expectedCurrentValue,
+}) {
+  const python = extracted?.deps?.find((dependency) => dependency.depName === 'python')
+  assert.ok(python, `the ${manager} extraction fixture must yield a python dependency from the manager`)
+  if (expectedPackageName === undefined) {
+    assert.notEqual(
+      python.packageName,
+      'python/cpython',
+      `${manager} must not resolve python to python/cpython`
+    )
+  } else {
+    assert.equal(python.packageName, expectedPackageName, `${manager} must resolve python to ${expectedPackageName}`)
+  }
+  assert.equal(python.datasource, expectedDatasource, `${manager} python must use the ${expectedDatasource} datasource`)
+  assert.equal(
+    python.currentValue,
+    expectedCurrentValue,
+    `the ${manager} extraction fixture must pin python ${expectedCurrentValue}`
+  )
+  return python
+}
+
 async function extractMisePython(repoRoot, extractPackageFile, GlobalConfig) {
   const fixture = fs.readFileSync(
     path.join(repoRoot, 'tools/fixtures/dependency-extraction/mise.toml.fixture'),
@@ -102,16 +128,40 @@ async function extractMisePython(repoRoot, extractPackageFile, GlobalConfig) {
   const previous = { ...GlobalConfig.get() }
   GlobalConfig.set({ ...previous, localDir: previous.localDir ?? os.tmpdir() })
   try {
-    const extracted = await extractPackageFile(fixture, 'mise.toml')
-    const python = extracted?.deps?.find((dependency) => dependency.depName === 'python')
-    assert.ok(python, 'the mise extraction fixture must yield a python dependency from the manager')
-    assert.equal(python.packageName, 'python/cpython', 'mise must resolve python to python/cpython')
-    assert.equal(python.datasource, 'github-tags', 'mise python must use the github-tags datasource')
-    assert.equal(python.currentValue, '3.13.5', 'the mise extraction fixture must pin python 3.13.5')
-    return python
+    return pythonFromExtract(await extractPackageFile(fixture, 'mise.toml'), {
+      manager: 'mise',
+      expectedPackageName: 'python/cpython',
+      expectedDatasource: 'github-tags',
+      expectedCurrentValue: '3.13.5',
+    })
   } finally {
     GlobalConfig.set(previous)
   }
+}
+
+function extractAsdfPython(repoRoot, extractPackageFile) {
+  const fixture = fs.readFileSync(
+    path.join(repoRoot, 'tools/fixtures/dependency-extraction/.tool-versions.fixture'),
+    'utf8'
+  )
+  return pythonFromExtract(extractPackageFile(fixture), {
+    manager: 'asdf',
+    expectedPackageName: 'python/cpython',
+    expectedDatasource: 'github-tags',
+    expectedCurrentValue: '3.13.5',
+  })
+}
+
+function extractPyenvPython(repoRoot, extractPackageFile) {
+  const fixture = fs.readFileSync(
+    path.join(repoRoot, 'tools/fixtures/dependency-extraction/.python-version.fixture'),
+    'utf8'
+  )
+  return pythonFromExtract(extractPackageFile(fixture), {
+    manager: 'pyenv',
+    expectedDatasource: 'docker',
+    expectedCurrentValue: '3.13.5',
+  })
 }
 
 async function policyResult(filterInternalChecks, versioning, config, millisecondsOld) {
@@ -136,6 +186,8 @@ export async function checkEffectivePolicy({
     { filterInternalChecks },
     { api: semver },
     { extractPackageFile: extractMisePackageFile },
+    { extractPackageFile: extractAsdfPackageFile },
+    { extractPackageFile: extractPyenvPackageFile },
     { GlobalConfig },
     { getDefaultVersioning },
     { get: getVersioning },
@@ -146,6 +198,8 @@ export async function checkEffectivePolicy({
     importRenovateModule(runtimeRoot, 'workers/repository/process/lookup/filter-checks.js'),
     importRenovateModule(runtimeRoot, 'modules/versioning/semver/index.js'),
     importRenovateModule(runtimeRoot, 'modules/manager/mise/extract.js'),
+    importRenovateModule(runtimeRoot, 'modules/manager/asdf/extract.js'),
+    importRenovateModule(runtimeRoot, 'modules/manager/pyenv/extract.js'),
     importRenovateModule(runtimeRoot, 'config/global.js'),
     importRenovateModule(runtimeRoot, 'modules/datasource/common.js'),
     importRenovateModule(runtimeRoot, 'modules/versioning/index.js'),
@@ -273,8 +327,14 @@ export async function checkEffectivePolicy({
   assert.equal(pythonMajor.dependencyDashboardApproval, true, 'a Python major line bump must wait for Dependency Dashboard approval')
   assert.equal(pythonMajor.automerge, false, 'a Python major line bump must never automerge')
 
+  const pythonPatchType = classifyRelease(pythonVersioning, pythonFromMise.currentValue, '3.13.6')
+  assert.equal(
+    pythonPatchType,
+    'patch',
+    'github-tags versioning at the pinned runtime must classify 3.13.5 to 3.13.6 as patch'
+  )
   const pythonPatch = await applyPackageRules(
-    pythonRuntime(resolved, pythonFromMise, { updateType: 'patch' }),
+    pythonRuntime(resolved, pythonFromMise, { updateType: pythonPatchType }),
     'python-mise-patch-proof'
   )
   assert.notEqual(
@@ -288,8 +348,17 @@ export async function checkEffectivePolicy({
     'a Python patch bump must keep the five-day floor'
   )
 
+  const pythonFromAsdf = extractAsdfPython(repoRoot, extractAsdfPackageFile)
+  const asdfVersioningName = pythonFromAsdf.versioning ?? getDefaultVersioning(pythonFromAsdf.datasource)
+  const asdfVersioning = getVersioning(asdfVersioningName)
+  const pythonAsdfLineBumpType = classifyRelease(asdfVersioning, pythonFromAsdf.currentValue, '3.15.0')
+  assert.equal(
+    pythonAsdfLineBumpType,
+    'minor',
+    'github-tags versioning at the pinned runtime must classify asdf 3.13.5 to 3.15.0 as minor'
+  )
   const pythonAsdfMinor = await applyPackageRules(
-    pythonRuntime(resolved, pythonFromMise, { manager: 'asdf', updateType: 'minor' }),
+    pythonRuntime(resolved, pythonFromAsdf, { manager: 'asdf', updateType: pythonAsdfLineBumpType }),
     'python-asdf-minor-proof'
   )
   assert.equal(
@@ -325,13 +394,11 @@ export async function checkEffectivePolicy({
     'a dockerfile python image must not inherit the CPython runtime line-bump gate'
   )
 
-  const pyenvPython = await applyPackageRules(dependency(resolved, {
-    datasource: 'docker',
-    depName: 'python',
-    packageName: 'python',
-    manager: 'pyenv',
-    updateType: 'minor',
-  }), 'pyenv-python-proof')
+  const pythonFromPyenv = extractPyenvPython(repoRoot, extractPyenvPackageFile)
+  const pyenvPython = await applyPackageRules(
+    pythonRuntime(resolved, pythonFromPyenv, { manager: 'pyenv', updateType: 'minor' }),
+    'pyenv-python-proof'
+  )
   assert.notEqual(
     pyenvPython.dependencyDashboardApproval,
     true,

@@ -2,7 +2,7 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["github>jasondockery/renovate-config#1.0.0"],
   "ignorePresets": ["github>jasondockery/renovate-config#1.0.0"],
-  "enabledManagers": ["npm", "dockerfile", "docker-compose", "github-actions", "nodenv", "nvm", "mise", "renovate-config", "custom.regex"],
+  "enabledManagers": ["npm", "dockerfile", "docker-compose", "github-actions", "nodenv", "nvm", "mise", "asdf", "pyenv", "renovate-config", "custom.regex"],
   "customManagers": [
     {
       "customType": "regex",

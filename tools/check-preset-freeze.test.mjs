@@ -34,7 +34,11 @@ test('a matching digest passes and a changed preset fails closed', (context) => 
     preset,
     marker: `# comment\n\n${digestOf(preset)}\n`,
   })
-  assert.deepEqual(collectPresetFreezeProblems(root), { lifted: false, problems: [] })
+  assert.deepEqual(collectPresetFreezeProblems(root), {
+    lifted: false,
+    digest: digestOf(preset),
+    problems: [],
+  })
 
   fs.writeFileSync(path.join(root, 'default.json'), '{"minimumReleaseAge":"3 days"}\n')
   const changed = collectPresetFreezeProblems(root)

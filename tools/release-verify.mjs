@@ -5,6 +5,7 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { createGithubApiClient, readDesiredReleaseControls } from './release-controls.mjs'
 import { isMainModule } from './is-main.mjs'
+import { collectMappedPresetDigestProblems } from './release-preflight.mjs'
 import {
   compareRepositorySnapshots,
   snapshotRepository,
@@ -43,6 +44,7 @@ export function collectReleaseVerificationProblems({
   if (typeof taggedPreset !== 'string' || taggedPreset !== expectedPreset) {
     problems.push('tagged default.json does not match the expected release commit')
   }
+  problems.push(...collectMappedPresetDigestProblems(version, expectedPreset, 'tagged preset digest'))
   if (presetResolved !== true) {
     problems.push('Renovate could not resolve and validate the version-pinned preset')
   }

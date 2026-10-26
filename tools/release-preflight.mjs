@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -20,9 +21,46 @@ import {
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const STABLE_VERSION = /^(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)$/u
 const SHA = /^[0-9a-f]{40}$/u
-// The bootstrap line. Only a patch on it may follow 1.0.0 while the preset
-// freeze is in effect; see the freeze rule in collectReleasePreflightProblems.
-const FREEZE_PATCH_VERSION = /^1\.0\.(?:[1-9][0-9]*)$/u
+// sha256(default.json) at the 1.0.0 five-day policy. 1.0.x patches may ship
+// only this digest; a later policy under a 1.0.x tag would rewrite #1.0.0 pins.
+export const PRESET_DIGEST_1_0_0 = 'e62535b203f7beed6bf242178ff26d710179ea4d475b187aef5b5eb51108ad0f'
+// sha256(default.json) at the reviewed 1.1.0 Python line-bump policy (issue #30).
+export const PRESET_DIGEST_1_1_0 = 'd913658716e5ee2a22708a808345b9017a11836c3a7ff8fa64c7e0094965a8a0'
+// Each mapped release is bound to one exact preset digest whether or not the
+// freeze marker still exists. Add a row with a reason when the owner approves
+// another exception. Unmapped versions wait only while the marker is present.
+const FREEZE_RELEASE_PRESETS = Object.freeze([
+  {
+    // Tooling patches on the 1.0 line. Allowed only while default.json still
+    // hashes to the 1.0.0 five-day policy.
+    versions: /^1\.0\.(?:[1-9][0-9]*)$/u,
+    digest: PRESET_DIGEST_1_0_0,
+  },
+  {
+    // Owner-approved Python line-bump exception (issue #30). Exactly 1.1.0,
+    // and only the reviewed 1.1.0 digest.
+    versions: /^1\.1\.0$/u,
+    digest: PRESET_DIGEST_1_1_0,
+  },
+])
+
+export function freezeReleasePresetDigest(version) {
+  return FREEZE_RELEASE_PRESETS.find((entry) => entry.versions.test(version))?.digest
+}
+
+export function hashPreset(content) {
+  return createHash('sha256').update(content ?? '').digest('hex')
+}
+
+export function collectMappedPresetDigestProblems(version, presetContent, digestLabel = 'current digest') {
+  const requiredDigest = freezeReleasePresetDigest(version)
+  if (requiredDigest === undefined) return []
+  const actual = hashPreset(presetContent)
+  if (actual === requiredDigest) return []
+  return [
+    `release ${version} may ship only while default.json hashes to ${requiredDigest}; ${digestLabel} is ${actual}`,
+  ]
+}
 
 export function collectCiReceiptProblems(receipt, expectedSha) {
   const problems = []
@@ -75,6 +113,7 @@ export function collectReleasePreflightProblems({
   remoteTagShas = [],
   controlsReceipt,
   freeze,
+  expectedPreset,
   ciReceipt,
 }) {
   const problems = []
@@ -94,23 +133,20 @@ export function collectReleasePreflightProblems({
   if (version === '1.0.0' && freeze?.lifted !== false) {
     problems.push('first release requires the matching preset bootstrap freeze to remain in effect')
   }
-  // The freeze protects preset CONTENT, not the act of releasing: consumers
-  // resolve the default branch, so a changed default.json would reach them
-  // silently. collectPresetFreezeProblems reports no problems exactly when
-  // default.json still hashes to the frozen digest, and any mismatch is already
-  // recorded above, so a release reaching this point cannot alter consumer
-  // policy regardless of what else it carries.
-  //
-  // Refusing every later release outright deadlocked the bootstrap. The first
-  // release is immutable, so a defect in the release TOOLING could never be
-  // repaired: step 4 needs a working verifier, 1.0.0 shipped a broken one, and
-  // 1.0.1 was refused until a freeze that only lifts after step 4 passes.
-  // Patch releases on the 1.0.x line stay available for exactly that repair.
-  // A new major or minor implies a preset change the freeze has not reviewed,
-  // so it still waits for the freeze to lift.
-  if (version !== '1.0.0' && freeze?.lifted === false && !FREEZE_PATCH_VERSION.test(version)) {
+  // Mapped versions are bound to an exact default.json digest even after the
+  // freeze marker is deleted, so a 1.0.x tag of a later policy tree cannot
+  // rewrite #1.0.0 pins as a patch. Hash the intended SHA's default.json the
+  // same way release:verify does. Unmapped versions wait only while the marker
+  // is present: refusing every later release deadlocked the bootstrap once
+  // 1.0.0 shipped a broken verifier.
+  problems.push(...collectMappedPresetDigestProblems(version, expectedPreset))
+  if (
+    freezeReleasePresetDigest(version) === undefined &&
+    version !== '1.0.0' &&
+    freeze?.lifted === false
+  ) {
     problems.push(
-      'during the preset freeze only a 1.0.x patch release may follow 1.0.0; a new major or minor requires the freeze to be lifted'
+      'during the preset freeze only a 1.0.x patch or the owner-approved 1.1.0 Python line-bump exception may follow 1.0.0; any other new major or minor requires the freeze to be lifted'
     )
   }
   problems.push(...collectCiReceiptProblems(ciReceipt, expectedSha))
@@ -194,11 +230,27 @@ function runVerify() {
   return result.status === 0
 }
 
+function expectedPresetAt(expectedSha) {
+  const result = spawnSync('git', ['-C', repositoryRoot, 'show', `${expectedSha}:default.json`], {
+    encoding: 'utf8',
+    maxBuffer: 4 * 1024 * 1024,
+    timeout: 30_000,
+  })
+  if (result.error) throw result.error
+  if (result.status !== 0) {
+    throw new Error(
+      `git show ${expectedSha}:default.json failed: ${(result.stderr || 'no output').trim()}`
+    )
+  }
+  return result.stdout
+}
+
 function realDependencies(desired) {
   const client = createGithubApiClient(desired.apiVersion)
   return {
     checkControls: () => checkReleaseControls({ desired, client }),
     ciReceipt: (sha) => exactShaCiReceipt(sha, desired, client),
+    expectedPreset: expectedPresetAt,
     freeze: () => collectPresetFreezeProblems(repositoryRoot),
     localTags: localTagShas,
     remoteTags: remoteTagShas,
@@ -217,6 +269,7 @@ export async function runReleasePreflight(
     ciReceipt: await dependencies.ciReceipt(expectedSha),
     controlsReceipt: await dependencies.checkControls(),
     expectedSha,
+    expectedPreset: dependencies.expectedPreset(expectedSha),
     freeze: dependencies.freeze(),
     localTagShas: dependencies.localTags(version),
     remoteTagShas: dependencies.remoteTags(version),

@@ -1,5 +1,12 @@
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import path from 'node:path'
 import test from 'node:test'
+import { fileURLToPath } from 'node:url'
+import {
+  PRESET_DIGEST_1_0_0,
+  PRESET_DIGEST_1_1_0,
+} from './release-preflight.mjs'
 import {
   collectReleaseVerificationProblems,
   parseReleaseVerificationArguments,
@@ -7,6 +14,11 @@ import {
   runReleaseVerification,
   taggedPreset,
 } from './release-verify.mjs'
+
+const pythonPolicy = fs.readFileSync(
+  path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'default.json'),
+  'utf8'
+)
 
 const SHA = '0123456789abcdef0123456789abcdef01234567'
 
@@ -59,6 +71,40 @@ test('tagged preset must match the expected commit, independent of default branc
       'tagged default.json does not match the expected release commit'
     )
   )
+})
+
+test('a python-policy tree may not be verified as a 1.0.x patch', () => {
+  for (const version of ['1.0.1', '1.0.2']) {
+    const problems = collectReleaseVerificationProblems(evidence({
+      version,
+      release: { ...evidence().release, tag_name: version },
+      expectedPreset: pythonPolicy,
+      taggedPreset: pythonPolicy,
+    }))
+    assert.ok(
+      problems.some((problem) => problem.includes(PRESET_DIGEST_1_0_0) && problem.includes(PRESET_DIGEST_1_1_0)),
+      `${version} of the python-policy tree must be refused`
+    )
+  }
+})
+
+test('1.1.0 verification accepts only the reviewed python-policy digest', () => {
+  assert.deepEqual(
+    collectReleaseVerificationProblems(evidence({
+      version: '1.1.0',
+      release: { ...evidence().release, tag_name: '1.1.0' },
+      expectedPreset: pythonPolicy,
+      taggedPreset: pythonPolicy,
+    })),
+    []
+  )
+  const problems = collectReleaseVerificationProblems(evidence({
+    version: '1.1.0',
+    release: { ...evidence().release, tag_name: '1.1.0' },
+    expectedPreset: '{"extends":[]}',
+    taggedPreset: '{"extends":[]}',
+  }))
+  assert.ok(problems.some((problem) => problem.includes(PRESET_DIGEST_1_1_0)))
 })
 
 test('annotated tags resolve through their dereferenced commit SHA', () => {

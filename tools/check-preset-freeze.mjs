@@ -44,6 +44,7 @@ export function collectPresetFreezeProblems(root = repositoryRoot) {
   if (actual !== expected) {
     return {
       lifted: false,
+      digest: actual,
       problems: [
         [
           `${PRESET} changed while the preset bootstrap freeze is in effect.`,
@@ -62,7 +63,7 @@ export function collectPresetFreezeProblems(root = repositoryRoot) {
     }
   }
 
-  return { lifted: false, problems: [] }
+  return { lifted: false, digest: actual, problems: [] }
 }
 
 export function checkPresetFreeze(root = repositoryRoot) {

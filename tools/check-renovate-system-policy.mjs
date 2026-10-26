@@ -179,6 +179,18 @@ export function collectRenovateSystemPolicyProblems(root = repositoryRoot) {
     ) {
       problems.push('default.json must retain the one reviewed npm rule that overrides the inherited three-day policy.')
     }
+    const pythonLineRules = (preset.packageRules ?? []).filter((rule) =>
+      JSON.stringify(rule.matchPackageNames) === JSON.stringify(['python/cpython']) &&
+      JSON.stringify(rule.matchDatasources) === JSON.stringify(['github-tags']) &&
+      JSON.stringify(rule.matchUpdateTypes) === JSON.stringify(['minor', 'major'])
+    )
+    if (
+      pythonLineRules.length !== 1 ||
+      pythonLineRules[0].dependencyDashboardApproval !== true ||
+      pythonLineRules[0].automerge !== false
+    ) {
+      problems.push('default.json must retain the reviewed Python minor/major line-bump approval rule.')
+    }
     if (Object.hasOwn(preset, 'enabledManagers')) {
       problems.push('default.json must not silently narrow built-in dependency manager coverage with enabledManagers.')
     }

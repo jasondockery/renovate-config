@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
@@ -83,6 +84,86 @@ function dependency(config, overrides = {}) {
   }
 }
 
+function pythonRuntime(config, extracted, overrides = {}) {
+  return {
+    ...config,
+    ...extracted,
+    manager: 'mise',
+    currentVersion: extracted.currentValue,
+    ...overrides,
+  }
+}
+
+function pythonFromExtract(extracted, {
+  manager,
+  expectedPackageName,
+  expectedDatasource,
+  expectedCurrentValue,
+}) {
+  const python = extracted?.deps?.find((dependency) => dependency.depName === 'python')
+  assert.ok(python, `the ${manager} extraction fixture must yield a python dependency from the manager`)
+  if (expectedPackageName === undefined) {
+    assert.notEqual(
+      python.packageName,
+      'python/cpython',
+      `${manager} must not resolve python to python/cpython`
+    )
+  } else {
+    assert.equal(python.packageName, expectedPackageName, `${manager} must resolve python to ${expectedPackageName}`)
+  }
+  assert.equal(python.datasource, expectedDatasource, `${manager} python must use the ${expectedDatasource} datasource`)
+  assert.equal(
+    python.currentValue,
+    expectedCurrentValue,
+    `the ${manager} extraction fixture must pin python ${expectedCurrentValue}`
+  )
+  return python
+}
+
+async function extractMisePython(repoRoot, extractPackageFile, GlobalConfig) {
+  const fixture = fs.readFileSync(
+    path.join(repoRoot, 'tools/fixtures/dependency-extraction/mise.toml.fixture'),
+    'utf8'
+  )
+  const previous = { ...GlobalConfig.get() }
+  GlobalConfig.set({ ...previous, localDir: previous.localDir ?? os.tmpdir() })
+  try {
+    return pythonFromExtract(await extractPackageFile(fixture, 'mise.toml'), {
+      manager: 'mise',
+      expectedPackageName: 'python/cpython',
+      expectedDatasource: 'github-tags',
+      expectedCurrentValue: '3.13.5',
+    })
+  } finally {
+    GlobalConfig.set(previous)
+  }
+}
+
+function extractAsdfPython(repoRoot, extractPackageFile) {
+  const fixture = fs.readFileSync(
+    path.join(repoRoot, 'tools/fixtures/dependency-extraction/.tool-versions.fixture'),
+    'utf8'
+  )
+  return pythonFromExtract(extractPackageFile(fixture), {
+    manager: 'asdf',
+    expectedPackageName: 'python/cpython',
+    expectedDatasource: 'github-tags',
+    expectedCurrentValue: '3.13.5',
+  })
+}
+
+function extractPyenvPython(repoRoot, extractPackageFile) {
+  const fixture = fs.readFileSync(
+    path.join(repoRoot, 'tools/fixtures/dependency-extraction/.python-version.fixture'),
+    'utf8'
+  )
+  return pythonFromExtract(extractPackageFile(fixture), {
+    manager: 'pyenv',
+    expectedDatasource: 'docker',
+    expectedCurrentValue: '3.13.5',
+  })
+}
+
 async function policyResult(filterInternalChecks, versioning, config, millisecondsOld) {
   return filterInternalChecks(config, versioning, 'minor', [release(millisecondsOld)])
 }
@@ -99,11 +180,30 @@ export async function checkEffectivePolicy({
   assert.equal(runtimeManifest.version, expectedVersion, 'PATH Renovate must match .renovate-version')
   validateAcceptedPolicy(repoRoot, environment, run)
 
-  const [{ resolveConfigPresets }, { applyPackageRules }, { filterInternalChecks }, { api: semver }] = await Promise.all([
+  const [
+    { resolveConfigPresets },
+    { applyPackageRules },
+    { filterInternalChecks },
+    { api: semver },
+    { extractPackageFile: extractMisePackageFile },
+    { extractPackageFile: extractAsdfPackageFile },
+    { extractPackageFile: extractPyenvPackageFile },
+    { GlobalConfig },
+    { getDefaultVersioning },
+    { get: getVersioning },
+    { classifyRelease },
+  ] = await Promise.all([
     importRenovateModule(runtimeRoot, 'config/presets/index.js'),
     importRenovateModule(runtimeRoot, 'util/package-rules/index.js'),
     importRenovateModule(runtimeRoot, 'workers/repository/process/lookup/filter-checks.js'),
     importRenovateModule(runtimeRoot, 'modules/versioning/semver/index.js'),
+    importRenovateModule(runtimeRoot, 'modules/manager/mise/extract.js'),
+    importRenovateModule(runtimeRoot, 'modules/manager/asdf/extract.js'),
+    importRenovateModule(runtimeRoot, 'modules/manager/pyenv/extract.js'),
+    importRenovateModule(runtimeRoot, 'config/global.js'),
+    importRenovateModule(runtimeRoot, 'modules/datasource/common.js'),
+    importRenovateModule(runtimeRoot, 'modules/versioning/index.js'),
+    importRenovateModule(runtimeRoot, 'workers/repository/process/lookup/update-type.js'),
   ])
   const source = JSON.parse(fs.readFileSync(path.resolve(repoRoot, ACCEPTED_POLICY_PATH), 'utf8'))
   const { config: resolved } = await resolveConfigPresets(structuredClone(source), structuredClone(source))
@@ -194,7 +294,118 @@ export async function checkEffectivePolicy({
   }), 'lockfile-proof')
   assert.equal(lockfile.minimumReleaseAge, null, 'Renovate lockfile maintenance must not claim release-age enforcement')
 
-  output.log(`ok: Renovate ${expectedVersion} resolved daily mature updates, five-day normal age, unenforceable bump/rollback age declined, human-reviewed security bypass, and weekly lockfile maintenance`)
+  const pythonFromMise = await extractMisePython(repoRoot, extractMisePackageFile, GlobalConfig)
+  const pythonVersioningName = pythonFromMise.versioning ?? getDefaultVersioning(pythonFromMise.datasource)
+  const pythonVersioning = getVersioning(pythonVersioningName)
+  const pythonLineBumpType = classifyRelease(pythonVersioning, pythonFromMise.currentValue, '3.15.0')
+  assert.equal(
+    pythonLineBumpType,
+    'minor',
+    'github-tags versioning at the pinned runtime must classify 3.13.5 to 3.15.0 as minor'
+  )
+
+  const pythonMinor = await applyPackageRules(
+    pythonRuntime(resolved, pythonFromMise, { updateType: pythonLineBumpType }),
+    'python-mise-line-bump-proof'
+  )
+  assert.equal(
+    pythonMinor.dependencyDashboardApproval,
+    true,
+    'a Python 3.13 to 3.15 mise bump must wait for Dependency Dashboard approval'
+  )
+  assert.equal(pythonMinor.automerge, false, 'a Python 3.13 to 3.15 mise bump must never automerge')
+  assert.equal(
+    pythonMinor.minimumReleaseAge,
+    '5 days',
+    'Python line-bump approval must not loosen the five-day floor'
+  )
+
+  const pythonMajor = await applyPackageRules(
+    pythonRuntime(resolved, pythonFromMise, { updateType: 'major' }),
+    'python-mise-major-proof'
+  )
+  assert.equal(pythonMajor.dependencyDashboardApproval, true, 'a Python major line bump must wait for Dependency Dashboard approval')
+  assert.equal(pythonMajor.automerge, false, 'a Python major line bump must never automerge')
+
+  const pythonPatchType = classifyRelease(pythonVersioning, pythonFromMise.currentValue, '3.13.6')
+  assert.equal(
+    pythonPatchType,
+    'patch',
+    'github-tags versioning at the pinned runtime must classify 3.13.5 to 3.13.6 as patch'
+  )
+  const pythonPatch = await applyPackageRules(
+    pythonRuntime(resolved, pythonFromMise, { updateType: pythonPatchType }),
+    'python-mise-patch-proof'
+  )
+  assert.notEqual(
+    pythonPatch.dependencyDashboardApproval,
+    true,
+    'a Python patch bump within a line must not require Dependency Dashboard approval'
+  )
+  assert.equal(
+    pythonPatch.minimumReleaseAge,
+    '5 days',
+    'a Python patch bump must keep the five-day floor'
+  )
+
+  const pythonFromAsdf = extractAsdfPython(repoRoot, extractAsdfPackageFile)
+  const asdfVersioningName = pythonFromAsdf.versioning ?? getDefaultVersioning(pythonFromAsdf.datasource)
+  const asdfVersioning = getVersioning(asdfVersioningName)
+  const pythonAsdfLineBumpType = classifyRelease(asdfVersioning, pythonFromAsdf.currentValue, '3.15.0')
+  assert.equal(
+    pythonAsdfLineBumpType,
+    'minor',
+    'github-tags versioning at the pinned runtime must classify asdf 3.13.5 to 3.15.0 as minor'
+  )
+  const pythonAsdfMinor = await applyPackageRules(
+    pythonRuntime(resolved, pythonFromAsdf, { manager: 'asdf', updateType: pythonAsdfLineBumpType }),
+    'python-asdf-minor-proof'
+  )
+  assert.equal(
+    pythonAsdfMinor.dependencyDashboardApproval,
+    true,
+    'asdf Python maps to the same python/cpython package, so a minor line bump needs dashboard approval'
+  )
+  assert.equal(pythonAsdfMinor.automerge, false, 'asdf Python minor line bumps must never automerge')
+
+  const pypiPython = await applyPackageRules(dependency(resolved, {
+    datasource: 'pypi',
+    depName: 'python',
+    packageName: 'python',
+    manager: 'pip_requirements',
+    updateType: 'minor',
+  }), 'pypi-python-proof')
+  assert.notEqual(
+    pypiPython.dependencyDashboardApproval,
+    true,
+    'a PyPI package named python must not inherit the CPython runtime line-bump gate'
+  )
+
+  const dockerPython = await applyPackageRules(dependency(resolved, {
+    datasource: 'docker',
+    depName: 'python',
+    packageName: 'python',
+    manager: 'dockerfile',
+    updateType: 'minor',
+  }), 'docker-python-proof')
+  assert.notEqual(
+    dockerPython.dependencyDashboardApproval,
+    true,
+    'a dockerfile python image must not inherit the CPython runtime line-bump gate'
+  )
+
+  const pythonFromPyenv = extractPyenvPython(repoRoot, extractPyenvPackageFile)
+  const pyenvPython = await applyPackageRules(
+    pythonRuntime(resolved, pythonFromPyenv, { manager: 'pyenv', updateType: 'minor' }),
+    'pyenv-python-proof'
+  )
+  assert.notEqual(
+    pyenvPython.dependencyDashboardApproval,
+    true,
+    'a pyenv python pin must not inherit the CPython runtime line-bump gate'
+  )
+
+  output.log(`ok: Renovate ${expectedVersion} resolved daily mature updates, five-day normal age, unenforceable bump/rollback age declined, human-reviewed security bypass, weekly lockfile maintenance, and Python line-bump dashboard approval`)
   return { ok: true, version: expectedVersion }
 }
 

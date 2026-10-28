@@ -391,7 +391,13 @@ The initial pinning bootstrap is in progress. Owner-approved exceptions now bind
 the reviewed five-day policy, daily mature-update creation, immediate
 human-reviewed security PR behavior, and Python minor/major line-bump approval
 before later consumers pin `1.1.0`;
-`.preset-bootstrap-freeze` protects that exact accepted state. See `ROADMAP.md`
+`.preset-bootstrap-freeze` protects that exact accepted state. Repository
+history was rewritten after `1.0.0` and `1.1.0` were published, and their
+immutable tags cannot move onto it. While the freeze holds, the next patch of
+an approved release, such as `1.1.1` for `1.1.0`, may republish that release's
+`default.json` byte for byte and nothing else, so consumers can pin a tag on
+the rewritten history ([issue #41](https://github.com/jasondockery/renovate-config/issues/41)).
+See `ROADMAP.md`
 for the ordered owner gates and `CONTRIBUTING.md` for
 the executable `release:controls:check`, `release:preflight`, and
 `release:verify` procedure. The reviewed policy remains captured in

@@ -107,6 +107,28 @@ test('1.1.0 verification accepts only the reviewed python-policy digest', () => 
   assert.ok(problems.some((problem) => problem.includes(PRESET_DIGEST_1_1_0)))
 })
 
+test('1.1.1 verification accepts only a byte-identical republish of 1.1.0', () => {
+  const release = { ...evidence().release, tag_name: '1.1.1' }
+  assert.deepEqual(
+    collectReleaseVerificationProblems(evidence({
+      version: '1.1.1',
+      release,
+      expectedPreset: pythonPolicy,
+      taggedPreset: pythonPolicy,
+    })),
+    []
+  )
+  const index = pythonPolicy.indexOf('5 days')
+  const changed = `${pythonPolicy.slice(0, index)}6${pythonPolicy.slice(index + 1)}`
+  const problems = collectReleaseVerificationProblems(evidence({
+    version: '1.1.1',
+    release,
+    expectedPreset: changed,
+    taggedPreset: changed,
+  }))
+  assert.ok(problems.some((problem) => problem.includes(PRESET_DIGEST_1_1_0)))
+})
+
 test('annotated tags resolve through their dereferenced commit SHA', () => {
   assert.deepEqual(
     resolveRemoteTagShas(

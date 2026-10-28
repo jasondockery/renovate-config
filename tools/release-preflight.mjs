@@ -29,6 +29,13 @@ export const PRESET_DIGEST_1_1_0 = 'd913658716e5ee2a22708a808345b9017a11836c3a7f
 // Each mapped release is bound to one exact preset digest whether or not the
 // freeze marker still exists. Add a row with a reason when the owner approves
 // another exception. Unmapped versions wait only while the marker is present.
+//
+// A row with `approvedRelease` records that exact owner-approved release and
+// the default.json digest it shipped. Its next patch, X.Y.(Z+1), is then a
+// byte-identical republish: it is mapped to the same digest and may carry no
+// other preset content (issue #41). Immutable tags cannot move, so this is how
+// an approved release gets a tag on rewritten history. A version that only
+// matches another republish never chains further.
 const FREEZE_RELEASE_PRESETS = Object.freeze([
   {
     // Tooling patches on the 1.0 line. Allowed only while default.json still
@@ -38,14 +45,46 @@ const FREEZE_RELEASE_PRESETS = Object.freeze([
   },
   {
     // Owner-approved Python line-bump exception (issue #30). Exactly 1.1.0,
-    // and only the reviewed 1.1.0 digest.
+    // and only the reviewed 1.1.0 digest. Its republish is 1.1.1 (issue #41).
     versions: /^1\.1\.0$/u,
     digest: PRESET_DIGEST_1_1_0,
+    approvedRelease: '1.1.0',
   },
 ])
 
+// Fail at module load if a recorded approved release is malformed or not the
+// version its own row admits, so a typo can never widen the republish rule.
+export function assertApprovedReleases(rows) {
+  for (const entry of rows) {
+    if (entry.approvedRelease === undefined) continue
+    if (
+      typeof entry.approvedRelease !== 'string' ||
+      !STABLE_VERSION.test(entry.approvedRelease) ||
+      !entry.versions.test(entry.approvedRelease)
+    ) {
+      throw new Error(
+        `FREEZE_RELEASE_PRESETS approvedRelease ${JSON.stringify(entry.approvedRelease)} must be stable SemVer admitted by its own row`
+      )
+    }
+  }
+}
+assertApprovedReleases(FREEZE_RELEASE_PRESETS)
+
+export function republishedReleaseOf(version) {
+  if (!STABLE_VERSION.test(version ?? '')) return undefined
+  const [major, minor, patch] = version.split('.')
+  if (patch === '0') return undefined
+  // BigInt keeps very large patch numbers exact; a rounded patch must never
+  // land on an approved release.
+  return `${major}.${minor}.${BigInt(patch) - 1n}`
+}
+
 export function freezeReleasePresetDigest(version) {
-  return FREEZE_RELEASE_PRESETS.find((entry) => entry.versions.test(version))?.digest
+  const direct = FREEZE_RELEASE_PRESETS.find((entry) => entry.versions.test(version ?? ''))
+  if (direct !== undefined) return direct.digest
+  const previous = republishedReleaseOf(version)
+  if (previous === undefined) return undefined
+  return FREEZE_RELEASE_PRESETS.find((entry) => entry.approvedRelease === previous)?.digest
 }
 
 export function hashPreset(content) {
@@ -146,7 +185,7 @@ export function collectReleasePreflightProblems({
     freeze?.lifted === false
   ) {
     problems.push(
-      'during the preset freeze only a 1.0.x patch or the owner-approved 1.1.0 Python line-bump exception may follow 1.0.0; any other new major or minor requires the freeze to be lifted'
+      'during the preset freeze only a 1.0.x patch, the owner-approved 1.1.0 Python line-bump exception, or a byte-identical next-patch republish of an approved release may follow 1.0.0; any other new major, minor or patch requires the freeze to be lifted'
     )
   }
   problems.push(...collectCiReceiptProblems(ciReceipt, expectedSha))

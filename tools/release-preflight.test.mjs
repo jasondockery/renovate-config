@@ -6,6 +6,7 @@ import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { collectPresetFreezeProblems } from './check-preset-freeze.mjs'
 import {
+  assertApprovedReleases,
   collectCiReceiptProblems,
   collectReleasePreflightProblems,
   freezeReleasePresetDigest,
@@ -13,6 +14,7 @@ import {
   parseReleasePreflightArguments,
   PRESET_DIGEST_1_0_0,
   PRESET_DIGEST_1_1_0,
+  republishedReleaseOf,
   runReleasePreflight,
 } from './release-preflight.mjs'
 
@@ -242,15 +244,152 @@ test('an unmapped version such as 1.2.0 is allowed once the freeze marker is lif
   )
 })
 
+const FREEZE_REFUSAL =
+  'during the preset freeze only a 1.0.x patch, the owner-approved 1.1.0 Python line-bump exception, or a byte-identical next-patch republish of an approved release may follow 1.0.0; any other new major, minor or patch requires the freeze to be lifted'
+
 test('a new major or unreviewed minor still waits for the freeze to lift', () => {
-  for (const version of ['1.1.1', '1.2.0', '2.0.0']) {
+  for (const version of ['1.2.0', '2.0.0']) {
     assert.ok(
       collectReleasePreflightProblems(
         evidence({ version, freeze: { lifted: false, problems: [], digest: PRESET_DIGEST_1_1_0 } })
-      ).includes(
-        'during the preset freeze only a 1.0.x patch or the owner-approved 1.1.0 Python line-bump exception may follow 1.0.0; any other new major or minor requires the freeze to be lifted'
-      ),
+      ).includes(FREEZE_REFUSAL),
       `${version} must be refused while the freeze holds`
+    )
+  }
+})
+
+// Issue #41: history was rewritten, and the immutable 1.0.0 and 1.1.0 tags
+// cannot move onto it. The next patch of an approved release may republish
+// that release's preset byte for byte, and nothing else.
+function flipOneByte(content) {
+  const index = content.indexOf('5 days')
+  assert.ok(index >= 0, 'fixture must contain the five-day floor')
+  return `${content.slice(0, index)}6${content.slice(index + 1)}`
+}
+
+test('the next patch of an approved release republishes its identical preset during the freeze', () => {
+  assert.equal(freezeReleasePresetDigest('1.1.1'), PRESET_DIGEST_1_1_0)
+  assert.deepEqual(
+    collectReleasePreflightProblems(
+      evidence({
+        version: '1.1.1',
+        freeze: { lifted: false, problems: [], digest: PRESET_DIGEST_1_1_0 },
+        expectedPreset: pythonPolicy,
+      })
+    ),
+    []
+  )
+})
+
+test('a republish that changes one byte of the approved preset is refused', () => {
+  const changed = flipOneByte(pythonPolicy)
+  assert.equal(changed.length, pythonPolicy.length)
+  assert.notEqual(hashPreset(changed), PRESET_DIGEST_1_1_0)
+  for (const lifted of [false, true]) {
+    const problems = collectReleasePreflightProblems(
+      evidence({
+        version: '1.1.1',
+        freeze: { lifted, problems: [], digest: hashPreset(changed) },
+        expectedPreset: changed,
+      })
+    )
+    assert.ok(
+      problems.includes(
+        `release 1.1.1 may ship only while default.json hashes to ${PRESET_DIGEST_1_1_0}; current digest is ${hashPreset(changed)}`
+      ),
+      `a one-byte change under 1.1.1 must be refused (freeze lifted: ${lifted})`
+    )
+  }
+})
+
+test('a republish may not carry another approved release\'s preset', () => {
+  const problems = collectReleasePreflightProblems(
+    evidence({
+      version: '1.1.1',
+      freeze: { lifted: false, problems: [], digest: PRESET_DIGEST_1_0_0 },
+      expectedPreset: preset1_0_0,
+    })
+  )
+  assert.ok(
+    problems.includes(
+      `release 1.1.1 may ship only while default.json hashes to ${PRESET_DIGEST_1_1_0}; current digest is ${PRESET_DIGEST_1_0_0}`
+    )
+  )
+})
+
+test('identical bytes under a different minor or major are not a republish', () => {
+  for (const version of ['1.2.1', '1.2.0', '2.1.1', '2.0.1', '0.1.1']) {
+    assert.equal(freezeReleasePresetDigest(version), undefined, `${version} must stay unmapped`)
+    assert.ok(
+      collectReleasePreflightProblems(
+        evidence({
+          version,
+          freeze: { lifted: false, problems: [], digest: PRESET_DIGEST_1_1_0 },
+          expectedPreset: pythonPolicy,
+        })
+      ).includes(FREEZE_REFUSAL),
+      `${version} must be refused while the freeze holds`
+    )
+  }
+})
+
+test('a republish of a version that was never approved is refused', () => {
+  // 1.1.1 is itself a republish, not an approved release, so 1.1.2 does not
+  // chain from it; nor does any patch skip past the approved release.
+  for (const version of ['1.1.2', '1.1.3', '1.1.10', '0.0.1', '1.3.1']) {
+    assert.equal(freezeReleasePresetDigest(version), undefined, `${version} must stay unmapped`)
+    assert.ok(
+      collectReleasePreflightProblems(
+        evidence({
+          version,
+          freeze: { lifted: false, problems: [], digest: PRESET_DIGEST_1_1_0 },
+          expectedPreset: pythonPolicy,
+        })
+      ).includes(FREEZE_REFUSAL),
+      `${version} must be refused while the freeze holds`
+    )
+  }
+})
+
+test('malformed or oversized versions never resolve to an approved release', () => {
+  for (const version of [
+    '1.1.01',
+    'v1.1.1',
+    '1.1.1-rc.1',
+    ' 1.1.1',
+    '1.1.1\n',
+    '01.1.1',
+    '1.1',
+    '1.1.9007199254740993',
+    undefined,
+  ]) {
+    assert.equal(freezeReleasePresetDigest(version), undefined, `${JSON.stringify(version)} must stay unmapped`)
+  }
+})
+
+test('patch arithmetic stays exact where Number would round', () => {
+  // Number('9007199254740994') - 1 rounds to 9007199254740992, which would
+  // name the wrong predecessor; the exact predecessor ends in 993.
+  assert.equal(republishedReleaseOf('1.1.9007199254740994'), '1.1.9007199254740993')
+  assert.equal(republishedReleaseOf('1.1.1'), '1.1.0')
+  assert.equal(republishedReleaseOf('1.1.0'), undefined)
+})
+
+test('approved releases must be stable SemVer admitted by their own row', () => {
+  assert.doesNotThrow(() =>
+    assertApprovedReleases([
+      { versions: /^1\.0\.(?:[1-9][0-9]*)$/u, digest: PRESET_DIGEST_1_0_0 },
+      { versions: /^1\.1\.0$/u, digest: PRESET_DIGEST_1_1_0, approvedRelease: '1.1.0' },
+    ])
+  )
+  for (const approvedRelease of ['1.2.0', 'v1.1.0', '1.1', '1.1.0 ', 110, null]) {
+    assert.throws(
+      () =>
+        assertApprovedReleases([
+          { versions: /^1\.1\.0$/u, digest: PRESET_DIGEST_1_1_0, approvedRelease },
+        ]),
+      /must be stable SemVer admitted by its own row/u,
+      `${JSON.stringify(approvedRelease)} must be rejected`
     )
   }
 })

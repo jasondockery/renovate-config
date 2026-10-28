@@ -65,6 +65,16 @@ GitHub Releases with tags that carry no `v` prefix. Classify the consumer
 impact with the patch/minor/major contract in `CHARTER.md`, then:
 
 1. Keep `default.json` unchanged while `.preset-bootstrap-freeze` exists.
+   `FREEZE_RELEASE_PRESETS` in `tools/release-preflight.mjs` binds each
+   recorded version to one exact `default.json` sha256. During the freeze,
+   only `release:preflight` refuses versions that are not recorded there.
+   `release:verify` has no freeze check, but it enforces the recorded digest
+   for every recorded version, before and after the freeze lifts. A row marked
+   `approvedRelease` also records that release's next patch, X.Y.(Z+1), as a
+   byte-identical republish bound to the approved X.Y.Z digest. For example,
+   `1.1.1` must hash to `1.1.0`'s digest. A republish never chains to a
+   further patch. Use it only to put an approved release on rewritten
+   history; any content change needs a new owner-approved exception.
 2. Run `pnpm release:controls:check`. It is read-only and must report both
    immutable releases and the checked-in tag ruleset as active. If it reports
    drift, the owner reviews `tools/release-controls.json` and explicitly runs

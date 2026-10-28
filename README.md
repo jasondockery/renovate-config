@@ -390,14 +390,22 @@ with SemVer tags that carry no `v` prefix, and consumers pin an exact tag such a
 The initial pinning bootstrap is in progress. Owner-approved exceptions now bind
 the reviewed five-day policy, daily mature-update creation, immediate
 human-reviewed security PR behavior, and Python minor/major line-bump approval
-before later consumers pin `1.1.0`;
-`.preset-bootstrap-freeze` protects that exact accepted state. See `ROADMAP.md`
+before consumers pin;
+`.preset-bootstrap-freeze` protects that exact accepted state. Repository
+history was rewritten after `1.0.0` and `1.1.0` were published, and their
+immutable tags cannot move onto it. `1.1.1` republishes `1.1.0` on the
+rewritten history with a byte-identical `default.json`. Consumers pin
+`github>jasondockery/renovate-config#1.1.1`, and `1.0.1` is intentionally not
+published. The next patch of an approved release is bound to that release's
+exact `default.json` digest during and after the freeze, so it can carry no
+other content ([issue #41](https://github.com/jasondockery/renovate-config/issues/41)).
+See `ROADMAP.md`
 for the ordered owner gates and `CONTRIBUTING.md` for
 the executable `release:controls:check`, `release:preflight`, and
 `release:verify` procedure. The reviewed policy remains captured in
 `tools/fixtures/preset/default-five-day-policy.json` and documented in
-`specs/preset-freeze-exception.md`. The owner prepares immutable release
-`1.1.0` after this change lands; tags carry no `v` prefix and are never
+`specs/preset-freeze-exception.md`. The owner publishes immutable release
+`1.1.1` from the rewritten history; tags carry no `v` prefix and are never
 moved.
 
 ## Policy Boundary

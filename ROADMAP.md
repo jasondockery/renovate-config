@@ -74,6 +74,18 @@ Bootstrap sequence, in this order:
       on that merged commit, publish it, then
       `pnpm release:verify --version 1.1.0 --expected-sha <40-char-sha>`.
       The policy PR must not create the tag or release.
+- [ ] 9a. Repository history was rewritten after `1.0.0` and `1.1.0` were
+      published, and their immutable tags still point at pre-rewrite commits
+      ([issue #41](https://github.com/jasondockery/renovate-config/issues/41)).
+      Publish immutable GitHub Release **`1.1.1`** at the `main` commit
+      that adds the republish rule. Its `default.json` must be byte-identical
+      to `1.1.0`. Owner action: prepare a draft, pass
+      `pnpm release:preflight --version 1.1.1 --expected-sha <40-char-sha>`,
+      publish it, then
+      `pnpm release:verify --version 1.1.1 --expected-sha <40-char-sha>`.
+      Then move each consumer pin to
+      `github>jasondockery/renovate-config#1.1.1`. `1.0.1` is intentionally
+      not published.
 - [ ] 10. Lift the freeze and note it here.
 - [x] Document the release procedure in `CONTRIBUTING.md`, pointing at the
       charter's patch/minor/major contract rather than restating it.

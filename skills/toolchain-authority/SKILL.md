@@ -1,28 +1,89 @@
 ---
 name: toolchain-authority
-description: Maintain renovate-config's toolchain authorities and atomic cross-repository Renovate updates. Use before changing Node or pnpm declarations, mise, packageManager, engines, CI setup, allowedCommands, post-upgrade tasks, dependency inventories, compatibility checks, docs, or version fixtures.
+description: Keeps one editable authority for each runtime, package-manager, and build-tool pin and treats every other version-bearing surface as a derived mirror, adapter, fixture, or historical record. Use before changing a Node, Python, pnpm, or similar version file, packageManager or engines fields, version-manager config, CI runtime setup, container toolchain arguments, update-bot rules for tools, or docs and tests that mention tool versions, and when reviewing a toolchain or platform version bump. Not for ordinary library dependency updates (use dependency-change).
 ---
 
 # Toolchain authority
 
-## Preserve the two authorities
+This is the shared base. A repository may extend it with its own authority
+files and commands; it never redefines the rules below. Load
+`dependency-change` for the general update procedure and
+`developer-tool-change` when adopting or configuring a tool.
 
-- Change Node only in `.node-version`.
-- Change pnpm only in `package.json#packageManager`.
-- Treat `.nvmrc`, `mise.toml#tools.node`, `engines`, CI, and consumer templates as derived adapters.
-- Never declare pnpm in mise. Mise owns Node; Corepack selects pnpm.
-- Never add another authoritative version file.
+## 1. One authority per pin
 
-Run `pnpm toolchain:sync` after changing an authority and `pnpm check:toolchain` before handoff. Do not repair mirrors directly.
+- Each runtime, package manager, and pinned build tool has exactly one
+  editable authority file or field, named in the repository's instructions.
+  Never add a second authoritative version file.
+- Classify every other version-bearing surface as one of: generated mirror,
+  compatibility adapter, named fixture, or historical record. Reject an
+  unclassified version literal.
+- Inventory version-bearing surfaces from the tracked file list, including
+  hidden files. Without version-control metadata, fall back to a bounded
+  filesystem walk. A classification that observed nothing never passes.
 
-## Keep Renovate atomic
+## 2. Derive, never copy
 
-Let Renovate update a tool's authority, then run only the exact allowlisted `node tools/sync-toolchain.mjs` command. Require the resulting branch to pass the toolchain checker. Node and pnpm may update separately, but each update must include all of its mirrors. Never broaden `allowedCommands` to a shell or wildcard.
+- Scripts, CI, containers, and generated templates read the authority or a
+  shared helper that parses it. A version copied into a workflow, container
+  argument, or document is a second pin.
+- Change the authority, then run the repository's sync command to regenerate
+  mirrors. Never repair a mirror by hand.
+- Documentation and skills name the authority path, not the current version.
+  Release notes and clearly historical records are the exception.
+- Tests of the current contract read the authority. Parser and failure
+  fixtures use named, obviously fake versions unrelated to past or present
+  production pins.
+- Correlated mirrors move in the same change as their authority; a partial
+  update is invalid.
 
-The consumer compatibility matrix must import and exercise the consumer sync, checker, and reporter APIs. It rejects pnpm in mise, stale mirrors/templates/engines, former-version documentation literals, incomplete report behavior, and partial correlated updates in Groundwork, Roost, or renovate-config. Source strings are not behavioral proof.
+## 3. Treat automated rewrites as suspect
 
-Auditing a consumer means importing and running its code, so each repository is audited in its own child process with a deadline (`tools/toolchain-consumer-audit.mjs`). Keep it that way: in-process, one audited repository can patch globals and silently corrupt every verdict after it, and one hang stalls the whole sweep.
+Update commands, update bots, and package-manager subcommands can silently
+rewrite shared version catalogs into concrete per-package versions, or drop
+catalog entries. After any automated rewrite, run the repository's toolchain
+and dependency authority checks before trusting the result. Check the pinned
+tool's own help before relying on a version-sensitive flag.
 
-## Classify every consumer
+## 4. Missing evidence is not current
 
-Classify each new version-bearing file as an authority, generated mirror, compatibility adapter, named fixture, or historical record. Use `git ls-files -z` so hidden files are inventoried. A checkout without Git metadata falls back to a bounded filesystem walk, so the classification never reports a pass while observing nothing. Current-contract tests read authorities; fixed parser cases use named values unrelated to former production pins. Use `pnpm check:outdated` for separate lockfile, compatible, maturity-filtered, registry, declared-specification, and toolchain evidence; any missing observation fails closed.
+Any command, timeout, signal, network, or parse failure while checking for
+drift or available updates is a failed report. Never convert missing evidence
+into Current.
+
+## 5. Triage human-reviewed toolchain bumps
+
+A runtime, package-manager, build-tool, test-runner, or platform bump that a
+person merges, and every major or security bump, gets one release-note triage
+before merge. Read the upstream notes for the exact release named in the
+change, not from memory. Check each item against what this repository actually
+uses, citing `path:line`:
+
+```markdown
+## Release-note triage: <tool> <from> -> <to>
+
+**Taken / verified**
+- <item>: <what it changes here>, checked at `path:line`.
+
+**Behaviour changes checked**
+- <item>: <setting or command relied on>; <no change | action taken>.
+
+**Not applicable**
+- <item>: <the repository fact that makes it so>.
+
+**Proof**: <focused checks run>; hosted run on <sha>.
+```
+
+- Always list security fixes and behaviour changes to install, caching,
+  linking, process lifecycle, and test isolation, taken or not.
+- "Not applicable" needs a repository fact, not an opinion.
+- A behaviour change found later by proof is added under Taken with the fixing
+  commit.
+- Keep one triage per change and update it when the head moves, naming the
+  head it covers.
+
+## Done when
+
+- The repository's toolchain sync leaves no diff and its authority check
+  passes.
+- Clean-install proof runs in an isolated fixture, not a warm checkout.

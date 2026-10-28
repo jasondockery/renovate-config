@@ -1,0 +1,4 @@
+interface:
+  display_name: "Renovate-config Toolchain Authority"
+  short_description: "Synchronize Node and pnpm authority mirrors safely"
+  default_prompt: "Use $renovate-config-toolchain-authority to update or verify Node and pnpm declarations without creating competing owners."

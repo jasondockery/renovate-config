@@ -32,6 +32,7 @@ function fixture() {
     fs.cpSync(path.join(repositoryRoot, relativePath), path.join(root, relativePath), { recursive: true })
   }
   fs.copyFileSync(path.join(repositoryRoot, 'AGENTS.md'), path.join(root, 'AGENTS.md'))
+  fs.copyFileSync(path.join(repositoryRoot, 'compass.skills.json'), path.join(root, 'compass.skills.json'))
   fs.mkdirSync(path.join(root, 'tools'))
   const sourceRecord = JSON.parse(
     fs.readFileSync(path.join(repositoryRoot, 'tools/compass-consumer-reconciliation.json'), 'utf8')

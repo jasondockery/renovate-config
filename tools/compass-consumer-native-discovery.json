@@ -2,13 +2,13 @@
   "schema": "renovate-config.compass-consumer-native-discovery",
   "schemaVersion": 1,
   "authorityIdentity": {
-    "sourceCommit": "daea368a7ef64502193afb102ffe17b0aac01ffb",
-    "sourceTree": "98eb834be6e22dbd233168432e46166e5fdeecf7",
-    "sourceFingerprintSha256": "680ef0fd2cb1302b0f23fe7b30c5bb587d09eecca2d8c42c20e365360f437cf0",
-    "artifactSha256": "1ad041e53c459777676ccedb541575d33f9c0d5595008513ee3b9bd7faf6f696",
-    "artifactBytes": 605783,
-    "validationReceiptSha256": "a3af4bc2c1ad0ea971673911637f59e4eaa91725ae853e9ff157803dece666c9",
-    "artifactReceiptSha256": "6294cb7fd5a4e8487fb52d6da808f4cf043c21c9a4264d9caf898d06a61ec6f0"
+    "sourceCommit": "c09357932297c584b3e3e75c2bebca42e84d9a80",
+    "sourceTree": "7dc1d145ba8c0a0c4f3df6e5acd7cf3d3a29089a",
+    "sourceFingerprintSha256": "16913086cd9f4e4088279c726151323ffdaba5656229b8baa456c8ea175fa498",
+    "artifactSha256": "491a8128fb4f21c3244cca81aa2d9b59e0d6495f361e61a6b7c669980799767e",
+    "artifactBytes": 996032,
+    "validationReceiptSha256": "60a40056c63a04f644b6bab9dc598d91e18d34da876891f289b523e0a4d2790c",
+    "artifactReceiptSha256": "913d2973a2af7e021781f6566f6a4cc08a351220d4bd3b0a6d79e2d48a9b478d"
   },
   "observations": [
     {

@@ -47,11 +47,14 @@ runtime resources shared with concurrent repositories and agents. Load
 `skills/repeatable-agent-execution/SKILL.md` before the first edit in a
 checkout or worktree, before final proof, and whenever setup, a check suite,
 or a skip control is costing repeated rework.
+Optional Compass skills this repository selected are listed in
+`compass.skills.json` and projected under `skills/`; load the one that matches
+the work. GitHub writes follow `repo-contribution-etiquette`.
 The complete receipt-bound shared-skill inventory is discoverable through both
 `.agents/skills` and `.claude/skills`; those adapters resolve to the same
 canonical `skills/` tree and are checked mechanically.
 
-**Toolchain versions are write-once, derive-everywhere.** Node changes only in `.node-version`; pnpm changes only in `package.json#packageManager`. Load `skills/toolchain-authority/SKILL.md`, run `pnpm toolchain:sync`, then `pnpm check:toolchain`. A new version consumer requires an explicit classification and regression test.
+**Toolchain versions are write-once, derive-everywhere.** Node changes only in `.node-version`; pnpm changes only in `package.json#packageManager`. Load `skills/renovate-config-toolchain-authority/SKILL.md` (and Compass `skills/toolchain-authority/SKILL.md`), run `pnpm toolchain:sync`, then `pnpm check:toolchain`. A new version consumer requires an explicit classification and regression test.
 
 Load `skills/live-renovate-acceptance/SKILL.md` before assessing a live runner,
 explaining missing Renovate PRs, reconciling `pnpm outdated`, or claiming

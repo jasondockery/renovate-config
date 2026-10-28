@@ -216,9 +216,16 @@ export function checkSkillDiscovery(root, receipt) {
   }
 
   const receiptPaths = new Set((receipt?.includedFiles ?? []).map(({ path: relative }) => relative))
+  let selectedSkillNames = null
+  try {
+    const selection = JSON.parse(fs.readFileSync(path.join(root, '.compass/skill-selection-receipt.json'), 'utf8'))
+    selectedSkillNames = new Set([...(selection.requiredSkills ?? []), ...(selection.selectedSkills ?? [])])
+  } catch (error) {
+    if (error?.code !== 'ENOENT') problems.push(`Compass skill selection receipt is unreadable: ${error instanceof Error ? error.message : String(error)}`)
+  }
   const projectedSkillNames = [...receiptPaths]
     .map((relative) => relative.match(SKILL_RECEIPT_PATH)?.[1])
-    .filter(Boolean)
+    .filter((name) => name && (!selectedSkillNames || selectedSkillNames.has(name)))
     .sort()
   if (projectedSkillNames.length === 0) problems.push('Compass receipt exposes no canonical shared skills')
   const adapterRoutes = (routing.physicalRoutes ?? [])
@@ -260,7 +267,10 @@ export function checkSkillDiscovery(root, receipt) {
     }
 
     const expected = projectedSkillNames.map((name) => `${adapter}/${name}/SKILL.md`)
-    const declared = projectedRoutes.filter((relative) => relative.startsWith(`${adapter}/`)).sort()
+    const declared = projectedRoutes
+      .filter((relative) => relative.startsWith(`${adapter}/`))
+      .filter((relative) => !selectedSkillNames || selectedSkillNames.has(relative.split('/')[2]))
+      .sort()
     if (JSON.stringify(declared) !== JSON.stringify(expected)) {
       problems.push(`${adapter} routing manifest does not expose every receipt-bound canonical skill exactly once`)
     }

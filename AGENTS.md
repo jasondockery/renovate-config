@@ -47,6 +47,9 @@ runtime resources shared with concurrent repositories and agents. Load
 `skills/repeatable-agent-execution/SKILL.md` before the first edit in a
 checkout or worktree, before final proof, and whenever setup, a check suite,
 or a skip control is costing repeated rework.
+Optional Compass skills this repository selected are listed in
+`compass.skills.json` and projected under `skills/`; load the one that matches
+the work. GitHub writes follow `repo-contribution-etiquette`.
 The complete receipt-bound shared-skill inventory is discoverable through both
 `.agents/skills` and `.claude/skills`; those adapters resolve to the same
 canonical `skills/` tree and are checked mechanically.

@@ -62,7 +62,9 @@ pass the toolchain checker; Node and pnpm may update separately but each update
 carries all of its mirrors. Never broaden `allowedCommands` to a shell or
 wildcard. The consumer compatibility matrix must import and exercise the
 consumer sync, checker, and reporter APIs for Groundwork, Roost, and
-renovate-config; source strings are not behavioral proof. Each consumer is
+renovate-config, and reject pnpm in mise, stale mirrors/templates/engines,
+former-version documentation literals, incomplete report behavior, and partial
+correlated updates; source strings are not behavioral proof. Each consumer is
 audited in its own child process with a deadline
 (`tools/toolchain-consumer-audit.mjs`) so one repository cannot patch globals
 or hang the sweep. Use `pnpm check:outdated` for lockfile, compatible,

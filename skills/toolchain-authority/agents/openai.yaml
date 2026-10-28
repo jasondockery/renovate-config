@@ -1,4 +1,4 @@
 interface:
-  display_name: "Toolchain Authority"
-  short_description: "Synchronize Node and pnpm authority mirrors safely"
-  default_prompt: "Use $toolchain-authority to update or verify Node and pnpm declarations without creating competing owners."
+  display_name: "Toolchain authority"
+  short_description: "One authority per runtime and tool pin"
+  default_prompt: "Use $toolchain-authority to change this toolchain pin through its single authority and triage the release notes."

@@ -53,6 +53,22 @@ canonical `skills/` tree and are checked mechanically.
 
 **Toolchain versions are write-once, derive-everywhere.** Node changes only in `.node-version`; pnpm changes only in `package.json#packageManager`. Load `skills/toolchain-authority/SKILL.md`, run `pnpm toolchain:sync`, then `pnpm check:toolchain`. A new version consumer requires an explicit classification and regression test.
 
+Renovate-specific extension of that skill (the shared base is Compass-owned and
+receipt-bound, so these rules live here): `.nvmrc`, `mise.toml#tools.node`,
+`engines`, CI, and consumer templates are derived adapters; mise owns Node only
+and never declares pnpm. Renovate updates a tool's authority, then runs only the
+exact allowlisted `node tools/sync-toolchain.mjs` command, and the branch must
+pass the toolchain checker; Node and pnpm may update separately but each update
+carries all of its mirrors. Never broaden `allowedCommands` to a shell or
+wildcard. The consumer compatibility matrix must import and exercise the
+consumer sync, checker, and reporter APIs for Groundwork, Roost, and
+renovate-config; source strings are not behavioral proof. Each consumer is
+audited in its own child process with a deadline
+(`tools/toolchain-consumer-audit.mjs`) so one repository cannot patch globals
+or hang the sweep. Use `pnpm check:outdated` for lockfile, compatible,
+maturity-filtered, registry, declared-specification, and toolchain evidence;
+any missing observation fails closed.
+
 Load `skills/live-renovate-acceptance/SKILL.md` before assessing a live runner,
 explaining missing Renovate PRs, reconciling `pnpm outdated`, or claiming
 consumer-level dependency automation proof.

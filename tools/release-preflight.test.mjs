@@ -6,6 +6,7 @@ import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { collectPresetFreezeProblems } from './check-preset-freeze.mjs'
 import {
+  assertApprovedReleases,
   collectCiReceiptProblems,
   collectReleasePreflightProblems,
   freezeReleasePresetDigest,
@@ -13,6 +14,7 @@ import {
   parseReleasePreflightArguments,
   PRESET_DIGEST_1_0_0,
   PRESET_DIGEST_1_1_0,
+  republishedReleaseOf,
   runReleasePreflight,
 } from './release-preflight.mjs'
 
@@ -362,6 +364,33 @@ test('malformed or oversized versions never resolve to an approved release', () 
     undefined,
   ]) {
     assert.equal(freezeReleasePresetDigest(version), undefined, `${JSON.stringify(version)} must stay unmapped`)
+  }
+})
+
+test('patch arithmetic stays exact where Number would round', () => {
+  // Number('9007199254740994') - 1 rounds to 9007199254740992, which would
+  // name the wrong predecessor; the exact predecessor ends in 993.
+  assert.equal(republishedReleaseOf('1.1.9007199254740994'), '1.1.9007199254740993')
+  assert.equal(republishedReleaseOf('1.1.1'), '1.1.0')
+  assert.equal(republishedReleaseOf('1.1.0'), undefined)
+})
+
+test('approved releases must be stable SemVer admitted by their own row', () => {
+  assert.doesNotThrow(() =>
+    assertApprovedReleases([
+      { versions: /^1\.0\.(?:[1-9][0-9]*)$/u, digest: PRESET_DIGEST_1_0_0 },
+      { versions: /^1\.1\.0$/u, digest: PRESET_DIGEST_1_1_0, approvedRelease: '1.1.0' },
+    ])
+  )
+  for (const approvedRelease of ['1.2.0', 'v1.1.0', '1.1', '1.1.0 ', 110, null]) {
+    assert.throws(
+      () =>
+        assertApprovedReleases([
+          { versions: /^1\.1\.0$/u, digest: PRESET_DIGEST_1_1_0, approvedRelease },
+        ]),
+      /must be stable SemVer admitted by its own row/u,
+      `${JSON.stringify(approvedRelease)} must be rejected`
+    )
   }
 })
 

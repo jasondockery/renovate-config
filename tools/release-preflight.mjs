@@ -52,7 +52,25 @@ const FREEZE_RELEASE_PRESETS = Object.freeze([
   },
 ])
 
-function republishedReleaseOf(version) {
+// Fail at module load if a recorded approved release is malformed or not the
+// version its own row admits, so a typo can never widen the republish rule.
+export function assertApprovedReleases(rows) {
+  for (const entry of rows) {
+    if (entry.approvedRelease === undefined) continue
+    if (
+      typeof entry.approvedRelease !== 'string' ||
+      !STABLE_VERSION.test(entry.approvedRelease) ||
+      !entry.versions.test(entry.approvedRelease)
+    ) {
+      throw new Error(
+        `FREEZE_RELEASE_PRESETS approvedRelease ${JSON.stringify(entry.approvedRelease)} must be stable SemVer admitted by its own row`
+      )
+    }
+  }
+}
+assertApprovedReleases(FREEZE_RELEASE_PRESETS)
+
+export function republishedReleaseOf(version) {
   if (!STABLE_VERSION.test(version ?? '')) return undefined
   const [major, minor, patch] = version.split('.')
   if (patch === '0') return undefined

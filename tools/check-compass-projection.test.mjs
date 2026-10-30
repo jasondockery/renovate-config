@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import test from 'node:test'
+import test, { after } from 'node:test'
 import { createHash } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import {
@@ -26,8 +26,16 @@ function pendingRecord(record) {
   return pending
 }
 
+const fixtureRoots = new Set()
+
+after(() => {
+  for (const root of fixtureRoots) fs.rmSync(root, { recursive: true, force: true })
+  fixtureRoots.clear()
+})
+
 function fixture() {
   const root = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'renovate-compass-'))
+  fixtureRoots.add(root)
   for (const relativePath of ['.agents', '.claude', '.compass', 'skills']) {
     fs.cpSync(path.join(repositoryRoot, relativePath), path.join(root, relativePath), { recursive: true })
   }

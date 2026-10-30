@@ -23,8 +23,11 @@ verified, never aspirationally.
 > human merge review (2026-08-13), and Python minor/major line-bump Dependency
 > Dashboard approval with automerge disabled (2026-10-24, [issue #30](https://github.com/jasondockery/renovate-config/issues/30)).
 > The updated checksum binds that policy, including the reviewed `1.1.0` Python
-> rule. Publishing `1.1.0` does not lift the freeze. No further effective preset
-> change is authorized during the bootstrap sequence below.
+> rule. Publishing `1.1.0` does not lift the freeze. `1.2.0` is authorized as an
+> opt-in named-preset exception ([issue #45](https://github.com/jasondockery/renovate-config/issues/45)):
+> `groundwork-core.json` is additive and `default.json` stays at this digest.
+> No further effective `default.json` change is authorized during the bootstrap
+> sequence below.
 >
 > The executable reviewed fixture demonstrates why the exception was necessary:
 > `config:best-practices` contributes a later three-day npm rule, so the frozen
@@ -86,6 +89,20 @@ Bootstrap sequence, in this order:
       Then move each consumer pin to
       `github>jasondockery/renovate-config#1.1.1`. `1.0.1` is intentionally
       not published.
+- [ ] 9b. After the groundwork-core named preset
+      ([issue #45](https://github.com/jasondockery/renovate-config/issues/45))
+      reaches `main`, publish immutable GitHub Release **`1.2.0`** — no `v`
+      prefix. `default.json` stays at
+      `d913658716e5ee2a22708a808345b9017a11836c3a7ff8fa64c7e0094965a8a0`.
+      Publishing `1.2.0` does not lift the freeze. Owner action: prepare a
+      draft, pass
+      `pnpm release:preflight --version 1.2.0 --expected-sha <40-char-sha>`
+      on that merged commit, publish it, then
+      `pnpm release:verify --version 1.2.0 --expected-sha <40-char-sha>`.
+      Platform repos that want submodule pin bumps then extend both
+      `github>jasondockery/renovate-config#1.2.0` and
+      `github>jasondockery/renovate-config:groundwork-core#1.2.0`.
+      The policy PR must not create the tag or release.
 - [ ] 10. Lift the freeze and note it here.
 - [x] Document the release procedure in `CONTRIBUTING.md`, pointing at the
       charter's patch/minor/major contract rather than restating it.

@@ -210,6 +210,29 @@ test('shared-preset ignores follow actual extends values and the preset stays ex
   }
 })
 
+test('the groundwork-core named preset reference is ignored from the network and injected from the candidate', (context) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'renovate-named-preset-'))
+  context.after(() => fs.rmSync(root, { recursive: true, force: true }))
+  const named = 'github>jasondockery/renovate-config:groundwork-core#1.2.0'
+  const base = 'github>jasondockery/renovate-config#1.2.0'
+  fs.writeFileSync(path.join(root, 'renovate.json'), JSON.stringify({ extends: [base, named] }))
+  assert.deepEqual(findSharedPresetReferences(root), [base, named].sort())
+  const resolved = { labels: ['dependencies'] }
+  const combined = { labels: ['dependencies'], 'git-submodules': { enabled: true } }
+  extractRepository(root, resolved, { PATH: '/bin' }, (command, commandArguments, options) => {
+    assert.deepEqual(JSON.parse(options.env.RENOVATE_IGNORE_PRESETS), [base, named].sort())
+    assert.deepEqual(JSON.parse(fs.readFileSync(options.env.RENOVATE_CONFIG_FILE, 'utf8')), combined)
+    return {
+      status: 0,
+      stdout: JSON.stringify({
+        msg: 'Extracted dependencies',
+        packageFiles: { 'git-submodules': [{ packageFile: '.gitmodules', deps: [{ depName: 'core' }] }] },
+      }),
+      stderr: '',
+    }
+  }, combined)
+})
+
 test('actual extraction injects the fully resolved shared preset while ignoring only its remote reference', (context) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'renovate-resolved-preset-'))
   context.after(() => fs.rmSync(root, { recursive: true, force: true }))

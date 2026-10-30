@@ -82,6 +82,7 @@ function checkTokenRepositoryScopes(workflow, relativePath, expectedOwner, expec
 export function collectRenovateSystemPolicyProblems(root = repositoryRoot) {
   const problems = []
   const preset = readJson(root, 'default.json', problems)
+  const namedPreset = readJson(root, 'groundwork-core.json', problems)
   const packageManifest = readJson(root, 'package.json', problems)
   let workflow = ''
   let compatibilityWorkflow = ''
@@ -194,6 +195,9 @@ export function collectRenovateSystemPolicyProblems(root = repositoryRoot) {
     if (Object.hasOwn(preset, 'enabledManagers')) {
       problems.push('default.json must not silently narrow built-in dependency manager coverage with enabledManagers.')
     }
+    if (Object.hasOwn(preset, 'git-submodules')) {
+      problems.push('default.json must not enable git-submodules; that belongs in the opt-in groundwork-core named preset.')
+    }
     const security = preset.vulnerabilityAlerts
     if (
       !security || security.enabled !== true ||
@@ -203,6 +207,46 @@ export function collectRenovateSystemPolicyProblems(root = repositoryRoot) {
       security.automerge !== false || security.platformAutomerge !== false
     ) {
       problems.push('the active preset must preserve immediate vulnerability PRs with age/rate bypass and required human merge review.')
+    }
+  }
+
+  if (namedPreset) {
+    if (namedPreset['git-submodules']?.enabled !== true) {
+      problems.push('groundwork-core.json must enable the git-submodules manager.')
+    }
+    if (Object.hasOwn(namedPreset, 'minimumReleaseAge') || Object.hasOwn(namedPreset, 'internalChecksFilter')) {
+      problems.push('groundwork-core.json must inherit the shared age floor instead of restating it.')
+    }
+    const coreRules = (namedPreset.packageRules ?? []).filter((rule) =>
+      JSON.stringify(rule.matchManagers) === JSON.stringify(['git-submodules']) &&
+      JSON.stringify(rule.matchDepNames) === JSON.stringify(['core']) &&
+      rule.matchUpdateTypes === undefined
+    )
+    if (
+      coreRules.length !== 1 ||
+      coreRules[0].overrideDatasource !== 'github-tags' ||
+      coreRules[0].overridePackageName !== 'jasondockery/groundwork-core' ||
+      coreRules[0].versioning !== 'semver' ||
+      coreRules[0].groupName !== 'groundwork-core' ||
+      coreRules[0].commitMessageTopic !== 'groundwork-core' ||
+      coreRules[0].automerge !== false
+    ) {
+      problems.push('groundwork-core.json must retain the reviewed core submodule github-tags pin-bump rule.')
+    }
+    const digestRules = (namedPreset.packageRules ?? []).filter((rule) =>
+      JSON.stringify(rule.matchManagers) === JSON.stringify(['git-submodules']) &&
+      JSON.stringify(rule.matchDepNames) === JSON.stringify(['core']) &&
+      JSON.stringify(rule.matchUpdateTypes) === JSON.stringify(['digest'])
+    )
+    if (digestRules.length !== 1 || digestRules[0].enabled !== false) {
+      problems.push('groundwork-core.json must disable core digest-only updates.')
+    }
+    const otherSubmoduleRules = (namedPreset.packageRules ?? []).filter((rule) =>
+      JSON.stringify(rule.matchManagers) === JSON.stringify(['git-submodules']) &&
+      JSON.stringify(rule.matchDepNames) === JSON.stringify(['!core'])
+    )
+    if (otherSubmoduleRules.length !== 1 || otherSubmoduleRules[0].enabled !== false) {
+      problems.push('groundwork-core.json must disable git-submodules dependencies other than core.')
     }
   }
 

@@ -38,7 +38,9 @@ canonical `pnpm verify`; it must not be paired with a separate final verify.
 After the owner publishes the immutable GitHub Release, `release:verify` binds
 the remote tag to that SHA, checks immutable release state, compares tagged
 `default.json` with the expected commit rather than the moving default branch,
-and resolves the version-pinned preset through the pinned Renovate runtime.
+compares tagged `groundwork-core.json` with the expected commit when that
+named preset is part of the release, and resolves the version-pinned preset
+through the pinned Renovate runtime.
 
 ## What `pnpm verify` binds
 

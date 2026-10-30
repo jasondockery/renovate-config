@@ -53,11 +53,11 @@ test('runs the exact strict validators in the correct configuration modes', (con
   assert.equal(calls.length, RENOVATE_CONFIGS.length)
   assert.deepEqual(
     calls.map(({ args }) => args.at(-1)),
-    ['default.json', 'renovate.json', 'runner.json']
+    ['default.json', 'groundwork-core.json', 'renovate.json', 'runner.json']
   )
   assert.deepEqual(
     calls.map(({ args }) => args.includes('--no-global')),
-    [true, true, false]
+    [true, true, true, false]
   )
   assert.ok(calls.every(({ args }) => args.includes('--strict')))
   assert.ok(calls.every(({ options }) => options.cwd === repoRoot))
@@ -77,6 +77,7 @@ test('continues after spawn errors, non-zero exits, and signal termination', (co
   const results = [
     { error: new Error('missing npx'), status: null },
     { status: 2 },
+    { status: 1 },
     { status: null, signal: 'SIGTERM' },
   ]
   let calls = 0
@@ -91,11 +92,11 @@ test('continues after spawn errors, non-zero exits, and signal termination', (co
     },
   })
 
-  assert.equal(calls, 3)
+  assert.equal(calls, 4)
   assert.deepEqual(result, {
     ok: false,
     version: '1.2.3',
-    failures: ['default.json', 'renovate.json', 'runner.json'],
+    failures: ['default.json', 'groundwork-core.json', 'renovate.json', 'runner.json'],
   })
 })
 

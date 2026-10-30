@@ -9,6 +9,7 @@ import { readRenovateVersion } from './renovate-runtime.mjs'
 
 export const RENOVATE_CONFIGS = [
   { file: 'default.json', global: false },
+  { file: 'groundwork-core.json', global: false },
   { file: 'renovate.json', global: false },
   { file: 'runner.json', global: true },
 ]

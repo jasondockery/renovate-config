@@ -264,7 +264,7 @@ jobs:
             echo '| One pinned runtime: synthetic fixture extraction, strict accepted-config validation, and effective five-day/security policy resolution | '"${INTEGRATION_OUTCOME:-skipped}"' |'
             echo '| Read-only proof | '"${READ_ONLY_OUTCOME:-skipped}"' |'
             echo
-            printf 'Configs: `default.json, renovate.json, runner.json` · Renovate: `%s` · Failed configs: `%s`\n' \
+            printf 'Configs: `default.json, groundwork-core.json, renovate.json, runner.json` · Renovate: `%s` · Failed configs: `%s`\n' \
               "${RENOVATE_VERSION:-unresolved}" "${FAILED_CONFIGS:-none}"
             echo
             echo "Duration: **${seconds}s**"
@@ -536,7 +536,7 @@ jobs:
             evidence_errors="$(IFS='; '; echo "${errors[*]}")"
           fi
           printf 'Configs validated by renovate-integration\t%s\nRenovate version\t%s\nValidation phases\t%s\nWorkflow security\tSARIF %s; gate %s\nRead-only proof\ttests %s; validation %s; integration %s\nEvidence errors\t%s\nLocal equivalent\tpnpm verify covers offline tests and validation; pnpm renovate:integration is the explicit network-backed proof; workflow security is CI-only\nFailed configs\t%s\nObserved workflow span after first required lane started\t%ss\nAggregate compute time\t%ss\nBudget enforcement\tadvisory for the first five representative final-tree runs\nCache state\tunavailable\n' \
-            'default.json, renovate.json, runner.json' "${RENOVATE_VERSION:-unresolved}" \
+            'default.json, groundwork-core.json, renovate.json, runner.json' "${RENOVATE_VERSION:-unresolved}" \
             "$VALIDATION_TIMING" "$SECURITY_SARIF" "$SECURITY_GATE" "$TEST_READ_ONLY" "$VALIDATION_READ_ONLY" "$INTEGRATION_READ_ONLY" \
             "$evidence_errors" "${FAILED_CONFIGS:-none}" "$observed_span_seconds" "$aggregate_seconds" \
             > "$RUNNER_TEMP/ci-facts.tsv"

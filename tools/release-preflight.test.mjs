@@ -55,7 +55,7 @@ function ciReceipt(overrides = {}) {
     facts: {
       'Failed configs': 'none',
       'Renovate version': '1.2.3',
-      'Configs validated by renovate-integration': 'default.json, renovate.json, runner.json',
+      'Configs validated by renovate-integration': 'default.json, groundwork-core.json, renovate.json, runner.json',
       'Evidence errors': 'none',
       'Read-only proof': 'tests success; validation success; integration success',
     },
@@ -185,12 +185,13 @@ test('the live freeze digest is the reviewed 1.1.0 allowance', () => {
   assert.equal(hashPreset(preset1_0_0), PRESET_DIGEST_1_0_0)
   assert.equal(collectPresetFreezeProblems().digest, PRESET_DIGEST_1_1_0)
   assert.equal(freezeReleasePresetDigest('1.1.0'), PRESET_DIGEST_1_1_0)
+  assert.equal(freezeReleasePresetDigest('1.2.0'), PRESET_DIGEST_1_1_0)
   assert.equal(freezeReleasePresetDigest('1.0.1'), PRESET_DIGEST_1_0_0)
   assert.equal(freezeReleasePresetDigest('1.0.2'), PRESET_DIGEST_1_0_0)
 })
 
 test('a mapped version with the wrong digest is refused after the freeze marker is lifted', () => {
-  for (const version of ['1.0.1', '1.1.0']) {
+  for (const version of ['1.0.1', '1.1.0', '1.2.0']) {
     const required = freezeReleasePresetDigest(version)
     const problems = collectReleasePreflightProblems(
       evidence({
@@ -229,9 +230,6 @@ test('a mapped version with the right digest is accepted after the freeze marker
     ),
     []
   )
-})
-
-test('an unmapped version such as 1.2.0 is allowed once the freeze marker is lifted', () => {
   assert.deepEqual(
     collectReleasePreflightProblems(
       evidence({
@@ -244,16 +242,61 @@ test('an unmapped version such as 1.2.0 is allowed once the freeze marker is lif
   )
 })
 
+test('an unmapped version such as 1.3.0 is allowed once the freeze marker is lifted', () => {
+  assert.deepEqual(
+    collectReleasePreflightProblems(
+      evidence({
+        version: '1.3.0',
+        freeze: { lifted: true, problems: [] },
+        expectedPreset: pythonPolicy,
+      })
+    ),
+    []
+  )
+})
+
 const FREEZE_REFUSAL =
-  'during the preset freeze only a 1.0.x patch, the owner-approved 1.1.0 Python line-bump exception, or a byte-identical next-patch republish of an approved release may follow 1.0.0; any other new major, minor or patch requires the freeze to be lifted'
+  'during the preset freeze only a 1.0.x patch, the owner-approved 1.1.0 Python line-bump exception, the owner-approved 1.2.0 groundwork-core named-preset exception, or a byte-identical next-patch republish of an approved release may follow 1.0.0; any other new major, minor or patch requires the freeze to be lifted'
 
 test('a new major or unreviewed minor still waits for the freeze to lift', () => {
-  for (const version of ['1.2.0', '2.0.0']) {
+  for (const version of ['1.3.0', '2.0.0']) {
     assert.ok(
       collectReleasePreflightProblems(
         evidence({ version, freeze: { lifted: false, problems: [], digest: PRESET_DIGEST_1_1_0 } })
       ).includes(FREEZE_REFUSAL),
       `${version} must be refused while the freeze holds`
+    )
+  }
+})
+
+test('the owner-approved 1.2.0 groundwork-core named-preset exception may follow 1.1.0 at the unchanged digest', () => {
+  assert.equal(freezeReleasePresetDigest('1.2.0'), PRESET_DIGEST_1_1_0)
+  assert.deepEqual(
+    collectReleasePreflightProblems(
+      evidence({
+        version: '1.2.0',
+        freeze: { lifted: false, problems: [], digest: PRESET_DIGEST_1_1_0 },
+        expectedPreset: pythonPolicy,
+      })
+    ),
+    []
+  )
+})
+
+test('1.2.0 is refused when the preset digest is not the unchanged 1.1.0 policy', () => {
+  for (const expectedPreset of [preset1_0_0, '{"extends":[]}\n']) {
+    const problems = collectReleasePreflightProblems(
+      evidence({
+        version: '1.2.0',
+        freeze: { lifted: false, problems: [], digest: hashPreset(expectedPreset) },
+        expectedPreset,
+      })
+    )
+    assert.ok(
+      problems.includes(
+        `release 1.2.0 may ship only while default.json hashes to ${PRESET_DIGEST_1_1_0}; current digest is ${hashPreset(expectedPreset)}`
+      ),
+      `1.2.0 with digest ${hashPreset(expectedPreset)} must be refused`
     )
   }
 })
@@ -318,7 +361,7 @@ test('a republish may not carry another approved release\'s preset', () => {
 })
 
 test('identical bytes under a different minor or major are not a republish', () => {
-  for (const version of ['1.2.1', '1.2.0', '2.1.1', '2.0.1', '0.1.1']) {
+  for (const version of ['1.2.1', '1.3.0', '2.1.1', '2.0.1', '0.1.1']) {
     assert.equal(freezeReleasePresetDigest(version), undefined, `${version} must stay unmapped`)
     assert.ok(
       collectReleasePreflightProblems(

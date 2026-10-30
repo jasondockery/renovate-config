@@ -107,6 +107,62 @@ test('1.1.0 verification accepts only the reviewed python-policy digest', () => 
   assert.ok(problems.some((problem) => problem.includes(PRESET_DIGEST_1_1_0)))
 })
 
+test('1.2.0 verification accepts the unchanged digest and matching tagged groundwork-core.json', () => {
+  const named = '{"git-submodules":{"enabled":true}}\n'
+  assert.deepEqual(
+    collectReleaseVerificationProblems(evidence({
+      version: '1.2.0',
+      release: { ...evidence().release, tag_name: '1.2.0' },
+      expectedPreset: pythonPolicy,
+      taggedPreset: pythonPolicy,
+      expectedNamedPreset: named,
+      taggedNamedPreset: named,
+      namedPresetResolved: true,
+    })),
+    []
+  )
+})
+
+test('1.2.0 verification refuses a groundwork-core named preset that does not resolve', () => {
+  const named = '{"git-submodules":{"enabled":true}}\n'
+  for (const namedPresetResolved of [false, undefined]) {
+    assert.ok(
+      collectReleaseVerificationProblems(evidence({
+        version: '1.2.0',
+        release: { ...evidence().release, tag_name: '1.2.0' },
+        expectedPreset: pythonPolicy,
+        taggedPreset: pythonPolicy,
+        expectedNamedPreset: named,
+        taggedNamedPreset: named,
+        namedPresetResolved,
+      })).includes('Renovate could not resolve and validate the version-pinned groundwork-core named preset')
+    )
+  }
+})
+
+test('1.2.0 verification refuses a missing or mismatched tagged groundwork-core.json', () => {
+  const named = '{"git-submodules":{"enabled":true}}\n'
+  const release = { ...evidence().release, tag_name: '1.2.0' }
+  assert.ok(
+    collectReleaseVerificationProblems(evidence({
+      version: '1.2.0',
+      release,
+      expectedPreset: pythonPolicy,
+      taggedPreset: pythonPolicy,
+    })).includes('release 1.2.0 must include groundwork-core.json')
+  )
+  assert.ok(
+    collectReleaseVerificationProblems(evidence({
+      version: '1.2.0',
+      release,
+      expectedPreset: pythonPolicy,
+      taggedPreset: pythonPolicy,
+      expectedNamedPreset: named,
+      taggedNamedPreset: '{"different":true}\n',
+    })).includes('tagged groundwork-core.json does not match the expected release commit')
+  )
+})
+
 test('1.1.1 verification accepts only a byte-identical republish of 1.1.0', () => {
   const release = { ...evidence().release, tag_name: '1.1.1' }
   assert.deepEqual(

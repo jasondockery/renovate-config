@@ -1,0 +1,8 @@
+[submodule "core"]
+	path = core
+	url = https://github.com/jasondockery/groundwork-core.git
+	branch = v0.8.0
+[submodule "other"]
+	path = other
+	url = https://github.com/example/other.git
+	branch = v1.0.0

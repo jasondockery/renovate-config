@@ -3,12 +3,13 @@
 Design status: **approved**
 
 Activation status: **active through the owner-approved 2026-08-04 age-policy,
-2026-08-09 daily-creation, 2026-08-13 human-security-merge, and 2026-10-24
-Python line-bump approval changes**
+2026-08-09 daily-creation, 2026-08-13 human-security-merge, 2026-10-24
+Python line-bump approval, and 1.2.0 groundwork-core named-preset changes**
 
 Scope: `default.json` effective release-age, routine creation cadence,
 vulnerability-alert timing, vulnerability-alert merge authority, and Python
-runtime line-bump approval only
+runtime line-bump approval; plus the opt-in `groundwork-core.json` named
+preset, which does not change `default.json`
 Activation condition: **achieved**; the isolated policy commit and freeze
 checksum change were owner-authorized and passed the exact-boundary proof.
 The 2026-10-24 Python line-bump exception follows the same pattern for issue #30.
@@ -55,6 +56,15 @@ bumps within a line keep the existing policy. The five-day `minimumReleaseAge`
 is unchanged and is not restated on this rule. This ships as preset `1.1.0`;
 the freeze digest is updated to the reviewed `default.json` and the freeze
 remains in effect.
+
+The owner-approved 1.2.0 exception
+([issue #45](https://github.com/jasondockery/renovate-config/issues/45)) does
+not change `default.json`. It adds opt-in `groundwork-core.json` for the
+groundwork platform repos that pin `jasondockery/groundwork-core` as the
+`core` submodule. The freeze digest stays
+`d913658716e5ee2a22708a808345b9017a11836c3a7ff8fa64c7e0094965a8a0`. The named
+preset does not restate `minimumReleaseAge` or `internalChecksFilter`; those
+remain inherited from the shared default.
 
 ## Activation, risk, and rollback
 

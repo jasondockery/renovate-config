@@ -50,6 +50,15 @@ const FREEZE_RELEASE_PRESETS = Object.freeze([
     digest: PRESET_DIGEST_1_1_0,
     approvedRelease: '1.1.0',
   },
+  {
+    // Owner-approved groundwork-core named preset (issue #45). Exactly 1.2.0,
+    // at the unchanged 1.1.0 default.json digest. default.json is not edited.
+    // Deliberately no approvedRelease: a 1.2.1 republish is only digest-gated on
+    // default.json, so it could ship an unreviewed groundwork-core.json. There
+    // is also no rewritten-history reason for a republish path (unlike 1.1.0).
+    versions: /^1\.2\.0$/u,
+    digest: PRESET_DIGEST_1_1_0,
+  },
 ])
 
 // Fail at module load if a recorded approved release is malformed or not the
@@ -185,7 +194,7 @@ export function collectReleasePreflightProblems({
     freeze?.lifted === false
   ) {
     problems.push(
-      'during the preset freeze only a 1.0.x patch, the owner-approved 1.1.0 Python line-bump exception, or a byte-identical next-patch republish of an approved release may follow 1.0.0; any other new major, minor or patch requires the freeze to be lifted'
+      'during the preset freeze only a 1.0.x patch, the owner-approved 1.1.0 Python line-bump exception, the owner-approved 1.2.0 groundwork-core named-preset exception, or a byte-identical next-patch republish of an approved release may follow 1.0.0; any other new major, minor or patch requires the freeze to be lifted'
     )
   }
   problems.push(...collectCiReceiptProblems(ciReceipt, expectedSha))

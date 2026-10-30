@@ -66,6 +66,31 @@ The main pieces are:
 
 - `default.json` is the shared Renovate preset consumed by owner repos such as
   `jasondockery/roost` and the maintained `groundwork-*` environments.
+- `groundwork-core.json` is an opt-in named preset for the groundwork platform
+  repos that pin `jasondockery/groundwork-core` as the `core` submodule. Those
+  consumers extend it alongside the shared default; it does not replace
+  `default.json`.
+  Adoption requirements:
+  - At adoption the `core` gitlink must equal the commit of the tag named in
+    `branch =` in `.gitmodules`. Renovate always adds a digest update to the tag
+    commit, so the preset disables core digest-only updates; version updates
+    still carry the new digest. A gitlink that is not the tagged commit is
+    therefore never moved by a stray digest PR.
+  - Consumer group rules must exclude git-submodules, or the consumer's own
+    rule applies after the preset and absorbs core bumps into its group. For a
+    rule such as `non-major dependencies`:
+
+    ```json
+    {
+      "groupName": "non-major dependencies",
+      "matchUpdateTypes": ["minor", "patch", "digest", "pin"],
+      "matchDepNames": ["!core"]
+    }
+    ```
+
+    or use `matchManagers` listing every manager except `git-submodules`.
+  - Any other git-submodules dependency stays disabled by the preset, since
+    `git-refs` has no release timestamps for the age floor.
 - `runner.json` is the self-hosted Renovate runner config. It contains only
   runner behavior, not dependency policy.
 - `.github/workflows/renovate.yml` runs self-hosted Renovate once daily plus
@@ -268,7 +293,7 @@ This repo follows Roost's portable project-local toolchain contract:
   structure gate. Required `pnpm renovate:integration` is explicitly
   network/cache-backed: it acquires exactly `.renovate-version` once, then runs
   three phases inside that single runtime — the synthetic manager fixture,
-  strict validation of `default.json`, `renovate.json`, and `runner.json`, and
+  strict validation of `default.json`, `groundwork-core.json`, `renovate.json`, and `runner.json`, and
   effective-policy resolution proving the active preset matches the
   owner-reviewed five-day fixture and resolves the intended age, security, and
   lockfile-maintenance boundaries. Adding a phase there costs a process, not a
@@ -399,6 +424,9 @@ rewritten history with a byte-identical `default.json`. Consumers pin
 published. The next patch of an approved release is bound to that release's
 exact `default.json` digest during and after the freeze, so it can carry no
 other content ([issue #41](https://github.com/jasondockery/renovate-config/issues/41)).
+`1.2.0` is a minor named-preset release: it adds opt-in `groundwork-core.json`
+and keeps that same `default.json` digest
+([issue #45](https://github.com/jasondockery/renovate-config/issues/45)).
 See `ROADMAP.md`
 for the ordered owner gates and `CONTRIBUTING.md` for
 the executable `release:controls:check`, `release:preflight`, and
@@ -412,8 +440,10 @@ moved.
 
 `default.json` contains only policy that should remain identical across owner
 repos: schedule, cooldown, PR limits, rebase behavior, labels, the security
-PR base, and the Python runtime line-bump approval gate. Repo-specific package
-rules stay local in each consumer.
+PR base, and the Python runtime line-bump approval gate. Family-shared rules
+that must not affect every consumer, such as groundwork-core submodule pin
+bumps, live in an opt-in named preset (`groundwork-core.json`). Remaining
+repo-specific package rules stay local in each consumer.
 
 The runner explicitly targets:
 

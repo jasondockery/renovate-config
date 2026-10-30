@@ -3,6 +3,7 @@ import test from 'node:test'
 import {
   collectResolvedPresetProblems,
   parseResolveReleasePresetArguments,
+  releasePresetReference,
 } from './resolve-release-preset.mjs'
 
 function evidence(overrides = {}) {
@@ -42,6 +43,33 @@ test('runtime drift and resolved-config warnings fail closed', () => {
 })
 
 test('resolver CLI accepts only one bare SemVer argument slot', () => {
-  assert.deepEqual(parseResolveReleasePresetArguments(['--version', '1.0.0']), { version: '1.0.0' })
+  assert.deepEqual(parseResolveReleasePresetArguments(['--version', '1.0.0']), { version: '1.0.0', named: false })
+  assert.deepEqual(
+    parseResolveReleasePresetArguments(['--version', '1.2.0', '--named']),
+    { version: '1.2.0', named: true }
+  )
   assert.throws(() => parseResolveReleasePresetArguments(['1.0.0']), /usage:/)
+})
+
+test('the groundwork-core named preset resolves from its exact version-pinned reference', () => {
+  const reference = 'github>jasondockery/renovate-config:groundwork-core#1.2.0'
+  assert.equal(releasePresetReference('1.2.0', true), reference)
+  assert.equal(releasePresetReference('1.2.0'), 'github>jasondockery/renovate-config#1.2.0')
+  assert.deepEqual(
+    collectResolvedPresetProblems(evidence({
+      version: '1.2.0',
+      named: true,
+      reference,
+      visitedPresets: { merged: [reference], unmerged: [] },
+    })),
+    []
+  )
+  assert.ok(
+    collectResolvedPresetProblems(evidence({
+      version: '1.2.0',
+      named: true,
+      reference,
+      visitedPresets: { merged: ['github>jasondockery/renovate-config#1.2.0'], unmerged: [] },
+    })).includes('Renovate did not report visiting the exact version-pinned preset')
+  )
 })

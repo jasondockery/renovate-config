@@ -53,6 +53,9 @@ const FREEZE_RELEASE_PRESETS = Object.freeze([
   {
     // Owner-approved groundwork-core named preset (issue #45). Exactly 1.2.0,
     // at the unchanged 1.1.0 default.json digest. default.json is not edited.
+    // Deliberately no approvedRelease: a 1.2.1 republish is only digest-gated on
+    // default.json, so it could ship an unreviewed groundwork-core.json. There
+    // is also no rewritten-history reason for a republish path (unlike 1.1.0).
     versions: /^1\.2\.0$/u,
     digest: PRESET_DIGEST_1_1_0,
   },

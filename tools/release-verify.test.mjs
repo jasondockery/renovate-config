@@ -117,9 +117,27 @@ test('1.2.0 verification accepts the unchanged digest and matching tagged ground
       taggedPreset: pythonPolicy,
       expectedNamedPreset: named,
       taggedNamedPreset: named,
+      namedPresetResolved: true,
     })),
     []
   )
+})
+
+test('1.2.0 verification refuses a groundwork-core named preset that does not resolve', () => {
+  const named = '{"git-submodules":{"enabled":true}}\n'
+  for (const namedPresetResolved of [false, undefined]) {
+    assert.ok(
+      collectReleaseVerificationProblems(evidence({
+        version: '1.2.0',
+        release: { ...evidence().release, tag_name: '1.2.0' },
+        expectedPreset: pythonPolicy,
+        taggedPreset: pythonPolicy,
+        expectedNamedPreset: named,
+        taggedNamedPreset: named,
+        namedPresetResolved,
+      })).includes('Renovate could not resolve and validate the version-pinned groundwork-core named preset')
+    )
+  }
 })
 
 test('1.2.0 verification refuses a missing or mismatched tagged groundwork-core.json', () => {

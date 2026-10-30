@@ -10,6 +10,10 @@ import { readRenovateVersion } from './renovate-runtime.mjs'
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const STABLE_VERSION = /^(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)$/u
 
+export function releasePresetReference(version, named = false) {
+  return `github>jasondockery/renovate-config${named ? ':groundwork-core' : ''}#${version}`
+}
+
 export function collectResolvedPresetProblems({
   version,
   expectedRuntime,
@@ -17,8 +21,9 @@ export function collectResolvedPresetProblems({
   reference,
   visitedPresets,
   validation,
+  named = false,
 }) {
-  const expectedReference = `github>jasondockery/renovate-config#${version}`
+  const expectedReference = releasePresetReference(version, named)
   const problems = []
   if (!STABLE_VERSION.test(version ?? '')) problems.push('release version must be stable SemVer without a v prefix')
   if (runtime !== expectedRuntime) problems.push('active Renovate runtime does not match .renovate-version')
@@ -35,6 +40,7 @@ export async function resolveReleasePreset({
   version,
   root = repositoryRoot,
   environment = process.env,
+  named = false,
 } = {}) {
   if (!STABLE_VERSION.test(version ?? '')) {
     throw new Error('release version must be stable SemVer without a v prefix')
@@ -42,7 +48,7 @@ export async function resolveReleasePreset({
   const expectedRuntime = readRenovateVersion(root)
   const runtimeRoot = findPinnedRenovateRoot(environment)
   const runtime = JSON.parse(fs.readFileSync(path.join(runtimeRoot, 'package.json'), 'utf8')).version
-  const reference = `github>jasondockery/renovate-config#${version}`
+  const reference = releasePresetReference(version, named)
   const [{ resolveConfigPresets }, { validateConfig }] = await Promise.all([
     importRenovateModule(runtimeRoot, 'config/presets/index.js'),
     importRenovateModule(runtimeRoot, 'config/validation.js'),
@@ -60,12 +66,14 @@ export async function resolveReleasePreset({
     validation,
     version,
     visitedPresets,
+    named,
   })
   return {
     schema: 'renovate-config.resolved-release-preset',
     schemaVersion: 1,
     result: problems.length === 0 ? 'passed' : 'failed',
     reference,
+    named,
     renovateVersion: runtime,
     visitedPresets,
     problems,
@@ -74,9 +82,12 @@ export async function resolveReleasePreset({
 
 export function parseResolveReleasePresetArguments(arguments_) {
   if (arguments_.length === 2 && arguments_[0] === '--version') {
-    return { version: arguments_[1] }
+    return { version: arguments_[1], named: false }
   }
-  throw new Error('usage: node tools/resolve-release-preset.mjs --version X.Y.Z')
+  if (arguments_.length === 3 && arguments_[0] === '--version' && arguments_[2] === '--named') {
+    return { version: arguments_[1], named: true }
+  }
+  throw new Error('usage: node tools/resolve-release-preset.mjs --version X.Y.Z [--named]')
 }
 
 if (isMainModule(import.meta.url)) {

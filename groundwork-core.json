@@ -3,7 +3,9 @@
   "description": [
     "Opt-in preset for the groundwork platform repos that pin jasondockery/groundwork-core as the core submodule. Extend it alongside the shared default preset; it does not replace it.",
     "git-submodules is off by default in Renovate. Its git-refs datasource has no release timestamps, so under the shared strict 5-day floor every bump would stay pending forever. Reading groundwork-core tags through github-tags supplies timestamps and the tag's commit, so the inherited floor is honored.",
-    "Consumers set branch = <current tag> in .gitmodules so Renovate tracks semver tags instead of HEAD digests."
+    "Consumers set branch = <current tag> in .gitmodules so Renovate tracks semver tags instead of HEAD digests.",
+    "Adoption requirement: at adoption the core gitlink must equal the commit of the tag named in `branch =`. Renovate's lookup always adds a digest update to the tag commit, and this preset disables core digest-only updates (version updates still carry newDigest), so a gitlink that does not match its tag is never silently moved by a digest PR.",
+    "Consumer group rules must exclude git-submodules, otherwise a consumer rule such as groupName \"non-major dependencies\" (applied after preset rules) will absorb core bumps. Add \"excludeDepNames\": [\"core\"] to that rule, or use \"matchManagers\" with every manager except git-submodules."
   ],
   "git-submodules": { "enabled": true },
   "packageRules": [
@@ -17,6 +19,19 @@
       "groupName": "groundwork-core",
       "commitMessageTopic": "groundwork-core",
       "automerge": false
+    },
+    {
+      "description": "Disable digest-only updates for core. Renovate's lookup always adds a digest update to the tag commit; a gitlink that is not exactly the tagged commit must not open a PR that moves it. Version updates still carry newDigest.",
+      "matchManagers": ["git-submodules"],
+      "matchDepNames": ["core"],
+      "matchUpdateTypes": ["digest"],
+      "enabled": false
+    },
+    {
+      "description": "Keep every git-submodules dependency other than core disabled. Its git-refs datasource has no release timestamps, so under the strict age floor it would sit pending forever.",
+      "matchManagers": ["git-submodules"],
+      "excludeDepNames": ["core"],
+      "enabled": false
     }
   ]
 }

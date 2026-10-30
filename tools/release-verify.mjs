@@ -27,6 +27,7 @@ export function collectReleaseVerificationProblems({
   expectedNamedPreset,
   taggedNamedPreset,
   presetResolved,
+  namedPresetResolved,
 }) {
   const problems = []
   if (!STABLE_VERSION.test(version ?? '')) {
@@ -57,6 +58,12 @@ export function collectReleaseVerificationProblems({
   problems.push(...collectMappedPresetDigestProblems(version, expectedPreset, 'tagged preset digest'))
   if (presetResolved !== true) {
     problems.push('Renovate could not resolve and validate the version-pinned preset')
+  }
+  if (
+    (version === '1.2.0' || typeof expectedNamedPreset === 'string') &&
+    namedPresetResolved !== true
+  ) {
+    problems.push('Renovate could not resolve and validate the version-pinned groundwork-core named preset')
   }
   return problems
 }
@@ -125,7 +132,7 @@ export function taggedPreset(version, desired, client, file = 'default.json') {
   return Buffer.from(response.content.replaceAll('\n', ''), 'base64').toString('utf8')
 }
 
-function resolvePinnedPreset(version) {
+function resolvePinnedPreset(version, named = false) {
   const renovateVersion = readRenovateVersion(repositoryRoot)
   const resolver = fileURLToPath(new URL('./resolve-release-preset.mjs', import.meta.url))
   const result = spawnSync(
@@ -139,6 +146,7 @@ function resolvePinnedPreset(version) {
       resolver,
       '--version',
       version,
+      ...(named ? ['--named'] : []),
     ],
     {
       cwd: repositoryRoot,
@@ -179,6 +187,9 @@ export async function runReleaseVerification(
     expectedPreset: dependencies.expectedPreset(expectedSha),
     expectedSha,
     presetResolved: dependencies.resolvePreset(version),
+    namedPresetResolved: expectedNamedPreset !== undefined || version === '1.2.0'
+      ? dependencies.resolvePreset(version, true)
+      : undefined,
     release: await dependencies.release(version),
     remoteTagShas: dependencies.remoteTags(version),
     taggedNamedPreset: expectedNamedPreset !== undefined || version === '1.2.0'

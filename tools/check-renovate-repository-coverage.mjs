@@ -535,6 +535,13 @@ export function scanVersionConventions(root, inventory) {
   return hits
 }
 
+const SHARED_PRESET_REFERENCE = /^github>jasondockery\/renovate-config(?::groundwork-core)?(?:#[^\s]+)?$/u
+const NAMED_PRESET_REFERENCE = /^github>jasondockery\/renovate-config:groundwork-core(?:#[^\s]+)?$/u
+
+export function usesNamedPreset(references) {
+  return references.some((reference) => NAMED_PRESET_REFERENCE.test(reference))
+}
+
 export function findSharedPresetReferences(root) {
   const candidates = ['renovate.json', '.github/renovate.json']
   const references = new Set()
@@ -544,7 +551,7 @@ export function findSharedPresetReferences(root) {
     const config = parseJsonDocument(fs.readFileSync(file, 'utf8'), relative)
     const extensions = Array.isArray(config.extends) ? config.extends : []
     for (const extension of extensions) {
-      if (/^github>jasondockery\/renovate-config(?:#[^\s]+)?$/u.test(extension)) references.add(extension)
+      if (SHARED_PRESET_REFERENCE.test(extension)) references.add(extension)
     }
   }
   return [...references].sort()
@@ -693,7 +700,7 @@ export function collectToolchainConsumerProblems(root, run = spawnSync) {
   return parsed.problems
 }
 
-export function extractRepository(root, resolvedSharedPreset, environment, run) {
+export function extractRepository(root, resolvedSharedPreset, environment, run, resolvedNamedCombinedPreset = undefined) {
   const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'renovate-repository-coverage-'))
   fs.chmodSync(temporary, 0o700)
   try {
@@ -702,7 +709,13 @@ export function extractRepository(root, resolvedSharedPreset, environment, run) 
     if (sharedPresetReferences.length > 0) {
       env.RENOVATE_IGNORE_PRESETS = JSON.stringify(sharedPresetReferences)
       const resolvedPresetFile = path.join(temporary, 'resolved-shared-preset.json')
-      fs.writeFileSync(resolvedPresetFile, `${JSON.stringify(resolvedSharedPreset, null, 2)}\n`, { flag: 'wx', mode: 0o600 })
+      fs.writeFileSync(resolvedPresetFile, `${JSON.stringify(
+        usesNamedPreset(sharedPresetReferences) && resolvedNamedCombinedPreset !== undefined
+          ? resolvedNamedCombinedPreset
+          : resolvedSharedPreset,
+        null,
+        2
+      )}\n`, { flag: 'wx', mode: 0o600 })
       env.RENOVATE_CONFIG_FILE = resolvedPresetFile
     }
     const result = run('renovate', extractionArguments(), {
@@ -742,12 +755,16 @@ export async function checkRepositoryCoverage({
     structuredClone(sharedPreset),
     structuredClone(sharedPreset)
   )
+  const namedSource = parseJsonDocument(fs.readFileSync(path.join(repositoryRoot, 'groundwork-core.json'), 'utf8'), 'groundwork-core.json')
+  const { config: resolvedNamed } = await resolveConfigPresets(structuredClone(namedSource), structuredClone(namedSource))
+  const { mergeChildConfig } = await importRenovateModule(runtimeRoot, 'config/utils.js')
+  const resolvedCombined = mergeChildConfig(structuredClone(resolvedSharedPreset), structuredClone(resolvedNamed))
   const allProblems = []
   const evidence = []
   for (const [repository, root] of targets) {
     const inventory = JSON.parse(fs.readFileSync(path.join(root, 'dependency-coverage.json'), 'utf8'))
     if (inventory.repository !== repository) allProblems.push(`${repository}: inventory names ${inventory.repository ?? '<missing>'}`)
-    const tuples = extractRepository(root, resolvedSharedPreset, environment, run)
+    const tuples = extractRepository(root, resolvedSharedPreset, environment, run, resolvedCombined)
     const declarations = collectDeclaredDependencies(root, inventory)
     const scanHits = scanVersionConventions(root, inventory)
     const problems = collectCoverageProblems(inventory, tuples, scanHits, declarations)

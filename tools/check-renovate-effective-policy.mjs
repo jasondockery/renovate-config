@@ -103,9 +103,10 @@ async function extractGitSubmodules(repoRoot, extractPackageFile, GlobalConfig) 
   }
 }
 
-function submoduleDependency(config, { dep, datasource, manager = 'git-submodules' }) {
+function submoduleDependency(config, { dep, datasource, manager = 'git-submodules', updateType }) {
   return {
     ...config,
+    ...(updateType === undefined ? {} : { updateType }),
     ...dep,
     datasource: dep.datasource ?? datasource,
     manager,
@@ -137,6 +138,22 @@ function validateNamedPreset(repoRoot, environment, run) {
   assert.equal(rule.groupName, 'groundwork-core')
   assert.equal(rule.commitMessageTopic, 'groundwork-core')
   assert.equal(rule.automerge, false)
+  const digestRule = named.packageRules.find((entry) =>
+    JSON.stringify(entry.matchDepNames) === JSON.stringify(['core']) &&
+    JSON.stringify(entry.matchUpdateTypes) === JSON.stringify(['digest'])
+  )
+  assert.ok(digestRule, 'groundwork-core.json must disable core digest-only updates')
+  assert.deepEqual(digestRule.matchManagers, ['git-submodules'])
+  assert.equal(digestRule.enabled, false)
+  const otherRule = named.packageRules.find((entry) =>
+    JSON.stringify(entry.excludeDepNames) === JSON.stringify(['core'])
+  )
+  assert.ok(otherRule, 'groundwork-core.json must disable git-submodules other than core')
+  assert.deepEqual(otherRule.matchManagers, ['git-submodules'])
+  assert.equal(otherRule.enabled, false)
+  const description = Array.isArray(named.description) ? named.description.join('\n') : String(named.description)
+  assert.match(description, /gitlink must equal the commit of the tag/u, 'description must state the adoption requirement')
+  assert.match(description, /excludeDepNames/u, 'description must give the consumer group-rule exclusion snippet')
 
   const validated = run('renovate-config-validator', namedPresetValidatorArguments, {
     cwd: repoRoot,
@@ -563,6 +580,17 @@ export async function checkEffectivePolicy({
   const coreJustOver = await policyResult(filterInternalChecks, semver, effectiveCore, JUST_OVER_FIVE_DAYS)
   assert.equal(coreJustOver.pendingChecks, false, 'a core tag one minute over five days must advance')
 
+  const coreDigest = await applyPackageRules(
+    submoduleDependency(resolvedCombined, { dep: core, datasource: gitSubmodulesDatasource, updateType: 'digest' }),
+    'groundwork-core-digest-disabled-proof'
+  )
+  assert.equal(coreDigest.enabled, false, 'core digest-only updates must be disabled')
+  const coreMinor = await applyPackageRules(
+    submoduleDependency(resolvedCombined, { dep: core, datasource: gitSubmodulesDatasource, updateType: 'minor' }),
+    'groundwork-core-minor-enabled-proof'
+  )
+  assert.notEqual(coreMinor.enabled, false, 'core version updates must stay enabled')
+
   const otherWithCoreRule = await applyPackageRules(
     submoduleDependency(resolvedCombined, { dep: other, datasource: gitSubmodulesDatasource }),
     'other-submodule-untouched-by-core-rule-proof'
@@ -573,6 +601,7 @@ export async function checkEffectivePolicy({
     'a different submodule depName must not inherit the core github-tags override'
   )
   assert.notEqual(otherWithCoreRule.packageName, 'jasondockery/groundwork-core')
+  assert.equal(otherWithCoreRule.enabled, false, 'a git-submodules dependency other than core must be disabled')
   assert.notEqual(otherWithCoreRule.groupName, 'groundwork-core')
 
   const otherDefaultOnly = await applyPackageRules(

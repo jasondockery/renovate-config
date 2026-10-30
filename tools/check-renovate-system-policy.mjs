@@ -219,7 +219,8 @@ export function collectRenovateSystemPolicyProblems(root = repositoryRoot) {
     }
     const coreRules = (namedPreset.packageRules ?? []).filter((rule) =>
       JSON.stringify(rule.matchManagers) === JSON.stringify(['git-submodules']) &&
-      JSON.stringify(rule.matchDepNames) === JSON.stringify(['core'])
+      JSON.stringify(rule.matchDepNames) === JSON.stringify(['core']) &&
+      rule.matchUpdateTypes === undefined
     )
     if (
       coreRules.length !== 1 ||
@@ -231,6 +232,21 @@ export function collectRenovateSystemPolicyProblems(root = repositoryRoot) {
       coreRules[0].automerge !== false
     ) {
       problems.push('groundwork-core.json must retain the reviewed core submodule github-tags pin-bump rule.')
+    }
+    const digestRules = (namedPreset.packageRules ?? []).filter((rule) =>
+      JSON.stringify(rule.matchManagers) === JSON.stringify(['git-submodules']) &&
+      JSON.stringify(rule.matchDepNames) === JSON.stringify(['core']) &&
+      JSON.stringify(rule.matchUpdateTypes) === JSON.stringify(['digest'])
+    )
+    if (digestRules.length !== 1 || digestRules[0].enabled !== false) {
+      problems.push('groundwork-core.json must disable core digest-only updates.')
+    }
+    const otherSubmoduleRules = (namedPreset.packageRules ?? []).filter((rule) =>
+      JSON.stringify(rule.matchManagers) === JSON.stringify(['git-submodules']) &&
+      JSON.stringify(rule.excludeDepNames) === JSON.stringify(['core'])
+    )
+    if (otherSubmoduleRules.length !== 1 || otherSubmoduleRules[0].enabled !== false) {
+      problems.push('groundwork-core.json must disable git-submodules dependencies other than core.')
     }
   }
 

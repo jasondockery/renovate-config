@@ -70,6 +70,27 @@ The main pieces are:
   repos that pin `jasondockery/groundwork-core` as the `core` submodule. Those
   consumers extend it alongside the shared default; it does not replace
   `default.json`.
+  Adoption requirements:
+  - At adoption the `core` gitlink must equal the commit of the tag named in
+    `branch =` in `.gitmodules`. Renovate always adds a digest update to the tag
+    commit, so the preset disables core digest-only updates; version updates
+    still carry the new digest. A gitlink that is not the tagged commit is
+    therefore never moved by a stray digest PR.
+  - Consumer group rules must exclude git-submodules, or the consumer's own
+    rule applies after the preset and absorbs core bumps into its group. For a
+    rule such as `non-major dependencies`:
+
+    ```json
+    {
+      "groupName": "non-major dependencies",
+      "matchUpdateTypes": ["minor", "patch", "digest", "pin"],
+      "excludeDepNames": ["core"]
+    }
+    ```
+
+    or use `matchManagers` listing every manager except `git-submodules`.
+  - Any other git-submodules dependency stays disabled by the preset, since
+    `git-refs` has no release timestamps for the age floor.
 - `runner.json` is the self-hosted Renovate runner config. It contains only
   runner behavior, not dependency policy.
 - `.github/workflows/renovate.yml` runs self-hosted Renovate once daily plus

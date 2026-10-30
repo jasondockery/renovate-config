@@ -7,7 +7,8 @@ repositories and publishes the shared preset they consume.
 
 - Keep changes scoped to dependency-update policy or the runner workflow.
 - Do not add repo-specific package rules to `default.json`; put those in the
-  consuming repo.
+  consuming repo. Family-shared rules that must not affect every consumer
+  belong in an opt-in named preset such as `groundwork-core.json`.
 - Do not commit credentials. Configure `RENOVATE_APP_CLIENT_ID` as a variable
   and `RENOVATE_APP_PRIVATE_KEY` as a secret in the GitHub environment named
   `renovate`.
@@ -66,7 +67,8 @@ impact with the patch/minor/major contract in `CHARTER.md`, then:
 
 1. Keep `default.json` unchanged while `.preset-bootstrap-freeze` exists.
    `FREEZE_RELEASE_PRESETS` in `tools/release-preflight.mjs` binds each
-   recorded version to one exact `default.json` sha256. During the freeze,
+   recorded version to one exact `default.json` sha256, including `1.2.0` at
+   the unchanged `1.1.0` digest. During the freeze,
    only `release:preflight` refuses versions that are not recorded there.
    `release:verify` has no freeze check, but it enforces the recorded digest
    for every recorded version, before and after the freeze lifts. A row marked
@@ -96,8 +98,10 @@ impact with the patch/minor/major contract in `CHARTER.md`, then:
 6. Run
    `pnpm release:verify --version <version> --expected-sha <40-char-sha>`.
    It must prove tag-to-SHA identity, the published immutable release, tagged
-   `default.json` equality with the expected commit, and end-to-end Renovate
-   resolution of `github>jasondockery/renovate-config#<version>`.
+   `default.json` equality with the expected commit, tagged
+   `groundwork-core.json` equality when that file is part of the release
+   (`1.2.0`), and end-to-end Renovate resolution of
+   `github>jasondockery/renovate-config#<version>`.
 7. During the initial bootstrap, the owner authors the PR that changes each
    consumer's unversioned reference to
    `github>jasondockery/renovate-config#1.0.0`, following the order in

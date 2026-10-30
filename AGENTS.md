@@ -62,8 +62,9 @@ consumer-level dependency automation proof.
 
 This repository owns dependency-update automation for the owner's repos plus
 the public, reusable implementation of one read-only security-hygiene inbox.
-Keep it small, observable, and boring: one shared Renovate preset, one
-self-hosted runner, one narrow hygiene monitor, and no product code.
+Keep it small, observable, and boring: one shared default preset plus opt-in
+named presets, one self-hosted runner, one narrow hygiene monitor, and no
+product code.
 
 ## Execution authority
 

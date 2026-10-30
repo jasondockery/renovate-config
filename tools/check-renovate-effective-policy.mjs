@@ -16,12 +16,22 @@ const MINUTE = 60 * 1000
 const JUST_UNDER_FIVE_DAYS = 5 * DAY - MINUTE
 const JUST_OVER_FIVE_DAYS = 5 * DAY + MINUTE
 const ACCEPTED_POLICY_PATH = 'default.json'
+const NAMED_PRESET_PATH = 'groundwork-core.json'
 const REVIEWED_POLICY_PATH = 'tools/fixtures/preset/default-five-day-policy.json'
+const GITMODULES_FIXTURE = 'tools/fixtures/dependency-extraction/.gitmodules.fixture'
+const CORE_GITLINK = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+const OTHER_GITLINK = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
 
 export const policyValidatorArguments = Object.freeze([
   '--strict',
   '--no-global',
   ACCEPTED_POLICY_PATH,
+])
+
+export const namedPresetValidatorArguments = Object.freeze([
+  '--strict',
+  '--no-global',
+  NAMED_PRESET_PATH,
 ])
 
 function renovateCleanEnvironment(environment) {
@@ -41,6 +51,104 @@ export function assertReviewedPolicy(accepted, reviewed) {
     accepted,
     reviewed,
     'accepted default.json must match the exact owner-reviewed five-day policy fixture'
+  )
+}
+
+function gitIn(directory, arguments_) {
+  const result = spawnSync('git', ['-C', directory, ...arguments_], {
+    encoding: 'utf8',
+    timeout: 30_000,
+  })
+  if (result.error) throw result.error
+  if (result.status !== 0) {
+    throw new Error(`git ${arguments_.join(' ')} failed: ${(result.stderr || result.stdout || '').trim()}`)
+  }
+  return result.stdout
+}
+
+function materializeGitSubmodulesFixture(repoRoot) {
+  const fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), 'renovate-gitmodules-'))
+  fs.chmodSync(fixtureDir, 0o700)
+  fs.copyFileSync(path.join(repoRoot, GITMODULES_FIXTURE), path.join(fixtureDir, '.gitmodules'))
+  gitIn(fixtureDir, ['init'])
+  gitIn(fixtureDir, ['config', 'user.email', 'groundwork-core-policy@example.test'])
+  gitIn(fixtureDir, ['config', 'user.name', 'groundwork-core-policy'])
+  gitIn(fixtureDir, ['config', 'commit.gpgsign', 'false'])
+  gitIn(fixtureDir, ['add', '.gitmodules'])
+  gitIn(fixtureDir, ['update-index', '--add', '--cacheinfo', `160000,${CORE_GITLINK},core`])
+  gitIn(fixtureDir, ['update-index', '--add', '--cacheinfo', `160000,${OTHER_GITLINK},other`])
+  gitIn(fixtureDir, ['commit', '--quiet', '-m', 'gitmodules fixture'])
+  return fixtureDir
+}
+
+async function extractGitSubmodules(repoRoot, extractPackageFile, GlobalConfig) {
+  const fixtureDir = materializeGitSubmodulesFixture(repoRoot)
+  const previous = { ...GlobalConfig.get() }
+  GlobalConfig.set({ ...previous, localDir: fixtureDir })
+  try {
+    const extracted = await extractPackageFile('', '.gitmodules', {})
+    const deps = extracted?.deps ?? []
+    const core = deps.find((dependency) => dependency.depName === 'core')
+    const other = deps.find((dependency) => dependency.depName === 'other')
+    assert.ok(core, 'the git-submodules fixture must yield a core dependency when branch = v0.8.0')
+    assert.ok(other, 'the git-submodules fixture must yield a second submodule with a different depName')
+    assert.equal(extracted.datasource, 'git-refs', 'git-submodules must extract through git-refs before package rules')
+    assert.equal(core.currentValue, 'v0.8.0', 'core must take its current value from branch = v0.8.0')
+    assert.equal(core.currentDigest, CORE_GITLINK)
+    assert.equal(core.versioning, 'semver', 'a semver branch pin must select semver versioning')
+    return { core, other, datasource: extracted.datasource }
+  } finally {
+    GlobalConfig.set(previous)
+    fs.rmSync(fixtureDir, { force: true, recursive: true })
+  }
+}
+
+function submoduleDependency(config, { dep, datasource, manager = 'git-submodules' }) {
+  return {
+    ...config,
+    ...dep,
+    datasource: dep.datasource ?? datasource,
+    manager,
+    currentVersion: dep.currentValue,
+  }
+}
+
+function validateNamedPreset(repoRoot, environment, run) {
+  const named = JSON.parse(fs.readFileSync(path.join(repoRoot, NAMED_PRESET_PATH), 'utf8'))
+  assert.equal(
+    Object.hasOwn(named, 'minimumReleaseAge'),
+    false,
+    'groundwork-core.json must inherit minimumReleaseAge from the default preset'
+  )
+  assert.equal(
+    Object.hasOwn(named, 'internalChecksFilter'),
+    false,
+    'groundwork-core.json must inherit internalChecksFilter from the default preset'
+  )
+  assert.equal(named['git-submodules']?.enabled, true, 'groundwork-core.json must enable git-submodules')
+  const rule = named.packageRules?.find((entry) =>
+    JSON.stringify(entry.matchManagers) === JSON.stringify(['git-submodules']) &&
+    JSON.stringify(entry.matchDepNames) === JSON.stringify(['core'])
+  )
+  assert.ok(rule, 'groundwork-core.json must contain the reviewed core submodule rule')
+  assert.equal(rule.overrideDatasource, 'github-tags')
+  assert.equal(rule.overridePackageName, 'jasondockery/groundwork-core')
+  assert.equal(rule.versioning, 'semver')
+  assert.equal(rule.groupName, 'groundwork-core')
+  assert.equal(rule.commitMessageTopic, 'groundwork-core')
+  assert.equal(rule.automerge, false)
+
+  const validated = run('renovate-config-validator', namedPresetValidatorArguments, {
+    cwd: repoRoot,
+    env: renovateCleanEnvironment(environment),
+    encoding: 'utf8',
+    timeout: 60_000,
+  })
+  if (validated.error) throw validated.error
+  assert.equal(
+    validated.status,
+    0,
+    `strict named-preset validation failed:\n${validated.stderr || validated.stdout || 'no output'}`
   )
 }
 
@@ -179,6 +287,7 @@ export async function checkEffectivePolicy({
   const runtimeManifest = JSON.parse(fs.readFileSync(path.join(runtimeRoot, 'package.json'), 'utf8'))
   assert.equal(runtimeManifest.version, expectedVersion, 'PATH Renovate must match .renovate-version')
   validateAcceptedPolicy(repoRoot, environment, run)
+  validateNamedPreset(repoRoot, environment, run)
 
   const [
     { resolveConfigPresets },
@@ -192,6 +301,8 @@ export async function checkEffectivePolicy({
     { getDefaultVersioning },
     { get: getVersioning },
     { classifyRelease },
+    { mergeChildConfig },
+    { extractPackageFile: extractGitSubmodulesPackageFile },
   ] = await Promise.all([
     importRenovateModule(runtimeRoot, 'config/presets/index.js'),
     importRenovateModule(runtimeRoot, 'util/package-rules/index.js'),
@@ -204,6 +315,8 @@ export async function checkEffectivePolicy({
     importRenovateModule(runtimeRoot, 'modules/datasource/common.js'),
     importRenovateModule(runtimeRoot, 'modules/versioning/index.js'),
     importRenovateModule(runtimeRoot, 'workers/repository/process/lookup/update-type.js'),
+    importRenovateModule(runtimeRoot, 'config/utils.js'),
+    importRenovateModule(runtimeRoot, 'modules/manager/git-submodules/index.js'),
   ])
   const source = JSON.parse(fs.readFileSync(path.resolve(repoRoot, ACCEPTED_POLICY_PATH), 'utf8'))
   const { config: resolved } = await resolveConfigPresets(structuredClone(source), structuredClone(source))
@@ -405,7 +518,75 @@ export async function checkEffectivePolicy({
     'a pyenv python pin must not inherit the CPython runtime line-bump gate'
   )
 
-  output.log(`ok: Renovate ${expectedVersion} resolved daily mature updates, five-day normal age, unenforceable bump/rollback age declined, human-reviewed security bypass, weekly lockfile maintenance, and Python line-bump dashboard approval`)
+  assert.notEqual(
+    resolved['git-submodules']?.enabled,
+    true,
+    'default.json alone must leave git-submodules at Renovate\'s disabled default'
+  )
+
+  const namedSource = JSON.parse(fs.readFileSync(path.resolve(repoRoot, NAMED_PRESET_PATH), 'utf8'))
+  const { config: resolvedNamed } = await resolveConfigPresets(
+    structuredClone(namedSource),
+    structuredClone(namedSource)
+  )
+  const resolvedCombined = mergeChildConfig(structuredClone(resolved), structuredClone(resolvedNamed))
+  assert.equal(
+    resolvedCombined['git-submodules']?.enabled,
+    true,
+    'default.json plus groundwork-core.json must enable git-submodules'
+  )
+
+  const { core, other, datasource: gitSubmodulesDatasource } = await extractGitSubmodules(
+    repoRoot,
+    extractGitSubmodulesPackageFile,
+    GlobalConfig
+  )
+
+  const effectiveCore = await applyPackageRules(
+    submoduleDependency(resolvedCombined, { dep: core, datasource: gitSubmodulesDatasource }),
+    'groundwork-core-github-tags-proof'
+  )
+  assert.equal(effectiveCore.datasource, 'github-tags', 'core must resolve through github-tags after the named preset')
+  assert.equal(
+    effectiveCore.packageName,
+    'jasondockery/groundwork-core',
+    'core must look up jasondockery/groundwork-core on github-tags'
+  )
+  assert.equal(effectiveCore.groupName, 'groundwork-core')
+  assert.equal(effectiveCore.commitMessageTopic, 'groundwork-core')
+  assert.equal(effectiveCore.automerge, false, 'core pin bumps must require human merge')
+  assert.equal(effectiveCore.minimumReleaseAge, '5 days', 'core must inherit the five-day floor')
+  assert.equal(effectiveCore.internalChecksFilter, 'strict', 'core must inherit strict internal checks')
+  assert.equal(effectiveCore.versioning, 'semver')
+  const coreJustUnder = await policyResult(filterInternalChecks, semver, effectiveCore, JUST_UNDER_FIVE_DAYS)
+  assert.equal(coreJustUnder.pendingChecks, true, 'a core tag one minute under five days must remain pending')
+  const coreJustOver = await policyResult(filterInternalChecks, semver, effectiveCore, JUST_OVER_FIVE_DAYS)
+  assert.equal(coreJustOver.pendingChecks, false, 'a core tag one minute over five days must advance')
+
+  const otherWithCoreRule = await applyPackageRules(
+    submoduleDependency(resolvedCombined, { dep: other, datasource: gitSubmodulesDatasource }),
+    'other-submodule-untouched-by-core-rule-proof'
+  )
+  assert.equal(
+    otherWithCoreRule.datasource,
+    'git-refs',
+    'a different submodule depName must not inherit the core github-tags override'
+  )
+  assert.notEqual(otherWithCoreRule.packageName, 'jasondockery/groundwork-core')
+  assert.notEqual(otherWithCoreRule.groupName, 'groundwork-core')
+
+  const otherDefaultOnly = await applyPackageRules(
+    submoduleDependency(resolved, { dep: other, datasource: gitSubmodulesDatasource }),
+    'other-submodule-default-only-proof'
+  )
+  assert.notEqual(
+    otherDefaultOnly.datasource,
+    'github-tags',
+    'another submodule must stay off github-tags when only default.json is extended'
+  )
+  assert.notEqual(otherDefaultOnly.groupName, 'groundwork-core')
+
+  output.log(`ok: Renovate ${expectedVersion} resolved daily mature updates, five-day normal age, unenforceable bump/rollback age declined, human-reviewed security bypass, weekly lockfile maintenance, Python line-bump dashboard approval, and opt-in groundwork-core submodule pin bumps`)
   return { ok: true, version: expectedVersion }
 }
 

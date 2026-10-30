@@ -24,6 +24,8 @@ export function collectReleaseVerificationProblems({
   release,
   expectedPreset,
   taggedPreset,
+  expectedNamedPreset,
+  taggedNamedPreset,
   presetResolved,
 }) {
   const problems = []
@@ -43,6 +45,14 @@ export function collectReleaseVerificationProblems({
   if (release?.immutable !== true) problems.push('GitHub Release is not immutable')
   if (typeof taggedPreset !== 'string' || taggedPreset !== expectedPreset) {
     problems.push('tagged default.json does not match the expected release commit')
+  }
+  if (version === '1.2.0' && (typeof expectedNamedPreset !== 'string' || expectedNamedPreset.length === 0)) {
+    problems.push('release 1.2.0 must include groundwork-core.json')
+  }
+  if (typeof expectedNamedPreset === 'string') {
+    if (typeof taggedNamedPreset !== 'string' || taggedNamedPreset !== expectedNamedPreset) {
+      problems.push('tagged groundwork-core.json does not match the expected release commit')
+    }
   }
   problems.push(...collectMappedPresetDigestProblems(version, expectedPreset, 'tagged preset digest'))
   if (presetResolved !== true) {
@@ -91,16 +101,26 @@ function expectedPreset(expectedSha) {
   return git(['show', `${expectedSha}:default.json`])
 }
 
+function expectedNamedPreset(expectedSha) {
+  const result = spawnSync('git', ['-C', repositoryRoot, 'show', `${expectedSha}:groundwork-core.json`], {
+    encoding: 'utf8',
+    maxBuffer: 4 * 1024 * 1024,
+    timeout: 30_000,
+  })
+  if (result.error) throw result.error
+  return result.status === 0 ? result.stdout : undefined
+}
+
 // createGithubApiClient runs gh through spawnSync, so `get` returns the decoded
 // body directly rather than a promise. The other callers await it, and awaiting
 // a non-thenable is harmless, so only this one broke. It could not run until a
 // release existed, so publishing 1.0.0 was also its first real execution.
-export function taggedPreset(version, desired, client) {
+export function taggedPreset(version, desired, client, file = 'default.json') {
   const response = client.get(
-    `repos/${desired.repository}/contents/default.json?ref=${encodeURIComponent(version)}`
+    `repos/${desired.repository}/contents/${file}?ref=${encodeURIComponent(version)}`
   )
   if (response?.encoding !== 'base64' || typeof response?.content !== 'string') {
-    throw new Error('GitHub did not return base64 default.json content for the release tag')
+    throw new Error(`GitHub did not return base64 ${file} content for the release tag`)
   }
   return Buffer.from(response.content.replaceAll('\n', ''), 'base64').toString('utf8')
 }
@@ -136,11 +156,13 @@ function resolvePinnedPreset(version) {
 function realDependencies(desired) {
   const client = createGithubApiClient(desired.apiVersion)
   return {
+    expectedNamedPreset,
     expectedPreset,
     release: (version) => client.get(`repos/${desired.repository}/releases/tags/${encodeURIComponent(version)}`),
     remoteTags: remoteTagShas,
     resolvePreset: resolvePinnedPreset,
     snapshot: () => snapshotRepository(repositoryRoot),
+    taggedNamedPreset: (version) => taggedPreset(version, desired, client, 'groundwork-core.json'),
     taggedPreset: (version) => taggedPreset(version, desired, client),
   }
 }
@@ -150,13 +172,18 @@ export async function runReleaseVerification(
   dependencies = realDependencies(readDesiredReleaseControls())
 ) {
   const before = dependencies.snapshot()
+  const expectedNamedPreset = dependencies.expectedNamedPreset?.(expectedSha)
   const evidence = {
     before,
+    expectedNamedPreset,
     expectedPreset: dependencies.expectedPreset(expectedSha),
     expectedSha,
     presetResolved: dependencies.resolvePreset(version),
     release: await dependencies.release(version),
     remoteTagShas: dependencies.remoteTags(version),
+    taggedNamedPreset: expectedNamedPreset !== undefined || version === '1.2.0'
+      ? await dependencies.taggedNamedPreset(version)
+      : undefined,
     taggedPreset: await dependencies.taggedPreset(version),
     version,
   }

@@ -13,6 +13,7 @@ const required = [
   'CLAUDE.md',
   'specs/verification.md',
   'default.json',
+  'groundwork-core.json',
   'package.json',
   'dependency-coverage.json',
   'compatibility-targets.json',
@@ -152,6 +153,18 @@ test('rejects schedule, activation, scope, security, and manager-coverage drift'
     const root = fixture(subcontext)
     mutateJson(root, 'default.json', (preset) => { preset.enabledManagers = ['npm'] })
     assert.match(collectRenovateSystemPolicyProblems(root).join('\n'), /must not silently narrow/)
+  })
+
+  await context.test('shared preset must not enable git-submodules', (subcontext) => {
+    const root = fixture(subcontext)
+    mutateJson(root, 'default.json', (preset) => { preset['git-submodules'] = { enabled: true } })
+    assert.match(collectRenovateSystemPolicyProblems(root).join('\n'), /must not enable git-submodules/)
+  })
+
+  await context.test('named groundwork-core preset must inherit the age floor', (subcontext) => {
+    const root = fixture(subcontext)
+    mutateJson(root, 'groundwork-core.json', (preset) => { preset.minimumReleaseAge = '0 days' })
+    assert.match(collectRenovateSystemPolicyProblems(root).join('\n'), /inherit the shared age floor/)
   })
 })
 

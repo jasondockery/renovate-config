@@ -52,6 +52,9 @@ observable contract and evidence matrix are in
 ## Owns
 
 - Shared scheduling, cooldown, and dependency-age policy (`default.json`)
+- Opt-in named presets that a subset of consumers extend alongside the shared
+  default (`groundwork-core.json`). These may hold family-shared package rules
+  that must not land in `default.json`.
 - PR and concurrency limits, common labels, and rebase behavior
 - Baseline security-update behavior
 - The canonical Renovate runtime pin and the runner config (`runner.json`)
@@ -77,8 +80,9 @@ observable contract and evidence matrix are in
   durable report issue; those belong to a private caller repository
 
 Repository-specific policy and remediation belong in the consuming repository.
-This repo is not the home for arbitrary shared tooling merely because several
-repos already point at it.
+An opt-in named preset is the exception for family-shared rules that must not
+land in `default.json`. This repo is not the home for arbitrary shared tooling
+merely because several repos already point at it.
 
 ## Credential boundary
 

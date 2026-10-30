@@ -1,0 +1,22 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": [
+    "Opt-in preset for the groundwork platform repos that pin jasondockery/groundwork-core as the core submodule. Extend it alongside the shared default preset; it does not replace it.",
+    "git-submodules is off by default in Renovate. Its git-refs datasource has no release timestamps, so under the shared strict 5-day floor every bump would stay pending forever. Reading groundwork-core tags through github-tags supplies timestamps and the tag's commit, so the inherited floor is honored.",
+    "Consumers set branch = <current tag> in .gitmodules so Renovate tracks semver tags instead of HEAD digests."
+  ],
+  "git-submodules": { "enabled": true },
+  "packageRules": [
+    {
+      "description": "groundwork-core pin bumps via github-tags; own group; human merge only. Age floor and internalChecksFilter are inherited from the default preset.",
+      "matchManagers": ["git-submodules"],
+      "matchDepNames": ["core"],
+      "overrideDatasource": "github-tags",
+      "overridePackageName": "jasondockery/groundwork-core",
+      "versioning": "semver",
+      "groupName": "groundwork-core",
+      "commitMessageTopic": "groundwork-core",
+      "automerge": false
+    }
+  ]
+}

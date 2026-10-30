@@ -5,6 +5,7 @@ import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 import {
   assertReviewedPolicy,
+  namedPresetValidatorArguments,
   policyValidatorArguments,
 } from './check-renovate-effective-policy.mjs'
 
@@ -96,4 +97,29 @@ test('pins strict no-global validation to the active preset', () => {
     '--no-global',
     'default.json',
   ])
+})
+
+test('pins strict no-global validation to the opt-in groundwork-core preset', () => {
+  assert.deepEqual(namedPresetValidatorArguments, [
+    '--strict',
+    '--no-global',
+    'groundwork-core.json',
+  ])
+})
+
+test('groundwork-core named preset enables the core submodule rule without restating the age floor', () => {
+  const named = JSON.parse(fs.readFileSync(path.join(root, 'groundwork-core.json'), 'utf8'))
+  assert.equal(Object.hasOwn(named, 'minimumReleaseAge'), false)
+  assert.equal(Object.hasOwn(named, 'internalChecksFilter'), false)
+  assert.equal(named['git-submodules']?.enabled, true)
+  const rule = named.packageRules.find((entry) =>
+    JSON.stringify(entry.matchManagers) === JSON.stringify(['git-submodules']) &&
+    JSON.stringify(entry.matchDepNames) === JSON.stringify(['core'])
+  )
+  assert.equal(rule.overrideDatasource, 'github-tags')
+  assert.equal(rule.overridePackageName, 'jasondockery/groundwork-core')
+  assert.equal(rule.versioning, 'semver')
+  assert.equal(rule.groupName, 'groundwork-core')
+  assert.equal(rule.commitMessageTopic, 'groundwork-core')
+  assert.equal(rule.automerge, false)
 })

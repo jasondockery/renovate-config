@@ -329,3 +329,55 @@ test('skill discovery requires every receipt-bound canonical skill in each decla
   fs.symlinkSync('.agents-real', path.join(symlinkParentRoot, '.agents'))
   assert.match(checkSkillDiscovery(symlinkParentRoot, receipt).join('\n'), /symlink parent/u)
 })
+
+test('skill discovery rejects a malformed or unreadable skill selection receipt with an exact message', () => {
+  const receipt = JSON.parse(fs.readFileSync(path.join(repositoryRoot, '.compass/receipt.json'), 'utf8'))
+  const selectionPath = '.compass/skill-selection-receipt.json'
+
+  const malformedRoot = fixture()
+  fs.writeFileSync(path.join(malformedRoot, selectionPath), '{ not json\n')
+  const malformed = checkSkillDiscovery(malformedRoot, receipt)
+  assert.ok(
+    malformed.some((problem) => problem.startsWith('Compass skill selection receipt is unreadable: ')),
+    malformed.join('\n')
+  )
+
+  const unreadableRoot = fixture()
+  fs.rmSync(path.join(unreadableRoot, selectionPath))
+  fs.mkdirSync(path.join(unreadableRoot, selectionPath))
+  const unreadable = checkSkillDiscovery(unreadableRoot, receipt)
+  assert.ok(
+    unreadable.some((problem) => problem.startsWith('Compass skill selection receipt is unreadable: EISDIR')),
+    unreadable.join('\n')
+  )
+
+  // A missing receipt (ENOENT) is the only tolerated absence: no selection filter, no unreadable problem.
+  const absentRoot = fixture()
+  fs.rmSync(path.join(absentRoot, selectionPath))
+  assert.equal(
+    checkSkillDiscovery(absentRoot, receipt).some((problem) => problem.includes('selection receipt is unreadable')),
+    false
+  )
+})
+
+test('skill discovery rejects an adapter entry for a skill the selection receipt does not select', () => {
+  const receipt = JSON.parse(fs.readFileSync(path.join(repositoryRoot, '.compass/receipt.json'), 'utf8'))
+  const selectionPath = '.compass/skill-selection-receipt.json'
+  const unselected = 'testing-strategy'
+
+  const root = fixture()
+  assert.deepEqual(checkSkillDiscovery(root, receipt), [])
+  const selectionFile = path.join(root, selectionPath)
+  const selection = JSON.parse(fs.readFileSync(selectionFile, 'utf8'))
+  selection.selectedSkills = selection.selectedSkills.filter((name) => name !== unselected)
+  fs.writeFileSync(selectionFile, `${JSON.stringify(selection, null, 2)}\n`)
+
+  const problems = checkSkillDiscovery(root, receipt)
+  for (const adapter of ['.agents/skills', '.claude/skills']) {
+    assert.ok(problems.includes(`${adapter} contains an unexpected, missing, or stale adapter entry`), problems.join('\n'))
+    assert.ok(
+      problems.includes(`${adapter} discovery adapter inventory differs from the receipt-bound canonical skill inventory`),
+      problems.join('\n')
+    )
+  }
+})

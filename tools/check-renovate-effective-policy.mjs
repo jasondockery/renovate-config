@@ -146,14 +146,14 @@ function validateNamedPreset(repoRoot, environment, run) {
   assert.deepEqual(digestRule.matchManagers, ['git-submodules'])
   assert.equal(digestRule.enabled, false)
   const otherRule = named.packageRules.find((entry) =>
-    JSON.stringify(entry.excludeDepNames) === JSON.stringify(['core'])
+    JSON.stringify(entry.matchDepNames) === JSON.stringify(['!core'])
   )
   assert.ok(otherRule, 'groundwork-core.json must disable git-submodules other than core')
   assert.deepEqual(otherRule.matchManagers, ['git-submodules'])
   assert.equal(otherRule.enabled, false)
   const description = Array.isArray(named.description) ? named.description.join('\n') : String(named.description)
   assert.match(description, /gitlink must equal the commit of the tag/u, 'description must state the adoption requirement')
-  assert.match(description, /excludeDepNames/u, 'description must give the consumer group-rule exclusion snippet')
+  assert.match(description, /matchDepNames/u, 'description must give the consumer group-rule exclusion snippet')
 
   const validated = run('renovate-config-validator', namedPresetValidatorArguments, {
     cwd: repoRoot,

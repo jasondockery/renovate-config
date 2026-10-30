@@ -243,7 +243,7 @@ export function collectRenovateSystemPolicyProblems(root = repositoryRoot) {
     }
     const otherSubmoduleRules = (namedPreset.packageRules ?? []).filter((rule) =>
       JSON.stringify(rule.matchManagers) === JSON.stringify(['git-submodules']) &&
-      JSON.stringify(rule.excludeDepNames) === JSON.stringify(['core'])
+      JSON.stringify(rule.matchDepNames) === JSON.stringify(['!core'])
     )
     if (otherSubmoduleRules.length !== 1 || otherSubmoduleRules[0].enabled !== false) {
       problems.push('groundwork-core.json must disable git-submodules dependencies other than core.')

@@ -84,7 +84,7 @@ The main pieces are:
     {
       "groupName": "non-major dependencies",
       "matchUpdateTypes": ["minor", "patch", "digest", "pin"],
-      "excludeDepNames": ["core"]
+      "matchDepNames": ["!core"]
     }
     ```
 

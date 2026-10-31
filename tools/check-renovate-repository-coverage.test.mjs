@@ -90,11 +90,11 @@ test('file-aware discovery finds lowercase source, TOML, and plugin pins while e
   fs.mkdirSync(path.join(root, 'config'))
   fs.mkdirSync(path.join(root, 'docs'))
   fs.mkdirSync(path.join(root, 'tools', 'github'), { recursive: true })
-  fs.writeFileSync(path.join(root, 'scripts', 'install.sh'), 'aider_python="3.12.4"\n')
+  fs.writeFileSync(path.join(root, 'scripts', 'install.sh'), 'tool_python="3.12.4"\n')
   fs.writeFileSync(path.join(root, 'config', 'mise.toml'), '[tools]\nnode = "lts"\npython = ["3.13", "3.12"]\n')
   fs.writeFileSync(path.join(root, 'config', 'tmux.conf'), "set -g @plugin 'catppuccin/tmux#v2.3.0'\n")
   fs.writeFileSync(path.join(root, 'config', 'settings.json'), '{\n  // JSONC is accepted\n  "runtimeVersion": "1.2.3",\n}\n')
-  fs.writeFileSync(path.join(root, 'docs', 'example.md'), 'aider_python="9.9.9"\n')
+  fs.writeFileSync(path.join(root, 'docs', 'example.md'), 'tool_python="9.9.9"\n')
   fs.writeFileSync(path.join(root, 'tools', 'github', 'README.md'), "export const HIDDEN_VERSION = '8.8.8'\n")
   execFileSync('git', ['init', '-q', root])
   execFileSync('git', [
@@ -105,12 +105,12 @@ test('file-aware discovery finds lowercase source, TOML, and plugin pins while e
     schemaVersion: 2,
     surfaces: [
       {
-        id: 'aider',
+        id: 'tool',
         classification: 'intentional-manual',
         scanMatchers: [{
           pathPattern: '^scripts/install\\.sh$',
           pattern: 'version-assignment',
-          linePattern: 'aider_python=',
+          linePattern: 'tool_python=',
         }],
       },
       {
